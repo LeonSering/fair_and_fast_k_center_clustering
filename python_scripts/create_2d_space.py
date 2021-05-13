@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#/usr/bin/python3
 
 import sys
 import matplotlib.pyplot as plt
@@ -37,10 +37,12 @@ def on_press(event):
 
 def on_close(event):
     print("Close figure!")
-    file_path = filedialog.asksaveasfile()
-
-    print(file_path.name)
-    with open(file_path.name, 'a') as writer:
+    files = [('2D-Spaces', '*.2dspace'),
+            ('All Files', '*')]
+    file = filedialog.asksaveasfile(filetypes = files, defaultextension = ".2dspace")
+    file_path = file.name;
+    print(file_path)
+    with open(file_path, 'a') as writer:
         for i in range(len(x)):
             writer.write(f"{x[i]},{y[i]},{c[i]}\n")
 
