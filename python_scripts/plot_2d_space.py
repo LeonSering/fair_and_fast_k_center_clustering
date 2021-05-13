@@ -27,4 +27,16 @@ fig = plt.figure()
 plt.scatter(x, y, c = colors)
 plt.axis('equal')
 
+if len(sys.argv) > 2: # if there is a third parameters, plot centers
+    center_indices = []
+    with open(sys.argv[2],'r') as reader:
+        line = reader.readline()
+        content = line.split(',')
+        for c in content:
+            center_indices.append(int(c))
+        print(center_indices)
+    x_center = [x[j] for j in center_indices]
+    y_center = [y[j] for j in center_indices]
+    colors_center = [colors[j] for j in center_indices]
+    plt.scatter(x_center,y_center, c = colors_center, marker = 'x', s = 300)   
 plt.show()
