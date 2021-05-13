@@ -11,11 +11,19 @@ struct ClusterProblem{
     // Solving algorithm as method? Maybe not.
 }
 
+
+
+///////////////////////////////////////////////////////////////
+///////////////////// module: space ///////////////////////////
+///////////////////////////////////////////////////////////////
+
 /* Module space maintains all datastructure of metric spaces where points have colors.
  * 
  * All functionalities are stored in the public trait ColoredMetric:
  * - Distances can be obtained by using dist(x1 : usize, x2 : usize) -> f32
- * - Colors can be obtained by using color(x: usize) -> u8 
+ * - Colors can be obtained by using color(x: usize) -> u8
+ * - Distance to a set can be obtained by dist_set(x: usize, point_set: &Vec<usize>) -> f32
+ * - The number of points can be obtained by n() -> usize
  *
  * The most general metric can be created by new_space_by_matrix
  * Input: distances_by_NxN-Matrix: [[f32; N]; N], 
@@ -26,8 +34,24 @@ struct ClusterProblem{
 mod space { //TODO: put space module in separate file.
     // Trait to obtain the distance between two points.
     pub trait ColoredMetric{
+        
         fn dist(&self, x1 : usize, x2 : usize) -> f32; // returns the distance between x1 and x2
+        
         fn color(&self, x : usize) -> u8;
+        
+        fn dist_set(&self, x : usize, point_set: &Vec<usize>) -> f32 {
+            let mut current_distance = f32::MAX;
+            let mut d: f32;
+            for i in 0..point_set.len() {
+                d = self.dist(x,point_set[i]);
+                if d < current_distance {
+                    current_distance = d;
+                }
+            }
+            current_distance
+        }
+
+        fn n(&self) -> usize;
     }
 
 
@@ -56,6 +80,10 @@ mod space { //TODO: put space module in separate file.
         fn color(&self, x: usize) -> u8 {
             self.colors[x]
         }
+
+        fn n(&self) -> usize {
+            N
+        }
     }
 
 
@@ -83,7 +111,7 @@ mod space { //TODO: put space module in separate file.
     use std::io::{BufReader,BufRead};
     pub fn new_space_by_2dpoint_file(file_path : &str, expected_number_of_points : usize) -> Box<dyn ColoredMetric> {
 
-        let f = File::open(file_path).expect("Cannot open file!");
+        let f = File::open(file_path).expect("Cannot open file to read 2dpoints.");
         let f = BufReader::new(f);
         
         
@@ -91,15 +119,12 @@ mod space { //TODO: put space module in separate file.
         let mut points : Vec<[f32;2]> = Vec::with_capacity(expected_number_of_points);
         let mut colors : Vec<u8> = Vec::with_capacity(expected_number_of_points);
         
-        println!("capacity: {}", points.capacity());
-
         for line in f.lines() {
             let content = line.unwrap();
             let content: Vec<&str> = content.split(',').collect();
             points.push([content[0].parse::<f32>().expect(format!("Cannot parse x-entry to f32  on line {}.",points.len()).as_str()), content[1].parse::<f32>().expect(format!("Cannot parse y-entry to f32 on line {}.", points.len()).as_str())]);
             colors.push(content[2].parse::<u8>().expect(format!("Cannot parse color-entry to u8 on line {}",colors.len()).as_str()));
                 
-            println!("capacity: {}", points.capacity());
         }
         println!("Successfully loaded {} points/colors from '{}'", points.len(), file_path);
         println!("points: {:?}", points);
@@ -119,18 +144,70 @@ mod space { //TODO: put space module in separate file.
         fn color(&self, x : usize) -> u8 {
             self.colors[x]
         }
+
+        fn n(&self) -> usize {
+            self.points.len()
+        }
     }
 }
 
+//////////////////////////////////////////////////////////////
+//////////////////// module: clustering //////////////////////
+//////////////////////////////////////////////////////////////
+
+/* Contains two structs (both are only valid together with a space
+ * 
+ * centers: a vector of centers
+ * clustering: centers, radius and assignment of points to centers
+ *
+ */
+mod clustering{
+    pub struct Centers{
+        pub center_indices : Vec<usize>,
+    }
+
+    use std::fs::File;
+    use std::io::prelude::*;
+    impl Centers{
+        pub fn m(&self) -> usize {
+            self.center_indices.len()
+        }
+
+
+        // method: save to file
+        pub fn save_to_file(&self, file_path : &str){
+            let mut f = File::create(file_path).expect("Cannot open file for writing centers");
+            let mut text = String::new();
+            for c in self.center_indices.iter(){
+                text = text + &format!("{},",c);
+            }
+            text.pop(); //delete last comma
+            println!("{}", text);
+            f.write_all(text.as_bytes()).expect("Could not write into centers-file");
+
+        }
+    }
 
 
 
-struct Clustering{
-    // array of centers / center indices
-    // radius
-    // assignment of points to centers
-    // method: cluster points of given color
+
+
+
+
+    pub struct Clustering{
+        centers : Centers,
+        // array of centers / center indices
+        // radius
+        // assignment of points to centers
+        // reference to space
+        // method: cluster points of given color
+    }
+
 }
+
+/////////////////////////////////////////////////////////////////////////
+///////////////////////// main() ////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
 
 fn main() {
     use space::*;
@@ -145,6 +222,7 @@ fn main() {
 
     println!("dist between 1 and 2: {}", space_by_matrix.dist(1,2));
     println!("color of 2: {}", space_by_matrix.color(2));
+    println!("number of points: {}", space_by_matrix.n());
     */
 
     /*
@@ -156,13 +234,66 @@ fn main() {
     */
 
     // load test Space2D from file:
-    let space_by_file : Box<dyn ColoredMetric> = new_space_by_2dpoint_file("test.2dspace",15);
+    let space : Box<dyn ColoredMetric> = new_space_by_2dpoint_file("test.2dspace",15);
+   
+    for i in 2..8 {
+        println!("dist between 1 and {}: {}", i, space.dist(1,i));
+    }
+    let set : Vec<usize> = vec![2,3,4,5,6,7];
     
-    println!("dist between 1 and 2: {}", space_by_file.dist(1,2));
-    println!("color of 2: {}", space_by_file.color(2));
+    /*println!("set: {:?}", set);
+    println!("dist between 1 and [2,3,4,5,6,7]: {}", space.dist_set(1,&set));
+    println!("set: {:?}", set);
+    println!("color of 2: {}", space.color(2));
+    println!("number of points: {}", space.n());*/
 
-    
+
+
+
+
     // phase 1: Gonzalez heuristic
+    
+    use clustering::*;
+    let k : usize = 5; // number of center;
+    
+    assert!(k >= 1); // we want to allow at least 1 center
+    assert!(space.n() >= k); // the number of points should not be less than the number of centers 
+
+    let mut gonzales : Vec<Centers> = Vec::with_capacity(k+1); // Gonzales[i] has i centers
+    
+    // gonzales[0] is the empty set
+    gonzales.push(Centers {
+        center_indices : vec!()
+    });
+
+    // for gonzales[1] we can add any point as first center, so lets take 0
+    gonzales.push(Centers {
+        center_indices : vec!(0)
+    });
+
+    for i in 2..k+1 {
+        let mut current_distance = std::f32::MIN;
+        let mut current_point : Option<usize> = None;
+        println!("Iteration {}", i);
+        for j in 0..space.n(){
+            let d = space.dist_set(j, &gonzales[i-1].center_indices);
+            if d > current_distance {
+                current_distance = d;
+                current_point = Some(j);
+            }
+        }
+        let mut centers : Vec<usize> = gonzales[i-1].center_indices.clone();
+        centers.push(current_point.expect("No new center could be found, i.e., current_point = None"));
+        gonzales.push(Centers {
+            center_indices : centers, 
+        });
+    }
+
+    for i in 0..k+1 {
+        println!("gonzales[{}]: {:?}", i, gonzales[i].center_indices);
+    }
+
+    gonzales[5].save_to_file("test.centers");
     // Output: S[0] to S[k]
     
     // phase 2: determine privacy radius
