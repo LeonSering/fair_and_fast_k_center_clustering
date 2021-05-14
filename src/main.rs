@@ -236,12 +236,16 @@ mod clustering{
 
 
     pub struct Clustering{
-        centers : Centers,
-        // array of centers / center indices
-        // radius
-        // assignment of points to centers
-        // reference to space
+        pub centers : Centers,
+        pub radius : f32,
+        pub center_of : Vec<usize>, // returns center to which point x belongs
+        // alternative ways to save: reference: list of Cluster typs (consisting of Center and
+        // Vector of Points
+
+        space : &Box<dyn ColoredMetric>, // reference to metric space
+        
         // method: cluster points of given color
+        // method: print to file
     }
 
 }
@@ -314,27 +318,31 @@ fn main() {
         center_indices : vec!(0)
     });
 
-    let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n());
+    let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n()); // current distance of point x to the set of already determined centers
 
     for i in 0..space.n() {
-        dist_x_center.push(space.dist(0,i));
+        dist_x_center.push(space.dist(0,i)); // initilized to the distance of first center: 0.
     }
 
     for i in 2..k+1 {
-        let mut current_distance = std::f32::MIN;
-        let mut current_point : Option<usize> = None;
-        println!("Iteration {}", i);
+        let mut current_distance = std::f32::MIN; // maximal distance to set of centers
+        let mut current_point : Option<usize> = None; // corresponing point with this max distance.
         for j in 0..space.n(){
-            let dist_to_newest_center = space.dist(j, gonzales[i-1].center_indices[i-2]);
-            // update dist_x_S to now include the newest center
+            let dist_to_newest_center = space.dist(j, gonzales[i-1].center_indices[i-2]); // as distance of j to gonzales[i-2] is known, we only need to measure distance to newest center.
+            
+            // update dist_x_S to now include the newest center:
             if dist_to_newest_center < dist_x_center[j] {
                 dist_x_center[j] = dist_to_newest_center;
             }
+
+            // check wether dist(j, gonzales[i-1]) is bigger than current biggest dist.
             if dist_x_center[j] > current_distance {
                 current_distance = dist_x_center[j];
                 current_point = Some(j);
             }
         }
+
+        // create new center vector including the current farthest point (= current_point):
         let mut centers : Vec<usize> = gonzales[i-1].center_indices.clone();
         centers.push(current_point.expect("No new center could be found, i.e., current_point = None"));
         gonzales.push(Centers {
@@ -347,7 +355,6 @@ fn main() {
     }
 
     gonzales[5].save_to_file("test.centers");
-    // Output: S[0] to S[k]
     
     // phase 2: determine privacy radius
     

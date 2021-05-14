@@ -2,4 +2,5 @@
 /Cargo.lock
 *.2dspace
 *.centers
+*.clustering
 *.swp
