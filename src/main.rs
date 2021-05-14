@@ -314,14 +314,24 @@ fn main() {
         center_indices : vec!(0)
     });
 
+    let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n());
+
+    for i in 0..space.n() {
+        dist_x_center.push(space.dist(0,i));
+    }
+
     for i in 2..k+1 {
         let mut current_distance = std::f32::MIN;
         let mut current_point : Option<usize> = None;
         println!("Iteration {}", i);
         for j in 0..space.n(){
-            let d = space.dist_set(j, &gonzales[i-1].center_indices);
-            if d > current_distance {
-                current_distance = d;
+            let dist_to_newest_center = space.dist(j, gonzales[i-1].center_indices[i-2]);
+            // update dist_x_S to now include the newest center
+            if dist_to_newest_center < dist_x_center[j] {
+                dist_x_center[j] = dist_to_newest_center;
+            }
+            if dist_x_center[j] > current_distance {
+                current_distance = dist_x_center[j];
                 current_point = Some(j);
             }
         }
