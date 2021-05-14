@@ -52,6 +52,47 @@ mod space { //TODO: put space module in separate file.
         }
 
         fn n(&self) -> usize;
+
+        // Care this need O(n^3) time
+        fn is_metric(&self) -> bool {
+        
+            // check for symmetry, non-negativity and identity of indiscernibles
+            for x in 0..self.n() {
+                for y in 0..self.n() {
+                    let dist_xy = self.dist(x,y);
+                    let dist_yx = self.dist(y,x);
+                    if dist_xy != dist_yx {
+                        println!("Symmetry is violated: x={}, y={}, dist(x,y)={}, dist(y,x)={}", x, y, dist_xy, dist_yx);
+                        return false;
+                    }
+
+                    if x == y && dist_xy != 0.0{
+                        println!("Identity of indiscernibles is violated: x={}, dist(x,x)={}", x, dist_xy);
+                        return false;
+                    }
+                    if x != y && dist_xy <= 0.0 {
+                        println!("Non-negativity or identity of indiscernibles is violated: x={}, y={}, dist(x,y)={}", x, y, dist_xy);
+                        return false;
+                    }
+                }
+            }
+
+            // check for triangle inequility
+            for x in 0..self.n() {
+                for y in 0..self.n() {
+                    let dist_xy = self.dist(x,y);
+                    for z in 0..self.n() {
+                        let dist_xz = self.dist(x,z);
+                        let dist_zy = self.dist(z,y);
+                        if dist_xy > dist_xz + dist_zy {
+                            println!("Triangle inequality is violated: x={}, y={}, z={}, dist(x,y)={}, dist(x,z)={}, dist(z,y)={}, i.e., {} > {}", x, y, z, dist_xy, dist_xz, dist_zy, dist_xy, dist_xz + dist_zy);
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
     }
 
 
@@ -212,17 +253,19 @@ mod clustering{
 fn main() {
     use space::*;
 
-    /*
+    /* 
     // create test SpaceMatrix space with 3 points
     const N : usize = 3;
-    let space_by_matrix : Box<dyn ColoredMetric> =new_space_by_matrix::<{N}>([[0.0, 1.0, 2.0],
-                     [1.0, 0.0, 3.0],
-                     [2.0, 3.0, 0.0]], [0, 0, 1]);
+    let space_by_matrix : Box<dyn ColoredMetric> =new_space_by_matrix::<{N}>(
+                    [[0.0, 2.0, 1.5],
+                     [2.0, 0.0, 0.6],
+                     [1.5, 0.6, 0.0]], [0, 0, 1]);
     
 
     println!("dist between 1 and 2: {}", space_by_matrix.dist(1,2));
     println!("color of 2: {}", space_by_matrix.color(2));
     println!("number of points: {}", space_by_matrix.n());
+    assert!(space_by_matrix.is_metric());
     */
 
     /*
