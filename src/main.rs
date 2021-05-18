@@ -12,79 +12,18 @@ struct ClusterProblem{
 }
 
 
-
-mod space;
-pub use crate::space::*;
-
-mod clustering;
-pub use crate::clustering::*;
-
-/////////////////////////////////////////////////////////////////////////
-///////////////////////// main() ////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////
-
-fn main() {
-    use space::*;
-
-    /* 
-    // create test SpaceMatrix space with 3 points
-    const N : usize = 3;
-    let space_by_matrix : Box<dyn ColoredMetric> =new_space_by_matrix::<{N}>(
-                    [[0.0, 2.0, 1.5],
-                     [2.0, 0.0, 0.6],
-                     [1.5, 0.6, 0.0]], [0, 0, 1]);
-    
-
-    println!("dist between 1 and 2: {}", space_by_matrix.dist(1,2));
-    println!("color of 2: {}", space_by_matrix.color(2));
-    println!("number of points: {}", space_by_matrix.n());
-    assert!(space_by_matrix.is_metric());
-    */
-
-    /*
-    // create test Space2D:
-    let space_by_points : Box<dyn ColoredMetric> = new_space_by_2dpoints(vec!([0.0,0.0], [1.5,1.1], [1.0,0.5]), vec!(0,0,1));
-
-    println!("dist between 1 and 2: {}", space_by_points.dist(1,2));
-    println!("color of 2: {}", space_by_points.color(2));
-    */
-
-    // load test Space2D from file:
-    let space : Box<dyn ColoredMetric> = new_space_by_2dpoint_file("test.2dspace",15);
-   
-    for i in 2..8 {
-        println!("dist between 1 and {}: {}", i, space.dist(1,i));
-    }
-    let set : Vec<usize> = vec![2,3,4,5,6,7];
-    
-    /*println!("set: {:?}", set);
-    println!("dist between 1 and [2,3,4,5,6,7]: {}", space.dist_set(1,&set));
-    println!("set: {:?}", set);
-    println!("color of 2: {}", space.color(2));
-    println!("number of points: {}", space.n());*/
-
-
-
-
-    /////////////////////////////////
-    // phase 1: Gonzalez heuristic //
-    /////////////////////////////////
-
-    let k : usize = 5; // number of center;
-    
-    assert!(k >= 1); // we want to allow at least 1 center
-    assert!(space.n() >= k); // the number of points should not be less than the number of centers 
+fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Vec<Centers> {
 
     let mut gonzales : Vec<Centers> = Vec::with_capacity(k+1); // Gonzales[i] has i centers
     
     // gonzales[0] is the empty set
     gonzales.push(Centers {
-        center_indices : vec!()
+        centers : vec!()
     });
 
     // for gonzales[1] we can add any point as first center, so lets take 0
     gonzales.push(Centers {
-        center_indices : vec!(0)
+        centers : vec!(0)
     });
 
     let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n()); // current distance of point x to the set of already determined centers
@@ -97,7 +36,7 @@ fn main() {
         let mut current_distance = std::f32::MIN; // maximal distance to set of centers
         let mut current_point : Option<usize> = None; // corresponing point with this max distance.
         for j in 0..space.n(){
-            let dist_to_newest_center = space.dist(j, gonzales[i-1].center_indices[i-2]); // as distance of j to gonzales[i-2] is known, we only need to measure distance to newest center.
+            let dist_to_newest_center = space.dist(j, gonzales[i-1].centers[i-2]); // as distance of j to gonzales[i-2] is known, we only need to measure distance to newest center.
             
             // update dist_x_S to now include the newest center:
             if dist_to_newest_center < dist_x_center[j] {
@@ -112,23 +51,91 @@ fn main() {
         }
 
         // create new center vector including the current farthest point (= current_point):
-        let mut centers : Vec<usize> = gonzales[i-1].center_indices.clone();
+        let mut centers : Vec<usize> = gonzales[i-1].centers.clone(); //TODO: Maybe cloning not needed. Just save one list of centers
         centers.push(current_point.expect("No new center could be found, i.e., current_point = None"));
         gonzales.push(Centers {
-            center_indices : centers, 
+            centers : centers, 
         });
     }
+    gonzales
+}
 
-    for i in 0..k+1 {
-        println!("gonzales[{}]: {:?}", i, gonzales[i].center_indices);
-    }
+
+// An edge for every center (left) to every point (right). note that center appear on both sides.
+// The distance is stored in d.
+#[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
+pub struct Edge { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
+    d : f32,
+    left : usize,
+    right : usize,
+}
+
+mod space;
+pub use crate::space::*;
+
+mod clustering;
+pub use crate::clustering::*;
+
+mod buckets;
+pub use crate::buckets::*;
+
+/////////////////////////////////////////////////////////////////////////
+///////////////////////// main() ////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+
+fn main() {
+    use space::*;
+
+
+    // load test Space2D from file:
+    let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file("test.2dspace",15);
+   
+//    for i in 2..8 {
+//        println!("dist between 1 and {}: {}", i, space.dist(1,i));
+//    }
+
+    let k : usize = 5; // number of center;
+    
+
+    /////////////////////////////////
+    // phase 1: Gonzalez heuristic //
+    /////////////////////////////////
+
+    assert!(k >= 1); // we want to allow at least 1 center
+    assert!(space.n() >= k); // the number of points should not be less than the number of centers 
+
+    let gonzales = gonzales_heuristic(&space, k);
+
+    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", k, gonzales[k].centers);
+//    for i in 0..k+1 {
+//        println!("gonzales[{}]: {:?}", i, gonzales[i].centers);
+//    }
 
     gonzales[5].save_to_file("test.centers");
     
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
+    let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
+    for c in gonzales[k].centers.iter() {
+        for i in 0..space.n() {
+            edges.push(Edge{
+                left : *c,
+                right : i,
+                d : space.dist(*c, i)});
+        }
+    }
+
+//    println!("edges: {:?}", edges);
     
+    let buckets = put_into_buckets(edges, (4*space.n())/k);
+
+    println!("** Phase 2: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", k*space.n(), buckets.len(), (4*space.n())/k);
+    for (i, bucket) in buckets.iter().enumerate() {
+        let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect(); 
+        println!(" {}. bucket: {:?}", i, bucket_of_dist);
+    }
+
     // step 1: Compute buckets
     
 

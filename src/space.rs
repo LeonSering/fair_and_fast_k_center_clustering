@@ -135,7 +135,7 @@ pub fn new_space_by_2dpoints(points : Vec<[f32;2]>, colors : Vec<u8>) -> Box<dyn
 
 use std::fs::File;
 use std::io::{BufReader,BufRead};
-pub fn new_space_by_2dpoint_file(file_path : &str, expected_number_of_points : usize) -> Box<dyn ColoredMetric> {
+pub fn new_space_by_2dpoints_file(file_path : &str, expected_number_of_points : usize) -> Box<dyn ColoredMetric> {
 
     let f = File::open(file_path).expect("Cannot open file to read 2dpoints.");
     let f = BufReader::new(f);
@@ -173,5 +173,40 @@ impl ColoredMetric for Space2D {
 
     fn n(&self) -> usize {
         self.points.len()
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use crate::*;
+    #[test]
+    fn matrix_space_3x3() { 
+    // create test SpaceMatrix space with 3 points
+    const N : usize = 3;
+    let space_by_matrix : Box<dyn ColoredMetric> = new_space_by_matrix::<{N}>(
+                    [[0.0, 2.0, 1.5],
+                     [2.0, 0.0, 0.6],
+                     [1.5, 0.6, 0.0]], [0, 0, 1]);
+    
+    assert!(space_by_matrix.is_metric());
+    assert_eq!(space_by_matrix.dist(1,2),0.6);
+    assert_eq!(space_by_matrix.color(2),1);
+    assert_eq!(space_by_matrix.n(),3);
+    }
+
+    #[test]
+    fn point_space_3_points() {
+        // create test Space2D:
+        let space_by_points : Box<dyn ColoredMetric> = new_space_by_2dpoints(vec!([0.0,0.0], [1.5,1.1], [1.0,0.5]), vec!(0,0,1));
+
+        assert!(space_by_points.is_metric());
+
+
+        assert_eq!(space_by_points.dist(1,2),f32::sqrt(0.25+0.36));
+        assert_eq!(space_by_points.color(2),1);
+        assert_eq!(space_by_points.n(),3);
+        println!("dist between 1 and 2: {}", space_by_points.dist(1,2));
     }
 }

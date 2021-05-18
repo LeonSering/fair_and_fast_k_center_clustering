@@ -2,6 +2,7 @@
 //////////////////// module: clustering //////////////////////
 //////////////////////////////////////////////////////////////
 
+
 /* Contains two structs (both are only valid together with a space
  * 
  * centers: a vector of centers
@@ -11,14 +12,14 @@
 pub use crate::space::ColoredMetric;
 
 pub struct Centers{
-    pub center_indices : Vec<usize>,
+    pub centers : Vec<usize>,
 }
 
 use std::fs::File;
 use std::io::prelude::*;
 impl Centers{
     pub fn m(&self) -> usize {
-        self.center_indices.len()
+        self.centers.len()
     }
 
 
@@ -26,11 +27,10 @@ impl Centers{
     pub fn save_to_file(&self, file_path : &str){
         let mut f = File::create(file_path).expect("Cannot open file for writing centers");
         let mut text = String::new();
-        for c in self.center_indices.iter(){
+        for c in self.centers.iter(){
             text = text + &format!("{},",c);
         }
         text.pop(); //delete last comma
-        println!("{}", text);
         f.write_all(text.as_bytes()).expect("Could not write into centers-file");
 
     }

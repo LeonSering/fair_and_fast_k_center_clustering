@@ -1,0 +1,151 @@
+use crate::Edge;
+
+// Input: unsorted list of edges, upper bound on the size of a bucket
+// Output: list of buckets of size <= 4k/k + 1 edges; with property of Lemma 3;
+pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Vec<Edge>> {
+    let mut smaller_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
+    let mut bigger_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
+
+//    let distances: Vec<f32> = list.iter().map(|x| x.d).collect(); //turn edge-list into list of distances
+//    println!("distances: {:?}", distances);
+//    println!("length of list: {}", list.len());
+    
+    let median: Edge = median_of_medians(&list, (list.len()-1)/2); // O(n) by Master Theorem
+    let median = median.clone();
+
+    let mut smaller : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1);
+    let mut bigger : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1); 
+    
+    while list.len() > 0 {
+        let edge = list.pop().unwrap();
+        if edge < median {
+            smaller.push(edge);
+        } else { // note that ties in edge.d are broken according to edge.left then edge.right 
+            bigger.push(edge);
+        }
+    }
+//    println!("Smaller: {:?}", smaller.len());
+//    println!("Bigger: {:?}", bigger.len());
+    if smaller.len() <= bucket_size_limit {
+        smaller_buckets.push(smaller);
+    } else {
+        smaller_buckets.append(&mut put_into_buckets(smaller, bucket_size_limit));
+    }
+
+    if bigger.len() <= bucket_size_limit {
+        bigger_buckets.push(bigger);
+    } else {
+        bigger_buckets.append(&mut put_into_buckets(bigger, bucket_size_limit));
+    }
+
+    smaller_buckets.append(&mut bigger_buckets);
+    smaller_buckets
+}
+
+// input: list of unsorted edges; an integer pos;
+// output: the value of the element that would have pos as index if list was sorted.
+fn median_of_medians(list: &Vec<Edge>, pos : usize) -> Edge {
+
+    let chunks = list.chunks(5);
+    let mut sublist: Vec<Edge> = Vec::with_capacity(list.len()/5);
+    for chunk in chunks {
+        let mut chunk = chunk.to_vec();
+        chunk.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        sublist.push(chunk[(chunk.len()-1)/2]); // take the median: element with index = floor(length / 2)
+    }
+//    println!("sublist: {:?}", sublist);
+    let pivot: Edge;
+    if sublist.len() <= 5 {
+        sublist.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        pivot = sublist[(sublist.len()-1) / 2];
+    } else {
+        pivot = median_of_medians(&sublist, (sublist.len()-1)/2); 
+    }
+
+//    println!("Pivot: {:?}", pivot);
+
+    let mut left: Vec<Edge> = Vec::with_capacity((list.len()*7) /10);
+    let mut right: Vec<Edge> = Vec::with_capacity((list.len()*7)/10);
+    let mut pivot_seen: bool = false;
+    for i in list {
+        if *i < pivot {
+            left.push(*i);
+        } else if *i > pivot {
+            right.push(*i);
+        } else { // *i == pivot (if it is the second number with this property, push it to right)
+            if pivot_seen {
+                right.push(*i);
+            } else {
+                pivot_seen = true;
+            }
+        }
+    }
+    let k: usize = left.len();
+//    println!("list.len(): {}, pos: {}, left.len(): {}, right.len(): {}", list.len(), pos, left.len(), right.len());
+
+    if pos < k {
+        return median_of_medians(&left,pos);
+    } else if pos > k {
+        return median_of_medians(&right,pos-k-1);
+    }
+//    println!("Final Pivot:{:?}", pivot);
+    pivot
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::Rng;
+    use super::*;
+    #[test]
+    fn median_test() {
+        let n = 100;
+        let k = 20;
+        // create n*k edges with dublicates:
+        let mut rng = rand::thread_rng();
+        let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
+        let mut list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
+            left: i,
+            right: i,
+            d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
+        let median = median_of_medians(&list, (list.len() - 1)/2);
+
+        list.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        assert_eq!(median, list[(list.len()-1)/2]);
+        println!("list: {:?}", list);
+        println!("our median: {}; median by sorting: {}", median.d, list[(list.len()-1)/2].d);
+    }
+
+    #[test]
+    fn bucket_test() {
+        let n = 100;
+        let k = 20;
+        // create n*k edges with dublicates:
+        let mut rng = rand::thread_rng();
+        let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
+        let list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
+            left: i,
+            right: i,
+            d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
+        let size_limit = (4*n)/k;
+        let buckets = put_into_buckets(list, size_limit);
+        assert!(buckets.len() <= k*k);
+
+        let mut d_of_last: f32 = <f32>::MIN;
+        for bucket in buckets {
+            assert!(bucket.len() <= size_limit);
+            let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
+            let mut d_of_current = d_of_last.clone();
+            for d in bucket_of_dist.iter() {
+                assert!(*d >= d_of_last);
+                if *d > d_of_current {
+                    d_of_current = *d;
+                }
+            }
+            d_of_last = d_of_current;
+            println!("{:?}", bucket_of_dist);
+        }
+    }
+}
+
+
