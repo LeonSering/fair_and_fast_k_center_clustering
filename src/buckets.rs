@@ -92,6 +92,30 @@ fn median_of_medians(list: &Vec<Edge>, pos : usize) -> Edge {
     pivot
 }
 
+// asserts that there are at most k^2 buckets, each of size at most ceil(4n/k); the distance of
+// each element of a bucket j is bigger than all elements in bucket < j and smaller than all
+// elements in buckets > j.
+pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize) -> bool {
+
+    assert!(buckets.len() <= k*k);
+
+    let size_limit = (4*n)/k;
+    let mut d_of_last: f32 = <f32>::MIN;
+    for bucket in buckets.iter() {
+        assert!(bucket.len() <= size_limit);
+        let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
+        let mut d_of_current = d_of_last.clone();
+        for d in bucket_of_dist.iter() {
+            assert!(*d >= d_of_last);
+            if *d > d_of_current {
+                d_of_current = *d;
+            }
+        }
+        d_of_last = d_of_current;
+    }
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use rand::Rng;
@@ -129,22 +153,7 @@ mod tests {
             d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
         let size_limit = (4*n)/k;
         let buckets = put_into_buckets(list, size_limit);
-        assert!(buckets.len() <= k*k);
-
-        let mut d_of_last: f32 = <f32>::MIN;
-        for bucket in buckets {
-            assert!(bucket.len() <= size_limit);
-            let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
-            let mut d_of_current = d_of_last.clone();
-            for d in bucket_of_dist.iter() {
-                assert!(*d >= d_of_last);
-                if *d > d_of_current {
-                    d_of_current = *d;
-                }
-            }
-            d_of_last = d_of_current;
-            println!("{:?}", bucket_of_dist);
-        }
+        assert!(assert_buckets_properties(&buckets, n, k));
     }
 }
 

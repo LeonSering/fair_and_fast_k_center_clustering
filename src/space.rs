@@ -153,7 +153,10 @@ pub fn new_space_by_2dpoints_file(file_path : &str, expected_number_of_points : 
 
     }
     println!("Successfully loaded {} points/colors from '{}'", points.len(), file_path);
+    
+    #[cfg(debug_assertions)]
     println!("points: {:?}", points);
+    #[cfg(debug_assertions)]
     println!("colors: {:?}", colors);
     Box::new(Space2D {
         points,

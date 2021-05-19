@@ -90,10 +90,6 @@ fn main() {
     // load test Space2D from file:
     let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file("test.2dspace",15);
    
-//    for i in 2..8 {
-//        println!("dist between 1 and {}: {}", i, space.dist(1,i));
-//    }
-
     let k : usize = 5; // number of center;
     
 
@@ -107,11 +103,8 @@ fn main() {
     let gonzales = gonzales_heuristic(&space, k);
 
     println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", k, gonzales[k].centers);
-//    for i in 0..k+1 {
-//        println!("gonzales[{}]: {:?}", i, gonzales[i].centers);
-//    }
 
-    gonzales[5].save_to_file("test.centers");
+//    gonzales[5].save_to_file("test.centers");
     
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
@@ -128,16 +121,20 @@ fn main() {
 
 //    println!("edges: {:?}", edges);
     
+    // step 1: Compute buckets
     let buckets = put_into_buckets(edges, (4*space.n())/k);
 
-    println!("** Phase 2: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", k*space.n(), buckets.len(), (4*space.n())/k);
+    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", k*space.n(), buckets.len(), (4*space.n())/k);
+   
+    #[cfg(debug_assertions)]
+    assert!(assert_buckets_properties(&buckets, space.n(), k));
+    #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
         let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect(); 
         println!(" {}. bucket: {:?}", i, bucket_of_dist);
     }
 
-    // step 1: Compute buckets
-    
+     
 
 
     //////////////////////////////////////////////////////////////
