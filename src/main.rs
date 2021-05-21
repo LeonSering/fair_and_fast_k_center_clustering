@@ -11,47 +11,19 @@ struct ClusterProblem{
     // Solving algorithm as method? Maybe not.
 }
 
-use std::collections::HashMap;
-fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> (Centers, HashMap<usize,usize>) {
+//use std::collections::HashMap;
 
-    let mut gonzales : Centers = Centers{centers : Vec::with_capacity(k)};
-    let mut gonzales_index_by_center: HashMap<usize, usize> = HashMap::with_capacity(k);
+mod space;
+use crate::space::{ColoredMetric,new_space_by_2dpoints_file};
 
-    // we can add any point as first center, so lets take 0
-    gonzales.centers.push(0);
+mod clustering;
+//use crate::clustering::{Centers,Clustering};
 
-    let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n()); // current distance of point x to the set of already determined centers
+mod gonzales;
+use crate::gonzales::gonzales_heuristic;
 
-    for i in 0..space.n() {
-        dist_x_center.push(space.dist(0,i)); // initilized to the distance of first center: 0.
-        gonzales_index_by_center.insert(0,0);
-    }
-
-    for i in 1..k {
-        let mut current_distance = std::f32::MIN; // maximal distance to set of centers
-        let mut current_point : Option<usize> = None; // corresponing point with this max distance.
-        for j in 0..space.n(){
-            let dist_to_newest_center = space.dist(j, gonzales.centers[i-1]); // as distance of j to gonzales 0..i-2 is known, we only need to measure distance to newest center i-1.
-            
-            // update dist_x_S to now include the newest center:
-            if dist_to_newest_center < dist_x_center[j] {
-                dist_x_center[j] = dist_to_newest_center;
-            }
-
-            // check whether dist(j, gonzales 0..i-2) is bigger than current biggest dist.
-            if dist_x_center[j] > current_distance {
-                current_distance = dist_x_center[j];
-                current_point = Some(j);
-            }
-        }
-
-        // create new center vector including the current farthest point (= current_point):
-        gonzales.centers.push(current_point.expect("No new center could be found, i.e., current_point = None"));
-        gonzales_index_by_center.insert(current_point.expect("No new center"),i);
-    }
-    (gonzales, gonzales_index_by_center)
-}
-
+mod buckets;
+use crate::buckets::{put_into_buckets, assert_buckets_properties};
 
 // An edge for every center (left) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
@@ -74,21 +46,11 @@ pub struct State {
     pub max_flow: usize,
 }
 
-mod space;
-pub use crate::space::*;
-
-mod clustering;
-pub use crate::clustering::*;
-
-mod buckets;
-pub use crate::buckets::*;
-
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////// main() ////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////
 
 fn main() {
-    use space::*;
 
 
     // load test Space2D from file:
@@ -107,15 +69,15 @@ fn main() {
 
     let (gonzales, gonzales_index_by_center) = gonzales_heuristic(&space, k);
 
-    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", k, gonzales.centers);
+    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", k, gonzales.iter().collect::<Vec<&usize>>());
 //    println!("index of center {}: {}", gonzales.centers[2], gonzales_index_by_center.get(&gonzales.centers[2]).expect(""));
-//    gonzales.save_to_file("test.centers");
+    gonzales.save_to_file("test.centers");
     
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
     let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
-    for c in gonzales.centers.iter() {
+    for c in gonzales.iter() {
         for i in 0..space.n() {
             edges.push(Edge{
                 left : *c,

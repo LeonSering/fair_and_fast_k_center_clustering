@@ -12,7 +12,7 @@
 pub use crate::space::ColoredMetric;
 
 pub struct Centers{
-    pub centers : Vec<usize>,
+    centers : Vec<usize>,
 }
 
 use std::fs::File;
@@ -20,6 +20,20 @@ use std::io::prelude::*;
 impl Centers{
     pub fn m(&self) -> usize {
         self.centers.len()
+    }
+
+    pub fn get(&self, i: usize) -> usize {
+        self.centers[i].clone()
+
+    }
+
+    pub fn push(&mut self, c: usize) {
+        self.centers.push(c);
+    }
+
+    pub fn iter(&self) -> std::slice::Iter<usize>{
+        
+        self.centers.iter()
     }
 
 
@@ -36,7 +50,9 @@ impl Centers{
     }
 }
 
-
+pub fn new_centers(capacity : usize) -> Centers{
+    Centers{centers : Vec::with_capacity(capacity)}
+}
 
 
 
