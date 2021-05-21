@@ -1,11 +1,12 @@
-struct ClusterProblem{
-    // metric space
-    // number of colors (gamma)
-    // number of points n
-    // max number of clusters k
-    // for each color j: upper and lower bounds for centers a_j, b_j
-    // representative loweder bound L
-    //
+
+
+struct ClusterProblem {
+    pub k : usize, // maximal number of centers
+    pub L : usize, // lower bound of representation
+    //pub gamma : u16, // number of colors
+    //pub a : Vec<usize>, // lower bounds for color classes
+    //pub b : Vec<usize>, // upper bounds for color classes
+    
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
     //
     // Solving algorithm as method? Maybe not.
@@ -35,6 +36,8 @@ pub struct Edge { // Care: The ordering of attributes is important for the parti
 }
 
 use std::collections::VecDeque;
+
+#[allow(non_snake_case)]
 pub struct State {
     pub center: Vec<Option<usize>>,
     pub reassign: Vec<Vec<VecDeque<usize>>>,
@@ -55,28 +58,30 @@ fn main() {
 
     // load test Space2D from file:
     let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file("test.2dspace",15);
-   
-    let k : usize = 5; // number of center;
-    let L : usize = 7; // number of points to represent;
+    let prob = ClusterProblem{  
+        k : 5, // number of center;
+        L : 7, // number of points to represent;
+        //gamma : space.gamma();
+    };
     
 
     /////////////////////////////////
     // phase 1: Gonzalez heuristic //
     /////////////////////////////////
 
-    assert!(k >= 1); // we want to allow at least 1 center
-    assert!(space.n() >= k); // the number of points should not be less than the number of centers 
+    assert!(prob.k >= 1); // we want to allow at least 1 center
+    assert!(space.n() >= prob.k); // the number of points should not be less than the number of centers 
 
-    let (gonzales, gonzales_index_by_center) = gonzales_heuristic(&space, k);
+    let (gonzales, gonzales_index_by_center) = gonzales_heuristic(&space, prob.k);
 
-    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", k, gonzales.iter().collect::<Vec<&usize>>());
+    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", prob.k, gonzales.iter().collect::<Vec<&usize>>());
 //    println!("index of center {}: {}", gonzales.centers[2], gonzales_index_by_center.get(&gonzales.centers[2]).expect(""));
     gonzales.save_to_file("test.centers");
     
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
-    let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
+    let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
     for c in gonzales.iter() {
         for i in 0..space.n() {
             edges.push(Edge{
@@ -89,12 +94,12 @@ fn main() {
 //    println!("edges: {:?}", edges);
     
     // step 1: Compute buckets
-    let mut buckets = put_into_buckets(edges, (4*space.n())/k);
+    let mut buckets = put_into_buckets(edges, (4*space.n())/prob.k);
 
-    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", k*space.n(), buckets.len(), (4*space.n())/k);
+    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", prob.k*space.n(), buckets.len(), (4*space.n())/prob.k);
    
     #[cfg(debug_assertions)]
-    assert!(assert_buckets_properties(&buckets, space.n(), k));
+    assert!(assert_buckets_properties(&buckets, space.n(), prob.k));
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
         let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect(); 
@@ -108,25 +113,24 @@ fn main() {
 
 
     // TODO: think of correct capacities
-    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..k).map(|_| (0..b).map(|_| VecDeque::with_capacity(k*k)).collect()).collect();
+    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect();
        // pending[j][t] contains only edges from gonzales.centers[j] contained in buckets[t]
-
 
     let mut state = State {
         center: vec!(None; space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to
-        reassign: (0..k).map(|_| (0..k).map(|_| VecDeque::with_capacity(k*k)).collect()).collect(),
-        unassigned: (0..k).map(|_| VecDeque::with_capacity(k*k)).collect(),
-        aux: (0..space.n()).map(|_| (0..k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
-        path_in_H: (0..k).map(|_| (0..k).map(|_| false).collect()).collect(),
-        path_in_H_available: vec![false; k],
-        number_of_covered_points: vec![0; k],
+        reassign: (0..prob.k).map(|_| (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect(),
+        unassigned: (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect(),
+        aux: (0..space.n()).map(|_| (0..prob.k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
+        path_in_H: (0..prob.k).map(|_| (0..prob.k).map(|_| false).collect()).collect(),
+        path_in_H_available: vec![false; prob.k],
+        number_of_covered_points: vec![0; prob.k],
         max_flow: 0,
     };
 
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
 
-    while i < k {
+    while i < prob.k {
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k 
         for l in 0..j {
@@ -137,14 +141,14 @@ fn main() {
                 let e = pending[i][l].pop_front().unwrap();
                 println!("Process pending edge TODO: {:?}", e);
                 assert_eq!(i, *gonzales_index_by_center.get(&e.left).expect("Cannot find gonzales index")); // e.left should be the center with index i in gonzales
-                process_edge(e, i, j, i, k, L, &mut state);
+                process_edge(e, i, j, i, prob.k, prob.L, &mut state);
             }
         }
-        if state.max_flow == (i + 1) * L {
+        if state.max_flow == (i + 1) * prob.L {
             i += 1;
         } else {
-            while state.max_flow < (i + 1) * L {
-                assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * L = {} found! Panic!", i, (i+1)*L);
+            while state.max_flow < (i + 1) * prob.L {
+                assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * L = {} found! Panic!", i, (i+1)*prob.L);
                 for t in 0..i {
                     // here, we add back edges of the current bucket that were removed because
                     // they were adjecent to centers not in the set that was being processed
@@ -164,7 +168,7 @@ fn main() {
                         pending[t][j].push_back(*e);
                     } else {
                         println!("Process edge TODO: {:?}", *e);
-                        process_edge(*e, i, j, t, k, L, &mut state);
+                        process_edge(*e, i, j, t, prob.k, prob.L, &mut state);
                     }
                 }
                 j += 1;
