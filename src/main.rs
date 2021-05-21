@@ -1,5 +1,6 @@
 
 
+#[allow(non_snake_case)]
 struct ClusterProblem {
     pub k : usize, // maximal number of centers
     pub L : usize, // lower bound of representation
@@ -8,11 +9,7 @@ struct ClusterProblem {
     //pub b : Vec<usize>, // upper bounds for color classes
     
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
-    //
-    // Solving algorithm as method? Maybe not.
 }
-
-//use std::collections::HashMap;
 
 mod space;
 use crate::space::{ColoredMetric,new_space_by_2dpoints_file};
@@ -39,14 +36,19 @@ use std::collections::VecDeque;
 
 #[allow(non_snake_case)]
 pub struct State {
-    pub center: Vec<Option<usize>>,
-    pub reassign: Vec<Vec<VecDeque<usize>>>,
-    pub unassigned: Vec<VecDeque<Option<usize>>>,
+    pub center: Vec<Option<usize>>, // center[x] is the assigned center of point x
+    pub reassign: Vec<Vec<VecDeque<usize>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
+    pub unassigned: Vec<VecDeque<Option<usize>>>, // unassigned[c] contains all points that are unassigned but could be assigned to c
     pub aux: Vec<Vec<Option<usize>>>,
-    pub number_of_covered_points: Vec<usize>,
-    pub path_in_H: Vec<Vec<bool>>,
-    pub path_in_H_available: Vec<bool>,
-    pub max_flow: usize,
+    pub number_of_covered_points: Vec<usize>, // the number of points covered by center c; if this equals L this center is "private"; if it is smaller than it is "non-private"
+    pub path_in_H: Vec<Vec<bool>>, // indicates whether there is a path in H from c_1 to c_2; The arcs in H are excactly the one for which reassign is non-empty; should always be transitiv
+    pub path_in_H_to_non_private: Vec<bool>, // indicates whether a center is non-private or has a path in H to a non-private center
+    pub max_flow: usize, // the current value of a maximum flow
+
+    // method "take_snapshot" and "restore_snapshot" should probably be implemented here.
+    // So whenever take_snapshot is called, all later changes are recorded.
+    // Calling restore_snapshot rollback all theses changes.
+    // I wonder if we need to include "Pending" to the struct.
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -94,7 +96,7 @@ fn main() {
 //    println!("edges: {:?}", edges);
     
     // step 1: Compute buckets
-    let mut buckets = put_into_buckets(edges, (4*space.n())/prob.k);
+    let buckets = put_into_buckets(edges, (4*space.n())/prob.k);
 
     println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", prob.k*space.n(), buckets.len(), (4*space.n())/prob.k);
    
@@ -122,7 +124,7 @@ fn main() {
         unassigned: (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect(),
         aux: (0..space.n()).map(|_| (0..prob.k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
         path_in_H: (0..prob.k).map(|_| (0..prob.k).map(|_| false).collect()).collect(),
-        path_in_H_available: vec![false; prob.k],
+        path_in_H_to_non_private: vec![true; prob.k],
         number_of_covered_points: vec![0; prob.k],
         max_flow: 0,
     };
@@ -134,60 +136,63 @@ fn main() {
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k 
         for l in 0..j {
-            // here, we process edges from previous buckets that were ignored because they
+            // here, we process edges from previous buckets (< j) that were ignored because they
             // were adjacent to ceners not in the set that was being processed
             
             while !pending[i][l].is_empty() {
                 let e = pending[i][l].pop_front().unwrap();
                 println!("Process pending edge TODO: {:?}", e);
                 assert_eq!(i, *gonzales_index_by_center.get(&e.left).expect("Cannot find gonzales index")); // e.left should be the center with index i in gonzales
-                process_edge(e, i, j, i, prob.k, prob.L, &mut state);
+                process_edge(e, i, i, prob.L, &mut state);
             }
         }
-        if state.max_flow == (i + 1) * prob.L {
+        if state.max_flow >= (i + 1) * prob.L {
+            #[cfg(debug_assertions)]
+            assert_eq!(state.max_flow, (i + 1) * prob.L, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= L) between the source and the centers in S_i		
             i += 1;
         } else {
             while state.max_flow < (i + 1) * prob.L {
                 assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * L = {} found! Panic!", i, (i+1)*prob.L);
                 for t in 0..i {
-                    // here, we add back edges of the current bucket that were removed because
-                    // they were adjecent to centers not in the set that was being processed
-                     
-                    while !pending[t][j].is_empty() {
-                        let e = pending[t][j].pop_front().unwrap();
-                        println!("Add edge to bucket {}: {:?}",j, e);
-                        buckets[j].push(e);
-                    }
+                    // here, we release edges of the current bucket that were "pending" because
+                    // they were adjecent to centers not in the gonzales set at the point in time
+                    // LEON: not sure if this is needed at all. But I guess having empty
+                    // pending-queus is nice.
+                    pending[t][j].clear();                     
                 }
-                println!("TODO: Take snapshot");
+                println!("TODO: Take snapshot"); // that means basically to copy everthing (save the flow state) but really copying is too costly.
                 for e in buckets[j].iter() {
                     // here, we process the current bucket with index j
                     let t = *gonzales_index_by_center.get(&e.left).expect("Cannot find gonzales index");
 //                    println!("Trying to process edge TODO: {:?}, i = {}, t = {}", *e,i, t);
                     if t > i {
+                        // in this case the left side (t) is a center not yet considered, so we
+                        // postpone the processing of the arc to the point when i >= t
                         pending[t][j].push_back(*e);
                     } else {
-                        println!("Process edge TODO: {:?}", *e);
-                        process_edge(*e, i, j, t, prob.k, prob.L, &mut state);
+                        // in this case we do the processing.
+                        println!("Process edge : {:?}", *e);
+                        process_edge(*e, i, t, prob.L, &mut state);
                     }
                 }
                 j += 1;
             }
             // at this point, we have identified the bucket that settles the set S_i
             j -= 1;
-            println!("TODO settleSet({},{})", i, j);
+            println!("TODO settleSet({},{})", i, j); // settleSet mean to do binary research on the current bucket
             i += 1;
         }
     }
     // input: the edge e for processing, the current gonzales set i, the current bucket j, and the
     //        index t of the center of e.left (within the gonzales set)
-    fn process_edge(e: Edge, i: usize, j: usize, t: usize, k: usize, L: usize, state: &mut State){
+    // task: add edge e to the current flow network and look for an augmenting path to increase the
+    // flow by 1; then execute this augmentation
+    #[allow(non_snake_case)]
+    fn process_edge(e: Edge, i: usize, t: usize, L: usize, state: &mut State){
         // the pending part is moved to the main procedure 
-        let x = e.right.clone();
+        let x = e.right; // maybe cloning needed
         match state.center[x] { 
-
             None => {// x is not assigned yet
-
                 // a new node correspdonding to x is added to the tail of the queue unassigned:
                 state.unassigned[t].push_back(Some(x));
 
@@ -202,35 +207,40 @@ fn main() {
                 state.path_in_H[center_of_x][t] = true;
 
                 // we now update reachability status in graph H
-                for q in 0..k {
+                for q in 0..(i+1) {
                     state.path_in_H[q][t] = state.path_in_H[q][t] || state.path_in_H[q][center_of_x];
-                    if !state.path_in_H_available[q] && state.path_in_H[q][center_of_x] && state.path_in_H_available[t] {
-                        state.path_in_H_available[q] = true;
+                    if !state.path_in_H_to_non_private[q] && state.path_in_H[q][center_of_x] && state.path_in_H_to_non_private[t] {
+                        state.path_in_H_to_non_private[q] = true;
                     }
                 }
             }
         }
 
-        // looking for the first center v that has a path and unassigned nodes that could be
+        // looking for the first center v (in 0,...,i) that has a path and unassigned nodes that could be
         // assigned to v
         let mut v = 0;
-        while v < k {
-            if !state.unassigned[v].is_empty() && state.path_in_H_available[v] {
+        while v <=i {
+            if !state.unassigned[v].is_empty() && state.path_in_H_to_non_private[v] {
                 break;
             } else {
                 v += 1;
             }
         }
     
-        if v == k{
+        if v == i+1{
             println!("no agumenting path found");
             return;
         }
-        println!("Augmenting exists");
+        println!("augmenting path exists");
         state.max_flow += 1;
-        let y: usize = state.unassigned[v].pop_front().expect("unassigned is empty").expect("unassigned element was None");
 
-        for z in 0..k {
+        // y is a point that is unassigned, i.e. there is a free arc from y to the sink. This is
+        // our first arc of the augmenting path (from sink to source)
+        let mut y: usize = state.unassigned[v].pop_front().expect("unassigned is empty").expect("unassigned element was None");
+
+
+        // some update in updates to aux and reassign are needed (not sure yet)
+        for z in 0..(i+1) {
             if z != v {
                 match state.aux[y][z] {
                     Some(_) => {
@@ -244,11 +254,36 @@ fn main() {
         // TODO: Someting with AUX
         
         state.center[y] = Some(v); // assign y to v
+        state.number_of_covered_points[v] += 1; // v covers now one points more
 
-        // Now it could be the case that v has too many points, so we need to augment
+        // Now it could be the case that v is private already (covers L points already), so we need to find a new center
         
-        while state.number_of_covered_points[v] > L {
-            
+        while state.number_of_covered_points[v] > L { // while v is overfull 
+//            #[cfg(debug_assertions)]
+//            assert_eq!(state.number_of_covered_points[v], L, "Center {} covers too many points, namely {}", v, state.number_of_covered_points[v]);
+
+            // need to find new center w, such that arc (v,w) is in H
+            // TODO: maybe we need to be more carful, s.t. we don't run in circles
+            let mut w = 0;
+            while w <= i {
+                if !state.reassign[v][w].is_empty() {
+                    break;
+                } else {
+                    w += 1;
+                }
+            }
+            if w == i+1 {
+                panic!("There is no center w such that (v, w) is in H. This contradicts the fact that B[v] == True; v = {}", v);
+            }
+            // w is our next center in the augmenting path. We reassign y, which means adding
+            // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
+            y = state.reassign[v][w].pop_front().expect("unassigned is empty");
+            state.center[y] = Some(w);
+            state.number_of_covered_points[w] += 1;
+            // TODO: now we need to fix the reassign queues.
+            // and withit the complete H structure; probably aux is needed.
+            v = w;
+
         }
 
     }
