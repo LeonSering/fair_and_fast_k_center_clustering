@@ -62,7 +62,7 @@ fn main() {
     let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file("test.2dspace",15);
     let prob = ClusterProblem{  
         k : 5, // number of center;
-        L : 7, // number of points to represent;
+        L : 2, // number of points to represent;
         //gamma : space.gamma();
     };
     
@@ -105,12 +105,13 @@ fn main() {
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
         let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect(); 
-        println!(" {}. bucket: {:?}", i, bucket_of_dist);
+        println!(" Bucket {}: {:?}", i, bucket_of_dist);
     }
 
 
 
     // step 2: solve flow prolbem
+    println!("** Phase 2b: Determine smallest radii that satisfy privacy. Privacy constant L = {}.", prob.L);
     let b = buckets.len(); // number of buckets
 
 
@@ -148,7 +149,8 @@ fn main() {
         }
         if state.max_flow >= (i + 1) * prob.L {
             #[cfg(debug_assertions)]
-            assert_eq!(state.max_flow, (i + 1) * prob.L, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= L) between the source and the centers in S_i		
+            assert_eq!(state.max_flow, (i + 1) * prob.L, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= L) between the source and the centers in S_i
+            println!("Center {} done.", i);
             i += 1;
         } else {
             while state.max_flow < (i + 1) * prob.L {
@@ -162,9 +164,8 @@ fn main() {
                 }
                 println!("TODO: Take snapshot"); // that means basically to copy everthing (save the flow state) but really copying is too costly.
                 for e in buckets[j].iter() {
-                    // here, we process the current bucket with index j
+                    // here, we (try to) process the current bucket with index j
                     let t = *gonzales_index_by_center.get(&e.left).expect("Cannot find gonzales index");
-//                    println!("Trying to process edge TODO: {:?}, i = {}, t = {}", *e,i, t);
                     if t > i {
                         // in this case the left side (t) is a center not yet considered, so we
                         // postpone the processing of the arc to the point when i >= t
@@ -174,7 +175,11 @@ fn main() {
                         println!("Process edge : {:?}", *e);
                         process_edge(*e, i, t, prob.L, &mut state);
                     }
+
+                    // TODO: I would expect that we need to check the max_flow value after each
+                    // edge.
                 }
+                println!("Bucket {} done.", j);
                 j += 1;
             }
             // at this point, we have identified the bucket that settles the set S_i
