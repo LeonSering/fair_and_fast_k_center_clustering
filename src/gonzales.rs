@@ -1,11 +1,9 @@
-use std::collections::HashMap;
 use crate::clustering::{Centers,new_centers};
 use crate::space::ColoredMetric;
 
-pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> (Centers, HashMap<usize,usize>) {
+pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Centers {
 
     let mut gonzales : Centers = new_centers(k);//Centers{centers : Vec::with_capacity(k)};
-    let mut gonzales_index_by_center: HashMap<usize, usize> = HashMap::with_capacity(k);
 
     // we can add any point as first center, so lets take 0
     gonzales.push(0);
@@ -14,7 +12,6 @@ pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> (Center
 
     for i in 0..space.n() {
         dist_x_center.push(space.dist(0,i)); // initilized to the distance of first center: 0.
-        gonzales_index_by_center.insert(0,0);
     }
 
     for i in 1..k {
@@ -37,8 +34,7 @@ pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> (Center
 
         // create new center vector including the current farthest point (= current_point):
         gonzales.push(current_point.expect("No new center could be found, i.e., current_point = None"));
-        gonzales_index_by_center.insert(current_point.expect("No new center"),i);
     }
-    (gonzales, gonzales_index_by_center)
+    gonzales
 }
 

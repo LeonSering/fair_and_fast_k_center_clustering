@@ -15,6 +15,8 @@
  *        colors: [u16; N]
  * Output: Box<dyn ColoredMetric>
  *
+ * Other builder functions are new_space_by_2dpoints and new_space_by_2dpoints_file
+ * These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
  */
 
 // Trait to obtain the distance between two points.

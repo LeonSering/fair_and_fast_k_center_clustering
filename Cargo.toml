@@ -2,6 +2,15 @@
 name = "ff_k-center"
 version = "0.1.0"
 edition = "2018"
+authors = ["Leon Sering <sering@math.ethz.ch>"]
+
+[lib]
+name = "ff_k_center_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ff_k_center_bin"
+path = "src/main.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
