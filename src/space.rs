@@ -19,18 +19,23 @@
  * These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
  */
 
+#[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
+pub struct Point{ // a point in the metric
+    pub idx : usize,
+}
+
 // Trait to obtain the distance between two points.
 pub trait ColoredMetric{
 
-    fn dist(&self, x1 : usize, x2 : usize) -> f32; // returns the distance between x1 and x2
+    fn dist(&self, x1 : &Point, x2 : &Point) -> f32; // returns the distance between x1 and x2
 
-    fn color(&self, x : usize) -> u16;
+    fn color(&self, x : &Point) -> u16;
 
-    fn dist_set(&self, x : usize, point_set: &Vec<usize>) -> f32 {
+    fn dist_set(&self, x : &Point, point_set: &Vec<Point>) -> f32 {
         let mut current_distance = f32::MAX;
         let mut d: f32;
-        for i in 0..point_set.len() {
-            d = self.dist(x,point_set[i]);
+        for p in point_set {
+            d = self.dist(x,p);
             if d < current_distance {
                 current_distance = d;
             }
@@ -40,41 +45,43 @@ pub trait ColoredMetric{
 
     fn n(&self) -> usize; // return number of points
 
+    fn point_iter(&self) -> std::slice::Iter<Point>;
+
     fn gamma(&self) -> u16; // returns number of color classes
 
     // Care this need O(n^3) time
     fn is_metric(&self) -> bool {
 
         // check for symmetry, non-negativity and identity of indiscernibles
-        for x in 0..self.n() {
-            for y in 0..self.n() {
+        for x in self.point_iter() {
+            for y in self.point_iter() {
                 let dist_xy = self.dist(x,y);
                 let dist_yx = self.dist(y,x);
                 if dist_xy != dist_yx {
-                    println!("Symmetry is violated: x={}, y={}, dist(x,y)={}, dist(y,x)={}", x, y, dist_xy, dist_yx);
+                    println!("Symmetry is violated: x={:?}, y={:?}, dist(x,y)={}, dist(y,x)={}", *x, *y, dist_xy, dist_yx);
                     return false;
                 }
 
                 if x == y && dist_xy != 0.0{
-                    println!("Identity of indiscernibles is violated: x={}, dist(x,x)={}", x, dist_xy);
+                    println!("Identity of indiscernibles is violated: x={:?}, dist(x,x)={}", *x, dist_xy);
                     return false;
                 }
                 if x != y && dist_xy <= 0.0 {
-                    println!("Non-negativity or identity of indiscernibles is violated: x={}, y={}, dist(x,y)={}", x, y, dist_xy);
+                    println!("Non-negativity or identity of indiscernibles is violated: x={:?}, y={:?}, dist(x,y)={}", *x, *y, dist_xy);
                     return false;
                 }
             }
         }
 
         // check for triangle inequility
-        for x in 0..self.n() {
-            for y in 0..self.n() {
+        for x in self.point_iter() {
+            for y in self.point_iter() {
                 let dist_xy = self.dist(x,y);
-                for z in 0..self.n() {
+                for z in self.point_iter() {
                     let dist_xz = self.dist(x,z);
                     let dist_zy = self.dist(z,y);
                     if dist_xy > dist_xz + dist_zy {
-                        println!("Triangle inequality is violated: x={}, y={}, z={}, dist(x,y)={}, dist(x,z)={}, dist(z,y)={}, i.e., {} > {}", x, y, z, dist_xy, dist_xz, dist_zy, dist_xy, dist_xz + dist_zy);
+                        println!("Triangle inequality is violated: x={:?}, y={:?}, z={:?}, dist(x,y)={}, dist(x,z)={}, dist(z,y)={}, i.e., {} > {}", *x, *y, *z, dist_xy, dist_xz, dist_zy, dist_xy, dist_xz + dist_zy);
                         return false;
                     }
                 }
@@ -91,30 +98,43 @@ pub trait ColoredMetric{
 // by N-array.
 struct SpaceMatrix<const N: usize>{
     distances: [[f32; N]; N], // distance matrix (later maybe implicit as distance function to avoid n^2 space)
+    points: [Point; N],
     colors: [u16; N], // points as array or implicit? If implicity: array of color-classes.
 }
 
 // builder:
 pub fn new_space_by_matrix<const N: usize>(distances : [[f32; N]; N], colors: [u16; N]) -> Box<dyn ColoredMetric> {
+
+    // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
+    // without unsafe rust.
+    let mut points = [Point{idx : 0}; N];
+    for i in 0..N {
+        points[i] = Point{idx:i};
+    }
     Box::new(SpaceMatrix {
         distances,
         colors,
+        points,
     })
 }
 
 impl<const N: usize> ColoredMetric for SpaceMatrix<N> {
-    fn dist(&self, x1: usize, x2: usize) -> f32 {
-        self.distances[x1][x2]
+    fn dist(&self, x1: &Point, x2: &Point) -> f32 {
+        self.distances[x1.idx][x2.idx]
     }
 
-    fn color(&self, x: usize) -> u16 {
-        self.colors[x]
+    fn color(&self, x: &Point) -> u16 {
+        self.colors[x.idx]
     }
 
     fn n(&self) -> usize {
         N
     }
-    
+
+    fn point_iter(&self) -> std::slice::Iter<Point> {
+        self.points.iter()
+    }
+
     fn gamma(&self) -> u16 {
         *self.colors.iter().max().expect("No maximal color found")
     }
@@ -129,14 +149,16 @@ impl<const N: usize> ColoredMetric for SpaceMatrix<N> {
 
 // TODO: expand this to k-dim space by using "const generic"
 struct Space2D{
-    points : Vec<[f32;2]>, // points are saved as vector of tuples
+    points : Vec<Point>, // points are saved as vector of tuples
+    positions : Vec<[f32;2]>,
     colors : Vec<u16>,
 }
 
 // builder
-pub fn new_space_by_2dpoints(points : Vec<[f32;2]>, colors : Vec<u16>) -> Box<dyn ColoredMetric> {
+pub fn new_space_by_2dpoints(positions : Vec<[f32;2]>, colors : Vec<u16>) -> Box<dyn ColoredMetric> {
     Box::new(Space2D {
-        points,
+        points : (0..positions.len()).map(|i| Point{idx : i}).collect(),
+        positions,
         colors,
     })
 }
@@ -150,36 +172,41 @@ pub fn new_space_by_2dpoints_file(file_path : &str, expected_number_of_points : 
 
 
     // create vectors with initial capacity given expected number of points.
-    let mut points : Vec<[f32;2]> = Vec::with_capacity(expected_number_of_points);
+    let mut positions : Vec<[f32;2]> = Vec::with_capacity(expected_number_of_points);
     let mut colors : Vec<u16> = Vec::with_capacity(expected_number_of_points);
 
     for line in f.lines() {
         let content = line.unwrap();
         let content: Vec<&str> = content.split(',').collect();
-        points.push([content[0].parse::<f32>().expect(format!("Cannot parse x-entry to f32  on line {}.",points.len()).as_str()), content[1].parse::<f32>().expect(format!("Cannot parse y-entry to f32 on line {}.", points.len()).as_str())]);
+        positions.push([content[0].parse::<f32>().expect(format!("Cannot parse x-entry to f32  on line {}.",positions.len()).as_str()), content[1].parse::<f32>().expect(format!("Cannot parse y-entry to f32 on line {}.", positions.len()).as_str())]);
         colors.push(content[2].parse::<u16>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
 
     }
-    println!("Successfully loaded {} points/colors from '{}'", points.len(), file_path);
+    println!("Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
     
     #[cfg(debug_assertions)]
-    println!("points: {:?}", points);
+    println!("positions: {:?}", positions);
     #[cfg(debug_assertions)]
     println!("colors: {:?}", colors);
     Box::new(Space2D {
-        points,
+        points : (0..positions.len()).map(|i| Point{idx : i}).collect(),
+        positions,
         colors,
     })
 }
 
 impl ColoredMetric for Space2D {
-    fn dist(&self, x1: usize, x2: usize) -> f32 { // euclidean norm
-        let d_squared : f32 = (self.points[x1][0] - self.points[x2][0]) * (self.points[x1][0] - self.points[x2][0]) + (self.points[x1][1] - self.points[x2][1]) *(self.points[x1][1] - self.points[x2][1]);
+    fn dist(&self, x1: &Point, x2: &Point) -> f32 { // euclidean norm
+        let d_squared : f32 = (self.positions[x1.idx][0] - self.positions[x2.idx][0]) * (self.positions[x1.idx][0] - self.positions[x2.idx][0]) + (self.positions[x1.idx][1] - self.positions[x2.idx][1]) *(self.positions[x1.idx][1] - self.positions[x2.idx][1]);
         d_squared.sqrt()
     }
 
-    fn color(&self, x : usize) -> u16 {
-        self.colors[x]
+    fn color(&self, x : &Point) -> u16 {
+        self.colors[x.idx]
+    }
+
+    fn point_iter(&self) -> std::slice::Iter<Point> {
+        self.points.iter()
     }
 
     fn n(&self) -> usize {

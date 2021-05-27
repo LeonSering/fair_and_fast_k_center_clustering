@@ -9,30 +9,29 @@
  * clustering: centers, radius and assignment of points to centers
  *
  */
-pub use crate::space::ColoredMetric;
+use crate::space::{Point,ColoredMetric};
 
-pub struct Centers{
-    centers : Vec<usize>,
+pub struct Centers<'a>{
+    centers : Vec<&'a Point>,
 }
 
 use std::fs::File;
 use std::io::prelude::*;
-impl Centers{
+impl<'a> Centers<'a>{
     pub fn m(&self) -> usize {
         self.centers.len()
     }
 
-    pub fn get(&self, i: usize) -> usize {
-        self.centers[i].clone()
+    pub fn get(&self, i: usize) -> &Point {
+        self.centers[i]
 
     }
 
-    pub fn push(&mut self, c: usize) {
+    pub fn push(&mut self, c: &'a Point) {
         self.centers.push(c);
     }
 
-    pub fn iter(&self) -> std::slice::Iter<usize>{
-        
+    pub fn iter(&self) -> std::slice::Iter<&Point>{
         self.centers.iter()
     }
 
@@ -42,7 +41,7 @@ impl Centers{
         let mut f = File::create(file_path).expect("Cannot open file for writing centers");
         let mut text = String::new();
         for c in self.centers.iter(){
-            text = text + &format!("{},",c);
+            text = text + &format!("{},",c.idx);
         }
         text.pop(); //delete last comma
         f.write_all(text.as_bytes()).expect("Could not write into centers-file");
@@ -50,7 +49,7 @@ impl Centers{
     }
 }
 
-pub fn new_centers(capacity : usize) -> Centers{
+pub fn new_centers(capacity : usize) -> Centers<'static>{
     Centers{centers : Vec::with_capacity(capacity)}
 }
 
@@ -59,7 +58,7 @@ pub fn new_centers(capacity : usize) -> Centers{
 
 
 pub struct Clustering<'a>{
-    pub centers : Centers,
+    pub centers : Centers<'a>,
     pub radius : f32,
     pub center_of : Vec<usize>, // returns center to which point x belongs
     // alternative ways to save: reference: list of Cluster typs (consisting of Center and

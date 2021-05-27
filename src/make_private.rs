@@ -1,18 +1,21 @@
-use std::collections::VecDeque;
-
 use crate::ClusteringProblem;
+use crate::space::{Point,ColoredMetric};
 use crate::clustering::Centers;
-use crate::buckets::{put_into_buckets,assert_buckets_properties};
+
+mod buckets;
+use buckets::{put_into_buckets,assert_buckets_properties};
+
+use std::collections::VecDeque;
 
 // An edge for every center (left) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
-pub struct Edge { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
+pub struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
     pub d : f32,
-    left : usize,
-    right : usize,
+    left : usize, // index of the center in gonzales
+    right : &'a Point,
 }
-
+// TODO: Edge saves now a client in form of a Point on its right. This needs to be incooperated
 
 
 pub struct State {
@@ -32,28 +35,28 @@ pub struct State {
 }
 
 
-pub fn make_private(prob : ClusteringProblem, gonzales : Centers) { //TODO: Return value should be partialClustering
+pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, gonzales : Centers) { //TODO: Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k).
-    let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * prob.space.n());
+    let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
     for (j, c) in gonzales.iter().enumerate() {
-        for i in 0..prob.space.n() {
+        for i in 0..space.n() {
             edges.push(Edge{
                 left : j,
                 right : i,
-                d : prob.space.dist(*c, i)});
+                d : space.dist(*c, i)});
         }
     }
 
 //    println!("edges: {:?}", edges);
 
     // step 1: Compute buckets
-    let buckets = put_into_buckets(edges, (4*prob.space.n())/prob.k);
+    let buckets = put_into_buckets(edges, (4*space.n())/prob.k);
 
-    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", prob.k*prob.space.n(), buckets.len(), (4*prob.space.n())/prob.k);
+    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", prob.k*space.n(), buckets.len(), (4*space.n())/prob.k);
 
     #[cfg(debug_assertions)]
-    assert!(assert_buckets_properties(&buckets, prob.space.n(), prob.k));
+    assert!(assert_buckets_properties(&buckets, space.n(), prob.k));
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
         let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
@@ -72,10 +75,10 @@ pub fn make_private(prob : ClusteringProblem, gonzales : Centers) { //TODO: Retu
        // pending[j][t] contains only edges from gonzales.centers[j] contained in buckets[t]
 
     let mut state = State {
-        center: vec!(None; prob.space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to
+        center: vec!(None; space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to
         reassign: (0..prob.k).map(|_| (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect(),
         unassigned: (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect(),
-        aux: (0..prob.space.n()).map(|_| (0..prob.k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
+        aux: (0..space.n()).map(|_| (0..prob.k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
         path_in_aux_graph: (0..prob.k).map(|_| (0..prob.k).map(|_| false).collect()).collect(),
         path_in_aux_graph_to_non_private: vec![true; prob.k],
         number_of_covered_points: vec![0; prob.k],

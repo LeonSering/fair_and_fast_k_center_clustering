@@ -11,10 +11,10 @@ fn main() {
     let prob = ClusteringProblem{
         k : 5, // number of center;
         privacy_bound : 2, // number of points to represent;
-        space : space,
         //gamma : space.gamma();
     };
 
-    compute_privacy_preserving_representative_k_center(prob);
+    compute_privacy_preserving_representative_k_center(&space, prob);
+
 
 }
