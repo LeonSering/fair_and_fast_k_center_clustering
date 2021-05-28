@@ -40,11 +40,11 @@ pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, g
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
     for (j, c) in gonzales.iter().enumerate() {
-        for i in 0..space.n() {
+        for p in space.point_iter() {
             edges.push(Edge{
                 left : j,
-                right : i,
-                d : space.dist(*c, i)});
+                right : p,
+                d : space.dist(c, p)});
         }
     }
 
@@ -153,7 +153,7 @@ pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, g
 fn process_edge(e: Edge, i: usize, privacy_bound: usize, state: &mut State){
     // the pending part is moved to the main procedure
     let t = e.left;// maybe cloning needed
-    let x = e.right; // maybe cloning needed
+    let x = e.right.idx(); // maybe cloning needed
     match state.center[x] {
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:

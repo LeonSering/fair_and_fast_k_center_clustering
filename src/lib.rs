@@ -11,7 +11,7 @@ pub struct ClusteringProblem {
 
 
 mod space;
-pub use space::{Point,ColoredMetric,new_space_by_matrix,new_space_by_2dpoints_file,new_space_by_2dpoints}; // make it also public for external user (without the need to write ::space::)
+pub use space::{Point,ColoredMetric,new_space_by_matrix,new_space_by_2dpoints_file,new_space_by_2dpoints,new_space_with_random_2dpoints}; // make it also public for external user (without the need to write ::space::)
 
 mod clustering;
 //use clustering::{Centers,Clustering};

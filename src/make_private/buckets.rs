@@ -44,7 +44,7 @@ pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Ve
 
 // input: list of unsorted edges; an integer pos;
 // output: the value of the element that would have pos as index if list was sorted.
-fn median_of_medians(list: &Vec<Edge>, pos : usize) -> Edge {
+fn median_of_medians<'a>(list: & Vec<Edge::<'a>>, pos : usize) -> Edge::<'a> {
 
     let chunks = list.chunks(5);
     let mut sublist: Vec<Edge> = Vec::with_capacity(list.len()/5);
@@ -120,6 +120,7 @@ pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize) -
 mod tests {
     use rand::Rng;
     use super::*;
+    use crate::space::{Point,new_space_with_random_2dpoints};
     #[test]
     fn median_test() {
         let n = 100;
@@ -127,16 +128,18 @@ mod tests {
         // create n*k edges with dublicates:
         let mut rng = rand::thread_rng();
         let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
+        let space = new_space_with_random_2dpoints(n*k);
+        let points : Vec<&Point> = space.point_iter().collect();
         let mut list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
             left: i,
-            right: i,
+            right: points[i],
             d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
         let median = median_of_medians(&list, (list.len() - 1)/2);
 
         list.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
         assert_eq!(median, list[(list.len()-1)/2]);
-        println!("list: {:?}", list);
+        //println!("list: {:?}", list);
         println!("our median: {}; median by sorting: {}", median.d, list[(list.len()-1)/2].d);
     }
 
@@ -147,9 +150,11 @@ mod tests {
         // create n*k edges with dublicates:
         let mut rng = rand::thread_rng();
         let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
+        let space = new_space_with_random_2dpoints(n*k);
+        let points : Vec<&Point> = space.point_iter().collect();
         let list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
             left: i,
-            right: i,
+            right: points[i],
             d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
         let size_limit = (4*n)/k;
         let buckets = put_into_buckets(list, size_limit);

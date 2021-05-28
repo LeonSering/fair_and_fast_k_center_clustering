@@ -41,7 +41,7 @@ impl<'a> Centers<'a>{
         let mut f = File::create(file_path).expect("Cannot open file for writing centers");
         let mut text = String::new();
         for c in self.centers.iter(){
-            text = text + &format!("{},",c.idx);
+            text = text + &format!("{},",c.idx());
         }
         text.pop(); //delete last comma
         f.write_all(text.as_bytes()).expect("Could not write into centers-file");
