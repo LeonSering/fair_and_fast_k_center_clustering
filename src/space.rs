@@ -19,7 +19,7 @@
  * These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
  */
 
-#[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
+#[derive(Debug,PartialOrd,PartialEq,Eq,Hash)]
 pub struct Point{ // a point in the metric
     index : usize,
 }
@@ -104,7 +104,7 @@ pub trait ColoredMetric{
 // by N-array.
 struct SpaceMatrix<const N: usize>{
     distances: [[f32; N]; N], // distance matrix (later maybe implicit as distance function to avoid n^2 space)
-    points: [Point; N],
+    points: Vec<Point>,
     colors: [u16; N], // points as array or implicit? If implicity: array of color-classes.
 }
 
@@ -113,9 +113,10 @@ pub fn new_space_by_matrix<const N: usize>(distances : [[f32; N]; N], colors: [u
 
     // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
     // without unsafe rust.
-    let mut points = [Point{index : 0}; N];
+    //let mut points = [Point{index : 0}; N];
+    let mut points : Vec<Point> = Vec::with_capacity(N);
     for i in 0..N {
-        points[i] = Point{index:i};
+        points.push(Point{index:i});
     }
     Box::new(SpaceMatrix {
         distances,

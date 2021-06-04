@@ -8,13 +8,11 @@ pub struct ClusteringProblem {
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
 
-
-
 mod space;
 pub use space::{Point,ColoredMetric,new_space_by_matrix,new_space_by_2dpoints_file,new_space_by_2dpoints,new_space_with_random_2dpoints}; // make it also public for external user (without the need to write ::space::)
 
 mod clustering;
-//use clustering::{Centers,Clustering};
+pub use clustering::Clustering;
 
 mod gonzales;
 use gonzales::gonzales_heuristic;
@@ -25,7 +23,7 @@ use gonzales::gonzales_heuristic;
 mod make_private;
 use make_private::make_private;
 
-pub fn compute_privacy_preserving_representative_k_center(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem) {//-> Clustering {
+pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : ClusteringProblem) -> Clustering::<'a> {
 
 
     assert!(prob.k >= 1); // we want to allow at least 1 center
@@ -42,7 +40,7 @@ pub fn compute_privacy_preserving_representative_k_center(space : &Box<dyn Color
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
 
-    make_private(space, prob, gonzales);
+//    make_private(space, prob, gonzales);
 
     //////////////////////////////////////////////////////////////
     // phase 3: modify assignment, s.t. sizes are multiple of L //
@@ -52,6 +50,20 @@ pub fn compute_privacy_preserving_representative_k_center(space : &Box<dyn Color
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
+    
+    // TEMP: return empty clustering
+    //use clustering::new_centers;
+    
+    let first_center = gonzales.get(1);
+    let assignments = vec!(Some(first_center); space.n());
+    
+    let clustering = Clustering {
+ //       centers : new_centers(0),
+        centers : gonzales,
+        radius : 10.0,
+        center_of : assignments,
+    };
 
 
+    clustering
 }

@@ -14,7 +14,7 @@ fn main() {
         //gamma : space.gamma();
     };
 
-    compute_privacy_preserving_representative_k_center(&space, prob);
-
+    let clustering = compute_privacy_preserving_representative_k_center(&space, prob);
+    clustering.save_to_file("output.clustering");
 
 }
