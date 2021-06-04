@@ -4,8 +4,6 @@ use ff_k_center_lib::{ClusteringProblem,compute_privacy_preserving_representativ
 use ff_k_center_lib::{ColoredMetric,new_space_by_2dpoints_file};
 
 fn main() {
-
-
     // load test Space2D from file:
     let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file("test.2dspace",15);
     let prob = ClusteringProblem{

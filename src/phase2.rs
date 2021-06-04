@@ -1,6 +1,6 @@
 use crate::ClusteringProblem;
 use crate::space::{Point,ColoredMetric};
-use crate::clustering::Centers;
+use crate::clustering::{Clustering,Centers};
 
 mod buckets;
 use buckets::{put_into_buckets,assert_buckets_properties};
@@ -35,7 +35,7 @@ pub struct State {
 }
 
 
-pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, gonzales : Centers) { //TODO: Return value should be partialClustering
+pub fn make_private<'a>(space : &Box<dyn ColoredMetric>, prob : &ClusteringProblem, gonzales : Centers<'a>) -> Clustering<'a> { //TODO: Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
@@ -62,6 +62,7 @@ pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, g
         let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
         println!(" Bucket {}: {:?}", i, bucket_of_dist);
     }
+
 
 
 
@@ -142,6 +143,17 @@ pub fn make_private(space : &Box<dyn ColoredMetric>, prob : ClusteringProblem, g
             println!("TODO settleSet({},{})", i, j); // settleSet mean to do binary research on the current bucket
             i += 1;
         }
+    }
+    
+    // crate temp clustering
+    let first_center = gonzales.get(1);
+    let assignments = vec!(Some(first_center); space.n());
+    
+    Clustering {
+ //       centers : new_centers(0),
+        centers : gonzales,
+        radius : 10.0,
+        center_of : assignments,
     }
 }
 

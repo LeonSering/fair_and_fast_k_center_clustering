@@ -1,4 +1,4 @@
-use crate::make_private::Edge;
+use super::Edge;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets of size <= 4k/k + 1 edges; with property of Lemma 3;
