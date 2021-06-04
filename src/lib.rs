@@ -25,7 +25,10 @@ use phase2::make_private;
 mod phase3;
 use phase3::redistribute;
 
-pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : ClusteringProblem) -> Clustering::<'a> {
+mod phase4;
+use phase4::finalize;
+
+pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : &ClusteringProblem) -> Clustering::<'a> {
 
 
     assert!(prob.k >= 1); // we want to allow at least 1 center
@@ -42,22 +45,20 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
 
-    let mut clustering = make_private(space, &prob, gonzales);
+    let mut clustering = make_private(space, prob, gonzales);
     // clustering is now a partial clustering
 
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
-    clustering = redistribute(space, &prob, clustering);
+    clustering = redistribute(space, prob, clustering);
 
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
-    
-    // TEMP: return empty clustering
-    //use clustering::new_centers;
-    
 
+    clustering = finalize(space, &prob, clustering); 
+    
 
     clustering
 }
