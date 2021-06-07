@@ -1,15 +1,11 @@
 use super::Edge;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
-// Output: list of buckets of size <= 4k/k + 1 edges; with property of Lemma 3;
+// Output: list of buckets of size <= ceil(4n/k) edges; with property of Lemma 3;
 pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Vec<Edge>> {
     let mut smaller_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
     let mut bigger_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
 
-//    let distances: Vec<f32> = list.iter().map(|x| x.d).collect(); //turn edge-list into list of distances
-//    println!("distances: {:?}", distances);
-//    println!("length of list: {}", list.len());
-    
     let median: Edge = median_of_medians(&list, (list.len()-1)/2); // O(n) by Master Theorem
     let median = median.clone();
 
@@ -24,8 +20,7 @@ pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Ve
             bigger.push(edge);
         }
     }
-//    println!("Smaller: {:?}", smaller.len());
-//    println!("Bigger: {:?}", bigger.len());
+    
     if smaller.len() <= bucket_size_limit {
         smaller_buckets.push(smaller);
     } else {
@@ -99,7 +94,7 @@ pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize) -
 
     assert!(buckets.len() <= k*k);
 
-    let size_limit = (4*n)/k;
+    let size_limit = (4*n-1)/k+1;
     let mut d_of_last: f32 = <f32>::MIN;
     for bucket in buckets.iter() {
         assert!(bucket.len() <= size_limit);

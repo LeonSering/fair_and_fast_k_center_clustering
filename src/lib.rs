@@ -28,11 +28,15 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
-pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : &ClusteringProblem) -> Clustering::<'a> {
+pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem) -> Clustering<'a> {
 
 
     assert!(prob.k >= 1); // we want to allow at least 1 center
     assert!(space.n() >= prob.k); // the number of points should not be less than the number of centers
+    
+    /////////////////////////////////////////////////////////////////////////////////////
+    // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
+    /////////////////////////////////////////////////////////////////////////////////////
 
     let gonzales = gonzales_heuristic(space, prob.k);
 
@@ -45,20 +49,29 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
 
-    let mut clustering = make_private(space, prob, gonzales);
-    // clustering is now a partial clustering
+    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, gonzales);
+    // clusterings is now a vector of partial clustering
+
+
+
 
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
-    clustering = redistribute(space, prob, clustering);
+    
+    clusterings = redistribute(space, prob, clusterings);
+
+
 
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    clustering = finalize(space, &prob, clustering); 
+    clusterings = finalize(space, &prob, clusterings); 
     
 
-    clustering
+
+
+    // TODO somehwere here we should pick the best clustering
+    clusterings.pop().unwrap()
 }

@@ -7,7 +7,7 @@ use buckets::{put_into_buckets,assert_buckets_properties};
 
 use std::collections::VecDeque;
 
-// An edge for every center (left) to every point (right). note that center appear on both sides.
+// An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
 pub struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
@@ -15,29 +15,33 @@ pub struct Edge<'a> { // Care: The ordering of attributes is important for the p
     left : usize, // index of the center in gonzales
     right : &'a Point,
 }
-// TODO: Edge saves now a client in form of a Point on its right. This needs to be incooperated
 
+// centers_graph: nodes = centers 0,...,i (i goes from 0 to k-1) and we have an arc c_1 to c_2 iff
+// there is a point x that is assigned to c_1 but could also be assigne to c_2
+// centers_graph is basically the connectivity within the residual graph on the left side of the
+// flow network.
 
-pub struct State {
-    pub center: Vec<Option<usize>>, // center[x] is the assigned center of point x
-    pub reassign: Vec<Vec<VecDeque<usize>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
-    pub unassigned: Vec<VecDeque<Option<usize>>>, // unassigned[c] contains all points that are unassigned but could be assigned to c
-    pub aux: Vec<Vec<Option<usize>>>,
-    pub number_of_covered_points: Vec<usize>, // the number of points covered by center c; if this equals privacy_bound this center is "private"; if it is smaller than it is "non-private"
-    pub path_in_aux_graph: Vec<Vec<bool>>, // indicates whether there is a path in aux_graph from c_1 to c_2; The arcs in aux_graph are excactly the one for which reassign is non-empty; should always be transitiv
-    pub path_in_aux_graph_to_non_private: Vec<bool>, // indicates whether a center is non-private or has a path in aux_graph to a non-private center
+// describes the state of the flow network and of the auxiliray graph.
+#[derive(Debug)]
+pub struct State<'a>{
+    pub center_of: Vec<Option<usize>>, // center[x] is the assigned center (in form of gonzales index) of point x
+    pub reassign: Vec<Vec<VecDeque<&'a Point>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
+    pub unassigned: Vec<VecDeque<&'a Point>>, // unassigned[c] contains all points that are unassigned but could be assigned to c
+    // reassign and unassigned might not be correctly updated at all times. E.g., a point in
+    // reassign might not be assigned to c anymore; or a point in unassigned might be assigned
+    // later on. So whenever an element is poped it needs to be checked if it still makes sense.
+    pub number_of_covered_points: Vec<usize>, // the number of points covered by center c; if this equals privacy_bound this center is "private"; if it is smaller than it is "non-private".; if the has more than that it is "overfull"
+    pub path_in_centers_graph: Vec<Vec<bool>>, // indicates whether there is a path in centers_graph from c_1 to c_2; 
+    pub path_in_centers_graph_to_non_private: Vec<bool>, // indicates whether a center is non-private or has a path in centers_graph to a non-private center
     pub max_flow: usize, // the current value of a maximum flow
-
-    // method "take_snapshot" and "restore_snapshot" should probably be implemented here.
-    // So whenever take_snapshot is called, all later changes are recorded.
-    // Calling restore_snapshot rollback all theses changes.
-    // I wonder if we need to include "Pending" to the struct.
 }
 
+/// Given a metric space and a ClusteringProblem, make_private takes a set of ordered centers
+/// 0,...,k-1, and determines for each prefix of centers (0,...,i) a partial clustering with minimal radius that satisfy the
+/// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points. 
+pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem, gonzales : Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
-pub fn make_private<'a>(space : &Box<dyn ColoredMetric>, prob : &ClusteringProblem, gonzales : Centers<'a>) -> Clustering<'a> { //TODO: Return value should be partialClustering
-
-// create edges: care, edge.left stores the index of the gonzales center (0,...,k).
+// create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
     for (j, c) in gonzales.iter().enumerate() {
         for p in space.point_iter() {
@@ -50,10 +54,10 @@ pub fn make_private<'a>(space : &Box<dyn ColoredMetric>, prob : &ClusteringProbl
 
 //    println!("edges: {:?}", edges);
 
-    // step 1: Compute buckets
-    let buckets = put_into_buckets(edges, (4*space.n())/prob.k);
+    // step 1: Compute buckets with limit ceil(4n/k)
+    let buckets = put_into_buckets(edges, (4*space.n()-1)/prob.k + 1);
 
-    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most 4n/k = {}.", prob.k*space.n(), buckets.len(), (4*space.n())/prob.k);
+    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k) = {}.", prob.k*space.n(), buckets.len(), (4*space.n()-1)/prob.k+1);
 
     #[cfg(debug_assertions)]
     assert!(assert_buckets_properties(&buckets, space.n(), prob.k));
@@ -67,135 +71,141 @@ pub fn make_private<'a>(space : &Box<dyn ColoredMetric>, prob : &ClusteringProbl
 
 
     // step 2: solve flow prolbem
-    println!("** Phase 2b: Determine smallest radii that satisfy privacy. Privacy constant privacy_bound = {}.", prob.privacy_bound);
+    println!("** Phase 2b: Determine smallest radii and assignment that satisfy privacy. Privacy constant privacy_bound = {}.", prob.privacy_bound);
     let b = buckets.len(); // number of buckets
 
 
-    // TODO: think of correct capacities
-    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect();
-       // pending[j][t] contains only edges from gonzales.centers[j] contained in buckets[t]
-
+    // TODO: think of correct Vec_capacities
+    let mut pending: Vec<Vec<VecDeque<&Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect();
+       // pending[j][t] contains edges from buckets[t] with left = j (which is a center not considered yet)
+       // note that t can also be the current bucket, but then pending only contains edges that has
+       // a distance small than the settled radius of the previous center, i.e., they can be added
+       // fearlessly
     let mut state = State {
-        center: vec!(None; space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to
+        center_of: vec!(None; space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
         reassign: (0..prob.k).map(|_| (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect(),
         unassigned: (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect(),
-        aux: (0..space.n()).map(|_| (0..prob.k).map(|_| None ).collect()).collect(), //TODO: need  to be initialised differently
-        path_in_aux_graph: (0..prob.k).map(|_| (0..prob.k).map(|_| false).collect()).collect(),
-        path_in_aux_graph_to_non_private: vec![true; prob.k],
+        path_in_centers_graph: (0..prob.k).map(|i| (0..prob.k).map(|j| if i == j {true} else {false}).collect()).collect(), // in the beginning there are no arcs in centers_graph
+        path_in_centers_graph_to_non_private: vec![true; prob.k], // in the beginning all centers are non_private
         number_of_covered_points: vec![0; prob.k],
         max_flow: 0,
     };
 
+
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
+    let mut current_bucket_iter = buckets[j].iter(); // an iterator over the remaining edges in the current bucket
 
-    while i < prob.k {
+    while i < prob.k { // extend set of gonzales centers one by one
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
-        for l in 0..j {
-            // here, we process edges from previous buckets (< j) that were ignored because they
+        for l in 0..j+1 {
+            // here, we process edges from previous (and the current) buckets (<= j) that were ignored because they
             // were adjacent to ceners not in the set that was being processed
 
             while !pending[i][l].is_empty() {
                 let e = pending[i][l].pop_front().unwrap();
-                println!("Process pending edge TODO: {:?}", e);
+                println!("Adding pending edge: {:?}", e);
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
-                process_edge(e, i, prob.privacy_bound, &mut state);
+                add_edge(e, i, prob.privacy_bound, &mut state);
             }
         }
-        if state.max_flow >= (i + 1) * prob.privacy_bound {
-            #[cfg(debug_assertions)]
-            assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-            println!("Center {} done.", i);
-            i += 1;
-        } else {
-            while state.max_flow < (i + 1) * prob.privacy_bound {
-                assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*prob.privacy_bound);
-                for t in 0..i {
-                    // here, we release edges of the current bucket that were "pending" because
-                    // they were adjecent to centers not in the gonzales set at the point in time
-                    // LEON: not sure if this is needed at all. But I guess having empty
-                    // pending-queus is nice.
-                    pending[t][j].clear();
-                }
-                println!("TODO: Take snapshot"); // that means basically to copy everthing (save the flow state) but really copying is too costly.
-                for e in buckets[j].iter() {
-                    // here, we (try to) process the current bucket with index j
-                    let t = e.left;
-                    if t > i {
-                        // in this case the left side (t) is a center not yet considered, so we
-                        // postpone the processing of the arc to the point when i >= t
-                        pending[t][j].push_back(*e);
-                    } else {
-                        // in this case we do the processing.
-                        println!("Process edge : {:?}", *e);
-                        process_edge(*e, i, prob.privacy_bound, &mut state);
-                    }
 
-                    // TODO: I would expect that we need to check the max_flow value after each
-                    // edge.
-                }
+
+        while state.max_flow < (i + 1) * prob.privacy_bound {
+            assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*prob.privacy_bound);
+            
+            let e = current_bucket_iter.next();
+            if e == None { //the current bucket has been completed
                 println!("Bucket {} done.", j);
                 j += 1;
+                assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
+                current_bucket_iter = buckets[j].iter(); // iterator of the next bucket
+                continue; //continue the while loop
             }
-            // at this point, we have identified the bucket that settles the set S_i
-            j -= 1;
-            println!("TODO settleSet({},{})", i, j); // settleSet mean to do binary research on the current bucket
-            i += 1;
+            let e = e.unwrap();
+
+            let t = e.left; // t is the index of the center on the left of e
+            if t > i {
+                // in this case the left side (t) corresponds to a center not yet considered, so we
+                // postpone the processing of the arc to the point when i == t
+                pending[t][j].push_back(e);
+            } else {
+                // in this case we do add edge e.
+                println!("Adding edge : {:?}", e);
+                add_edge(e, i, prob.privacy_bound, &mut state);
+            }
         }
+
+
+        // at this point, we have identified the bucket that settles the set S_i
+        #[cfg(debug_assertions)]
+        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
+        println!("Center {} done in bucket {}.", i, j);
+        //TODO Settle Bucket j
+        i += 1;
     }
     
     // crate temp clustering
+    //
+    let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     let first_center = gonzales.get(1);
     let assignments = vec!(Some(first_center); space.n());
-    
-    Clustering {
+     
+    clusterings.push(Clustering {
  //       centers : new_centers(0),
         centers : gonzales,
         radius : 10.0,
         center_of : assignments,
-    }
+    });
+    clusterings
 }
 
-// input: the edge e for processing, the current gonzales set i, the current bucket j, and the
+// input: the edge e for processing, the current gonzales set (0,...,i), the current bucket j, and the
 //        index t of the center of e.left (within the gonzales set)
 // task: add edge e to the current flow network and look for an augmenting path to increase the
 // flow by 1; then execute this augmentation
 #[allow(non_snake_case)]
-fn process_edge(e: Edge, i: usize, privacy_bound: usize, state: &mut State){
-    // the pending part is moved to the main procedure
-    let t = e.left;// maybe cloning needed
-    let x = e.right.idx(); // maybe cloning needed
-    match state.center[x] {
+fn add_edge<'a>(e: &'a Edge, i: usize, privacy_bound: usize, state: &mut State<'a>){
+    let t = e.left;
+    let x = e.right; // maybe cloning needed
+    match state.center_of[x.idx()] {
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:
-            state.unassigned[t].push_back(Some(x));
-
-            // the pointer Aux[x][t] points to the index representing x at the queue unassigned[t]
-            state.aux[x][t] = Some(state.unassigned[t].len()-1);
+            state.unassigned[t].push_back(x);
         },
         Some(center_of_x) => {
             // in this case, x is already assigned to center[x], so we have to add the new edges in
-            // the auxiliary graph aux_graph
+            // the centers graph 
             state.reassign[center_of_x][t].push_back(x);
-            state.aux[x][t] = Some(state.reassign[center_of_x][t].len()-1);
-            state.path_in_aux_graph[center_of_x][t] = true;
 
-            // we now update reachability status in graph aux_graph
+            // There is now a path from center_of_x to t:
+            state.path_in_centers_graph[center_of_x][t] = true;
+
+            // update reachability status in centers graph
             for q in 0..(i+1) {
-                state.path_in_aux_graph[q][t] = state.path_in_aux_graph[q][t] || state.path_in_aux_graph[q][center_of_x];
-                if !state.path_in_aux_graph_to_non_private[q] && state.path_in_aux_graph[q][center_of_x] && state.path_in_aux_graph_to_non_private[t] {
-                    state.path_in_aux_graph_to_non_private[q] = true;
-                }
+                state.path_in_centers_graph[q][t] = state.path_in_centers_graph[q][t] || state.path_in_centers_graph[q][center_of_x];
+                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[t]);
             }
         }
     }
+
+    // the edge has been added, now we need to look if there is an augmenting path to increase the
+    // max_flow:
 
     // looking for the first center v (in 0,...,i) that has a path and unassigned nodes that could be
     // assigned to v
     let mut v = 0;
     while v <=i {
-        if !state.unassigned[v].is_empty() && state.path_in_aux_graph_to_non_private[v] {
+
+        // first look for invalid entries in unassigned[v]
+        while !state.unassigned[v].is_empty() {
+            if state.center_of[state.unassigned[v].front().unwrap().idx()] != None { // in the case that the first element is not unassigned anymore
+                state.unassigned[v].pop_front(); // discard this entry
+            }
+        }
+
+        if !state.unassigned[v].is_empty() && state.path_in_centers_graph_to_non_private[v] {
             break;
         } else {
             v += 1;
@@ -211,24 +221,24 @@ fn process_edge(e: Edge, i: usize, privacy_bound: usize, state: &mut State){
 
     // y is a point that is unassigned, i.e. there is a free arc from y to the sink. This is
     // our first arc of the augmenting path (from sink to source)
-    let mut y: usize = state.unassigned[v].pop_front().expect("unassigned is empty").expect("unassigned element was None");
+    let mut y = state.unassigned[v].pop_front().expect("unassigned is empty");
 
 
     // some update in updates to aux and reassign are needed (not sure yet)
     for z in 0..(i+1) {
         if z != v {
-            match state.aux[y][z] {
-                Some(_) => {
-                    state.aux[y][z] = None;
-                    state.reassign[v][z].push_back(y);
-                }
-                None => {}
-            }
+//            match state.aux[y][z] {
+//                Some(_) => {
+//                    state.aux[y][z] = None;
+//                    state.reassign[v][z].push_back(y);
+//                }
+//                None => {}
+//            }
         }
     }
     // TODO: Someting with AUX
 
-    state.center[y] = Some(v); // assign y to v
+    state.center_of[y.idx()] = Some(v); // assign y to v
     state.number_of_covered_points[v] += 1; // v covers now one points more
 
     // Now it could be the case that v is private already (covers privacy_bound points already), so we need to find a new center
@@ -237,7 +247,7 @@ fn process_edge(e: Edge, i: usize, privacy_bound: usize, state: &mut State){
 //            #[cfg(debug_assertions)]
 //            assert_eq!(state.number_of_covered_points[v], privacy_bound, "Center {} covers too many points, namely {}", v, state.number_of_covered_points[v]);
 
-        // need to find new center w, such that arc (v,w) is in aux_graph
+        // need to find new center w, such that arc (v,w) is in centers_graph
         // TODO: maybe we need to be more carful, s.t. we don't run in circles
         let mut w = 0;
         while w <= i {
@@ -248,15 +258,15 @@ fn process_edge(e: Edge, i: usize, privacy_bound: usize, state: &mut State){
             }
         }
         if w == i+1 {
-            panic!("There is no center w such that (v, w) is in aux_graph. This contradicts the fact that B[v] == True; v = {}", v);
+            panic!("There is no center w such that (v, w) is in centers_graph. This contradicts the fact that B[v] == True; v = {}", v);
         }
         // w is our next center in the augmenting path. We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
         y = state.reassign[v][w].pop_front().expect("unassigned is empty");
-        state.center[y] = Some(w);
+        state.center_of[y.idx()] = Some(w);
         state.number_of_covered_points[w] += 1;
         // TODO: now we need to fix the reassign queues.
-        // and withit the complete aux_graph structure; probably aux is needed.
+        // and withit the complete centers_graph structure; probably centers is needed.
         v = w;
 
     }
