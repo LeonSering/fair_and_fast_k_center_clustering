@@ -96,8 +96,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
     let mut current_bucket_iter = buckets[j].iter(); // an iterator over the remaining edges in the current bucket
 
-    println!("MAKE_PRIVTE with L = {}", prob.privacy_bound);
-    println!("**** Bucket {}.", j);
+    println!("\n\nMAKE_PRIVTE with L = {}", prob.privacy_bound);
+    println!("\n\n************************ Bucket {} ***********************", j);
     while i < prob.k { // extend set of gonzales centers one by one
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
@@ -108,8 +108,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
             while !pending[i][l].is_empty() {
                 let e = pending[i][l].pop_front().unwrap();
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
+                println!("  Adding: {:?} (pending from bucket = {})", e, l);
                 add_edge(e, i, prob, &mut state);
-                println!("  Added: {:?} (pending from bucket = {}); max_flow = {}", e, i, state.max_flow);
             }
         }
 
@@ -120,7 +120,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
             let e = current_bucket_iter.next();
             if e == None { //the current bucket has been completed
                 j += 1;
-                println!("**** Bucket {}.", j);
+                println!("\n\n************************ Bucket {} ***********************", j);
                 assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
                 current_bucket_iter = buckets[j].iter(); // iterator of the next bucket
                 continue; //continue the while loop
@@ -134,8 +134,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
                 pending[t][j].push_back(e);
             } else {
                 // in this case we do add edge e.
+                println!("  Adding: {:?} from bucket = {}", e,j);
                 add_edge(e, i, prob, &mut state);
-                println!("  Added: {:?} from bucket = {}; max_flow = {}", e,j, state.max_flow);
             }
         }
 
@@ -143,7 +143,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
         // at this point, we have identified the bucket that settles the set S_i
         #[cfg(debug_assertions)]
         assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-        println!("  +++ Center {} done in bucket {}.", i, j);
+        println!("+++ Center {} done in bucket {}.\n", i, j);
         //TODO Settle Bucket j
         i += 1;
     }
@@ -175,23 +175,56 @@ fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut Sta
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:
             state.unassigned[t].push_back(x);
+            println!("\tcurrent point is unassigned");
         },
         Some(center_of_x) => {
             // in this case, x is already assigned to center[x], so we have to add the new edges in
             // the centers graph 
             state.reassign[center_of_x][t].push_back(x);
+            println!("\tcurrent point is assigned to {}", center_of_x);
 
-            // There is now a path from center_of_x to t:
-            state.path_in_centers_graph[center_of_x][t] = true;
-
-            // update reachability status in centers graph
-            for q in 0..(i+1) {
-                state.path_in_centers_graph[q][t] = state.path_in_centers_graph[q][t] || state.path_in_centers_graph[q][center_of_x];
-                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[t]);
-            }
+//            // There is now a path from center_of_x to t:
+//            state.path_in_centers_graph[center_of_x][t] = true;
+//
+//            // update reachability status in centers graph
+//            for q in 0..(i+1) {
+//                state.path_in_centers_graph[q][t] = state.path_in_centers_graph[q][t] || state.path_in_centers_graph[q][center_of_x];
+//                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[t]);
+//            }
         }
     }
+    augment_flow(prob,i,state);
+}
 
+fn remove_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut State<'a>) {
+    let t = e.left;
+    let x = e.right;
+    match state.center_of[x.idx()] {
+        None => {}
+        Some(center_of_x) => {
+            if center_of_x == t { // arc e is flow carrying:
+                state.max_flow -= 1;
+                state.center_of[x.idx()] = None;
+                // this unassignment indirectly also updates reassign, because whenever something is
+                // poped from reassign[t][_] we check whether that x is assigned to t 
+                // also x cannot be part unassigned[t] at this point, because the moment it was
+                // assigned to t it was poped from unassigned[t] (and it can only enter this queue
+                // again, when edge e is added to the network)
+                augment_flow(prob, i, state); // see if we can add a flow unit along other paths
+            }
+
+        }
+
+
+    }
+
+}
+
+fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
+
+    // this is done way too ofter. Is it possible to check update these data_structures?
+    build_centers_graph(prob,state);
+    
     // the edge has been added, now we need to look if there is an augmenting path to increase the
     // max_flow:
 
@@ -218,10 +251,10 @@ fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut Sta
     }
 
     if v == i+1{
-        println!("    no agumenting path found");
+        println!("\tno agumenting path found\n");
         return;
     }
-    println!("    augmenting path exists");
+    println!("\taugmenting path exists");
     state.max_flow += 1;
 
     // y is a point that is unassigned, i.e. there is a free arc from y to the sink. This is
@@ -236,7 +269,12 @@ fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut Sta
     //
     let mut not_visited_yet = state.path_in_centers_graph_to_non_private.clone();
     not_visited_yet[v] = false;
-
+//    println!("not visited yet: {:?}", not_visited_yet);
+//    println!("number_of_covered_points {:?}", state.number_of_covered_points);
+//    
+//    println!("reassign: {:?}", state.reassign);
+//    println!("path_in_centers_graph: {:?}", state.path_in_centers_graph);
+             
     while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
 
         // need to find new center w, such that arc (v,w) is in centers_graph
@@ -248,12 +286,8 @@ fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut Sta
             }
 
             // in reassign might be some invalid entries, get rid of them
-            while !state.reassign[v][w].is_empty() {
-                if state.center_of[state.reassign[v][w].front().unwrap().idx()] != Some(v) { // in thie case that the first element is not assigned to v..
-                    state.reassign[v][w].pop_front(); // ..discard this entry
-                } else {
-                    break;
-                }
+            while !state.reassign[v][w].is_empty() && state.center_of[state.reassign[v][w].front().unwrap().idx()] != Some(v) {// in thie case that the first element is not assigned to v..
+                state.reassign[v][w].pop_front(); // ..discard this entry
             }
 
 
@@ -280,18 +314,30 @@ fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut Sta
     }
     // here the flow has been augmented, overall only the last node (v = w) covers now one point
     // more than before
-    
-    // if v is now private we need to rebuild path_in_centers and path_in_centers_to_non_private
-    if state.number_of_covered_points[v] == prob.privacy_bound {
-        println!("Rebuild path_in_centers and path_in_centers_to_non_private");
-        state.path_in_centers_graph_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
-        state.path_in_centers_graph = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
-        for _ in 1..prob.k {
-            //TO be continued
+}
+   
+fn build_centers_graph(prob: &ClusteringProblem, state: &mut State) {
+    // we need to rebuild path_in_centers_graph and path_in_centers_to_non_private
+    // TODO: This is not done properly, it takes k^3
+    state.path_in_centers_graph_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
+    state.path_in_centers_graph = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
+    for c1 in 0..prob.k {
+        for c2 in 0..prob.k {
             
+            // in reassign might be some invalid entries, get rid of them first
+            while !state.reassign[c1][c2].is_empty() && state.center_of[state.reassign[c1][c2].front().unwrap().idx()] != Some(c1) { 
+                state.reassign[c1][c2].pop_front(); // ..discard this entry
+            }
+
+            if !state.reassign[c1][c2].is_empty() { // there is an arc from c1 to c2:
+                for c3 in 0..prob.k {
+                    state.path_in_centers_graph[c1][c3] = state.path_in_centers_graph[c1][c3] || state.path_in_centers_graph[c2][c3];
+                    state.path_in_centers_graph_to_non_private[c1] = state.path_in_centers_graph_to_non_private[c1] || (state.path_in_centers_graph[c1][c3] && state.path_in_centers_graph_to_non_private[c3]);
+                }
+            }
         }
-
-
     }
+
+    println!("\tnew max flow value = {}\n", state.max_flow);
 
 }
