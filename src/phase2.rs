@@ -96,6 +96,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
     let mut current_bucket_iter = buckets[j].iter(); // an iterator over the remaining edges in the current bucket
 
+    println!("MAKE_PRIVTE with L = {}", prob.privacy_bound);
+    println!("**** Bucket {}.", j);
     while i < prob.k { // extend set of gonzales centers one by one
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
@@ -105,9 +107,9 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 
             while !pending[i][l].is_empty() {
                 let e = pending[i][l].pop_front().unwrap();
-                println!("Adding pending edge: {:?}", e);
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
-                add_edge(e, i, prob.privacy_bound, &mut state);
+                add_edge(e, i, prob, &mut state);
+                println!("  Added: {:?} (pending from bucket = {}); max_flow = {}", e, i, state.max_flow);
             }
         }
 
@@ -117,8 +119,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
             
             let e = current_bucket_iter.next();
             if e == None { //the current bucket has been completed
-                println!("Bucket {} done.", j);
                 j += 1;
+                println!("**** Bucket {}.", j);
                 assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
                 current_bucket_iter = buckets[j].iter(); // iterator of the next bucket
                 continue; //continue the while loop
@@ -132,8 +134,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
                 pending[t][j].push_back(e);
             } else {
                 // in this case we do add edge e.
-                println!("Adding edge : {:?}", e);
-                add_edge(e, i, prob.privacy_bound, &mut state);
+                add_edge(e, i, prob, &mut state);
+                println!("  Added: {:?} from bucket = {}; max_flow = {}", e,j, state.max_flow);
             }
         }
 
@@ -141,12 +143,12 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
         // at this point, we have identified the bucket that settles the set S_i
         #[cfg(debug_assertions)]
         assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-        println!("Center {} done in bucket {}.", i, j);
+        println!("  +++ Center {} done in bucket {}.", i, j);
         //TODO Settle Bucket j
         i += 1;
     }
     
-    // crate temp clustering
+    // create temp clustering
     //
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     let first_center = gonzales.get(1);
@@ -166,7 +168,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 // task: add edge e to the current flow network and look for an augmenting path to increase the
 // flow by 1; then execute this augmentation
 #[allow(non_snake_case)]
-fn add_edge<'a>(e: &'a Edge, i: usize, privacy_bound: usize, state: &mut State<'a>){
+fn add_edge<'a>(e: &'a Edge, i: usize, prob: &ClusteringProblem, state: &mut State<'a>){
     let t = e.left;
     let x = e.right; // maybe cloning needed
     match state.center_of[x.idx()] {
@@ -200,11 +202,14 @@ fn add_edge<'a>(e: &'a Edge, i: usize, privacy_bound: usize, state: &mut State<'
 
         // first look for invalid entries in unassigned[v]
         while !state.unassigned[v].is_empty() {
-            if state.center_of[state.unassigned[v].front().unwrap().idx()] != None { // in the case that the first element is not unassigned anymore
-                state.unassigned[v].pop_front(); // discard this entry
+            if state.center_of[state.unassigned[v].front().unwrap().idx()] != None { // in the case that the first element is not unassigned anymore..
+                state.unassigned[v].pop_front(); // ..discard this entry
+            } else {
+                break;
             }
         }
-
+        
+        // then look for a center that has unassgined nodes and a path to a private node
         if !state.unassigned[v].is_empty() && state.path_in_centers_graph_to_non_private[v] {
             break;
         } else {
@@ -213,61 +218,79 @@ fn add_edge<'a>(e: &'a Edge, i: usize, privacy_bound: usize, state: &mut State<'
     }
 
     if v == i+1{
-        println!("no agumenting path found");
+        println!("    no agumenting path found");
         return;
     }
-    println!("augmenting path exists");
+    println!("    augmenting path exists");
     state.max_flow += 1;
 
     // y is a point that is unassigned, i.e. there is a free arc from y to the sink. This is
     // our first arc of the augmenting path (from sink to source)
-    let mut y = state.unassigned[v].pop_front().expect("unassigned is empty");
+    let mut p = state.unassigned[v].pop_front().expect("unassigned should not be empty");
 
-
-    // some update in updates to aux and reassign are needed (not sure yet)
-    for z in 0..(i+1) {
-        if z != v {
-//            match state.aux[y][z] {
-//                Some(_) => {
-//                    state.aux[y][z] = None;
-//                    state.reassign[v][z].push_back(y);
-//                }
-//                None => {}
-//            }
-        }
-    }
-    // TODO: Someting with AUX
-
-    state.center_of[y.idx()] = Some(v); // assign y to v
+    state.center_of[p.idx()] = Some(v); // assign y to v
     state.number_of_covered_points[v] += 1; // v covers now one points more
 
-    // Now it could be the case that v is private already (covers privacy_bound points already), so we need to find a new center
+    // Now it could be the case that v is private already (covers privacy_bound many points already), so we need to find a new center
+    // for this we do a DFS on the cneters_graph (but only on the centers that has a path to a non_private center)
+    //
+    let mut not_visited_yet = state.path_in_centers_graph_to_non_private.clone();
+    not_visited_yet[v] = false;
 
-    while state.number_of_covered_points[v] > privacy_bound { // while v is overfull
-//            #[cfg(debug_assertions)]
-//            assert_eq!(state.number_of_covered_points[v], privacy_bound, "Center {} covers too many points, namely {}", v, state.number_of_covered_points[v]);
+    while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
 
         // need to find new center w, such that arc (v,w) is in centers_graph
-        // TODO: maybe we need to be more carful, s.t. we don't run in circles
         let mut w = 0;
         while w <= i {
-            if !state.reassign[v][w].is_empty() {
+            if !not_visited_yet[w] { // w has been visited already (or there is no path from w to non_private center)
+                w += 1;
+                continue;
+            }
+
+            // in reassign might be some invalid entries, get rid of them
+            while !state.reassign[v][w].is_empty() {
+                if state.center_of[state.reassign[v][w].front().unwrap().idx()] != Some(v) { // in thie case that the first element is not assigned to v..
+                    state.reassign[v][w].pop_front(); // ..discard this entry
+                } else {
+                    break;
+                }
+            }
+
+
+            if !state.reassign[v][w].is_empty() { // if there are still an element left, there is an arc v w in centers_graph, an w leads to a non_private center
                 break;
             } else {
                 w += 1;
             }
         }
         if w == i+1 {
-            panic!("There is no center w such that (v, w) is in centers_graph. This contradicts the fact that B[v] == True; v = {}", v);
+            panic!("There is no center w such that (v, w) is in centers_graph and w leads to a non_private center. This contradicts the fact that B[v] == True; v = {}", v);
         }
-        // w is our next center in the augmenting path. We reassign y, which means adding
+
+        // w is our next center in the augmenting path (the dfs). We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
-        y = state.reassign[v][w].pop_front().expect("unassigned is empty");
-        state.center_of[y.idx()] = Some(w);
+        not_visited_yet[w] = false;
+        p = state.reassign[v][w].pop_front().expect("unassigned is empty");
+        state.center_of[p.idx()] = Some(w); // reassign y to w
+        state.number_of_covered_points[v] -= 1;
         state.number_of_covered_points[w] += 1;
-        // TODO: now we need to fix the reassign queues.
-        // and withit the complete centers_graph structure; probably centers is needed.
+        
         v = w;
+
+    }
+    // here the flow has been augmented, overall only the last node (v = w) covers now one point
+    // more than before
+    
+    // if v is now private we need to rebuild path_in_centers and path_in_centers_to_non_private
+    if state.number_of_covered_points[v] == prob.privacy_bound {
+        println!("Rebuild path_in_centers and path_in_centers_to_non_private");
+        state.path_in_centers_graph_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
+        state.path_in_centers_graph = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
+        for _ in 1..prob.k {
+            //TO be continued
+            
+        }
+
 
     }
 
