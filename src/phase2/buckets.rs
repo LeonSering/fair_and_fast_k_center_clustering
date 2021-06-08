@@ -6,21 +6,21 @@ pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Ve
     let mut smaller_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
     let mut bigger_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
 
-    let median: Edge = median_of_medians(&list, (list.len()-1)/2); // O(n) by Master Theorem
-    let median = median.clone();
+    let (smaller, bigger) = split_at_median(&mut list);
+//    let median = median_of_medians(&list, (list.len() - 1) / 2);
+//    
+//    let mut smaller : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1);
+//    let mut bigger : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1); 
+//    
+//    while list.len() > 0 {
+//        let edge = list.pop().unwrap();
+//        if edge <= median {
+//            smaller.push(edge);
+//        } else { // note that ties in edge.d are broken according to edge.left then edge.right 
+//            bigger.push(edge);
+//        }
+//    }
 
-    let mut smaller : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1);
-    let mut bigger : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1); 
-    
-    while list.len() > 0 {
-        let edge = list.pop().unwrap();
-        if edge < median {
-            smaller.push(edge);
-        } else { // note that ties in edge.d are broken according to edge.left then edge.right 
-            bigger.push(edge);
-        }
-    }
-    
     if smaller.len() <= bucket_size_limit {
         smaller_buckets.push(smaller);
     } else {
@@ -37,9 +37,26 @@ pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Ve
     smaller_buckets
 }
 
+// split bucket at the median into (left, right). All elements in left are smaller or equal to all
+// elements on the right.
+pub fn split_at_median<'a>(list: &mut Vec<Edge<'a>>) -> (Vec<Edge<'a>>, Vec<Edge<'a>>) {
+    let median = median_of_medians(&list, (list.len() - 1) / 2);
+    let mut smaller : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1);
+    let mut bigger : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1); 
+    
+    for edge in list.iter(){
+        if *edge <= median {
+            smaller.push(*edge);
+        } else { // note that ties in edge.d are broken according to edge.left then edge.right 
+            bigger.push(*edge);
+        }
+    }
+    (smaller, bigger)
+}
+
 // input: list of unsorted edges; an integer pos;
 // output: the value of the element that would have pos as index if list was sorted.
-fn median_of_medians<'a>(list: & Vec<Edge::<'a>>, pos : usize) -> Edge::<'a> {
+fn median_of_medians<'a>(list: & Vec<Edge<'a>>, pos : usize) -> Edge<'a> {
 
     let chunks = list.chunks(5);
     let mut sublist: Vec<Edge> = Vec::with_capacity(list.len()/5);

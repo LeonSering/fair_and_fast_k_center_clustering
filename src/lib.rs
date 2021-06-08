@@ -49,7 +49,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
 
-    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, gonzales);
+    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     // clusterings is now a vector of partial clustering
 
 

@@ -23,7 +23,7 @@ impl<'a> Centers<'a>{
     }
 
     pub fn get(&self, i: usize) -> &'a Point {
-       self.centers[i]  // clones the reference to the point, does this make sense?
+       self.centers[i]  // TODO: Maybe cloning? 
 
     }
 
