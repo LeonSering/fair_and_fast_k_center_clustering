@@ -128,7 +128,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 //    println!("edges: {:?}", edges);
 
     // step 1: Compute buckets with limit ceil(4n/k)
-    let mut buckets = put_into_buckets(edges, (4*space.n()-1)/prob.k + 1);
+    let mut buckets = put_into_buckets(edges, (4*space.n()-1)/(prob.k.pow(4)) + 1);
 
     println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k) = {}.", prob.k*space.n(), buckets.len(), (4*space.n()-1)/prob.k+1);
 
@@ -251,37 +251,37 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 // flow by 1; then execute this augmentation
 #[allow(non_snake_case)]
 fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>){
-    let t = e.left;
+    let c = e.left;
     let x = e.right; // maybe cloning needed
     
-    if t > i { // this edge is not considered yet
+    if c > i { // this edge is not considered yet
 //        println!("\tnot yet! Max flow: {}\n", state.max_flow);
         return;
     }
 
     // as the edge is now added to the flow networks we mark it that way:
-    assert_eq!(state.edge_present[t][x.idx()], false, "Edge was present before");
-    state.edge_present[t][x.idx()] = true;
+    assert_eq!(state.edge_present[c][x.idx()], false, "Edge was present before");
+    state.edge_present[c][x.idx()] = true;
 
     match state.center_of[x.idx()] {
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:
-            state.unassigned_push(t,x);
+            state.unassigned_push(c,x);
 //            println!("\tcurrent point is unassigned");
         },
         Some(center_of_x) => {
             // in this case, x is already assigned to center[x], so we have to add the new edges in
             // the centers graph 
-            state.reassign_push(center_of_x,t,x);
+            state.reassign_push(center_of_x,c,x);
 //            println!("\tcurrent point is assigned to {}", center_of_x);
 
-            // There is now a path from center_of_x to t:
-            state.path_in_centers_graph[center_of_x][t] = true;
+            // There is now a path from center_of_x to c:
+            state.path_in_centers_graph[center_of_x][c] = true;
 
             // update reachability status in centers graph
             for q in 0..(i+1) {
-                state.path_in_centers_graph[q][t] = state.path_in_centers_graph[q][t] || state.path_in_centers_graph[q][center_of_x];
-                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[t]);
+                state.path_in_centers_graph[q][c] = state.path_in_centers_graph[q][c] || state.path_in_centers_graph[q][center_of_x];
+                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[c]);
             }
         }
     }

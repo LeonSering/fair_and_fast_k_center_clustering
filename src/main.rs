@@ -16,7 +16,7 @@ fn main() {
     // load test Space2D from file:
     let space : Box<dyn ColoredMetric> = new_space_by_2dpoints_file(format!("{}.2dspace",space_name).as_str(),15);
     let prob = ClusteringProblem{
-        k : 7, // number of center;
+        k : 3, // number of center;
         privacy_bound : 5, // number of points to represent;
         //gamma : space.gamma();
     };
