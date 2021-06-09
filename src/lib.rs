@@ -30,8 +30,9 @@ use phase4::finalize;
 pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem) -> Clustering<'a> {
 
 
-    assert!(prob.k >= 1); // we want to allow at least 1 center
-    assert!(space.n() >= prob.k); // the number of points should not be less than the number of centers
+    assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center
+    assert!(space.n() >= prob.k, "we have n < k ({} < {})! We need more points than centers", space.n(), prob.k); // the number of points should not be less than the number of centers
+    assert!(space.n() >= prob.k * prob.privacy_bound, "We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound);
     
     /////////////////////////////////////////////////////////////////////////////////////
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
@@ -67,9 +68,11 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
     }
 
     println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius).collect::<Vec<f32>>());
-
-    clusterings[3].save_to_file("clustering3.clustering");
-    clusterings[5].save_to_file("clustering5.clustering");
+    
+    for i in 0..prob.k {
+        let save_path = format!("output/after_phase_2_with_i_{}.clustering", i);
+        clusterings[i].save_to_file(save_path.as_str());
+    }
 
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
