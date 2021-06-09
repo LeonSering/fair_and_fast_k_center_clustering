@@ -16,11 +16,10 @@ use clustering::Clustering;
 
 mod phase1;
 use phase1::gonzales_heuristic;
-//mod buckets;
-//use buckets::{put_into_buckets, assert_buckets_properties};
 
 mod phase2;
 use phase2::make_private;
+use phase2::with_sorting::make_private_with_sorting; // TEMP
 
 mod phase3;
 use phase3::redistribute;
@@ -51,6 +50,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
 
     let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     // clusterings is now a vector of partial clustering
+    let clusterings_with_sorting : Vec<Clustering<'a>> = make_private_with_sorting(space, prob, &gonzales);
     
     // TEMP:
     for (c, clustering) in clusterings.iter().enumerate() {
@@ -63,7 +63,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
                 }
             }
         }
-        println!("Clustering {}: measured radius: {}. written radius: {}", c, dist, clustering.radius);
+        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.radius, clusterings_with_sorting[c].radius);
     }
 
     println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius).collect::<Vec<f32>>());

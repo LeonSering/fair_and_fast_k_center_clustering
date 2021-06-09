@@ -5,6 +5,10 @@ use crate::clustering::{Clustering,Centers,new_centers};
 mod buckets;
 use buckets::{put_into_buckets,split_at_median,assert_buckets_properties};
 
+//TEMP:
+pub mod with_sorting;
+
+
 use std::collections::VecDeque;
 
 // An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
