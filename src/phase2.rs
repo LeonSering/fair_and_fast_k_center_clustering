@@ -167,126 +167,6 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 }
 
 
-// search recursevely (binary research) for the correct radius.
-// Input: the edge list, current center list 0,...,i, the cluster prob, the flow state
-// If edges_present == TRUE: expects that ALL edges in the list are part of the flow network
-// If edges_present == FALSE: expects that NONE of the edges in the list are part of the flow network
-// and expects that state.max_flow < max_flow_target
-//
-// Output: None if max_flow_target cannot be reached or Some(radius) if found
-//   list becomes more sorted
-fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut usize, i : usize, prob: &ClusteringProblem, state: &mut State<'a>) -> f32 {
-    println!("  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<f32>>(), edges_present);
-    let list_len = list.len();
-    assert!(list_len > 0, "Empty list in binary search");
-    if list_len == 1 {
-        if !edges_present {
-            println!("  Try add: {:?} in binary search for center: {}", list[0], i);
-            add_edge(list[0],i,prob,state);
-        }
-        assert_eq!(state.max_flow, (i+1) * prob.privacy_bound, "Something went wrong in the binary search.");
-        return list[0].d;
-    }
-
-    let (mut smaller, mut bigger) = split_at_median(list);
-    println!("   smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<f32>>(), bigger.iter().map(|x| x.d).collect::<Vec<f32>>());
-
-
-
-    // take care that smaller edges are added and bigger edges are not present in the flow network
-    if edges_present {
-        for e in bigger.iter() {
-            println!("  Try removing: {:?} in binary search for center: {}", e, i);
-            remove_edge(*e, i, prob, state);
-            *cursor -= 1;
-        }
-    } else {
-        for e in smaller.iter() {
-            println!("  Try adding: {:?} in binary search for center: {}", e, i);
-            add_edge(*e, i, prob, state);
-            *cursor += 1;
-        }
-    }
-
-
-    let radius: f32;
-//    let mut left : Vec<Edge> = Vec::with_capacity(list_len);
-//    let mut right : Vec<Edge> = Vec::with_capacity(list_len/2 + 1);
-    if state.max_flow >= (i+1) * prob.privacy_bound { // we need to settle in smaller
-        radius = search_for_radius(true, &mut smaller, cursor, i, prob, state);
-    } else { // we need to settle in bigger
-        radius = search_for_radius(false, &mut bigger, cursor, i, prob, state);
-    }
-    
-    // concatenate smaller and bigger;
-    list.clear();
-    list.append(&mut smaller);
-    list.append(&mut bigger);
-    radius
-}
-
-
-// note that edge_cursor points at the edge not added
-fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>) -> Clustering<'b>{
-    let mut cursor = edge_cursor;
-
-    println!("  Edge_cursor: {}", edge_cursor);
-    println!("  Bucket to settle: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
-    
-    let edges_present : bool;
-    // first clear or fill bucket:
-    if edge_cursor >= bucket.len()/2 { // in this case fill the bucket
-        while cursor < bucket.len() {
-            println!("  Adding: {:?} in binary search for center: {}", bucket[cursor], i);
-            add_edge(bucket[cursor],i,prob,state);
-            cursor += 1;
-        }
-        edges_present = true;
-    } else { // in this case empty bucket
-        while cursor > 0 {
-            cursor -= 1;
-            println!("  Removing: {:?} in binary search for center: {}", bucket[cursor], i);
-            remove_edge(bucket[cursor],i,prob,state);
-        }
-        edges_present = false;
-    }
-
-    let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
-
-    println!("\n==> Radius found: {}\n", radius);
-
-    // empty bucket for the final time
-    while cursor > 0 {
-        cursor -= 1;
-        println!("  Clean up removing: {:?} in binary search for center: {}", bucket[cursor], i);
-        remove_edge(bucket[cursor],i,prob,state);
-    }
-
-
-
-
-
-
-
-    let mut centers = new_centers(i+1);
-    for c in gonzales.iter().take(i+1) {
-        centers.push(c);
-    }
-
-    let clustering = Clustering {
-        centers,  // centers are the gonzales centers 0,...,i
-        radius, // TODO
-        center_of : state.center_of.iter().map(|c| match c {
-                        Some(idx) => Some(gonzales.get(*idx)),
-                        None => None, 
-                    }).collect(),
-    };
-
-    println!("  Bucket after settling: {:?}", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
-
-    clustering
-}
-
 
 // input: the edge e for processing, the current gonzales set (0,...,i), the current bucket j, and the
 //        index t of the center of e.left (within the gonzales set)
@@ -405,23 +285,41 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 
     // Now it could be the case that v is private already (covers privacy_bound many points already), so we need to find a new center
     // for this we do a DFS on the cneters_graph (but only on the centers that has a path to a non_private center)
-    //
-    
-    let mut link_still_usable: Vec<Vec<bool>> = (0..i+1).map(|c1| (0..i+1).map(|c2| state.path_in_centers_graph_to_non_private[c1] && state.path_in_centers_graph_to_non_private[c2] ).collect()).collect();
-    
+   
+    let mut hops_to_non_private: Vec<Option<usize>> = (0..i+1).map(|c| if state.number_of_covered_points[c] < prob.privacy_bound {Some(0)} else {None} ).collect();
+    for _ in 1..i+1 { // we have a maximum of i+1 hops
+        for c1 in 0..i+1 {
+            for c2 in 0..i+1 {
+                // in reassign might be some invalid entries, get rid of them
+                while !state.reassign[c1][c2].is_empty() && state.center_of[state.reassign[c1][c2].front().unwrap().idx()] != Some(v) {// in thie case that the first element is not assigned to v..
+                    state.reassign[c1][c2].pop_front(); // ..discard this entry
+                }
 
+                if !state.reassign[c1][c2].is_empty() {
+                    hops_to_non_private[c1] = match hops_to_non_private[c2] {
+                        None => hops_to_non_private[c1],
+                        Some(hops_c2) => match hops_to_non_private[c1] {
+                            None => Some(hops_c2 + 1),
+                            Some(hops_c1) => if hops_c2 + 1 < hops_c1 {Some(hops_c2 + 1)} else { Some(hops_c1)},
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    println!("hops to non_private: {:?}", hops_to_non_private);
+    println!("number_of_covered_points {:?}", state.number_of_covered_points);
+//    
+//    println!("reassign: {:?}", state.reassign);
+    println!("path_in_centers_graph: {:?}", state.path_in_centers_graph);
+             
     while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
-//        println!("\nnew v: {:?}", v); 
 
         // need to find new center w, such that arc (v,w) is in centers_graph
-        // TODO: How to find path from v to an non_private node? 
         let mut w = 0;
         while w <= i {
-//            println!("link_still_usable: {:?}", link_still_usable);
-//            println!("number_of_covered_points {:?}", state.number_of_covered_points);
-//            println!("w:{:?}", w);   
-//            println!("path_in_centers_graph_to_non_private: {:?}", state.path_in_centers_graph_to_non_private);
-            if w==v || !link_still_usable[v][w] { // vw has been used already (or there is no path from w to non_private center)
+            if hops_to_non_private[w] == None || hops_to_non_private[w].unwrap() > hops_to_non_private[v].unwrap() - 1 { // w is not closer to a non-private center
                 w += 1;
                 continue;
             }
@@ -431,7 +329,6 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
                 state.reassign[v][w].pop_front(); // ..discard this entry
             }
 
-//            println!("reassign: {:?}", state.reassign);
 
             if !state.reassign[v][w].is_empty() { // if there are still an element left, there is an arc v w in centers_graph, an w leads to a non_private center
                 break;
@@ -445,9 +342,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 
         // w is our next center in the augmenting path (the dfs). We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
-        link_still_usable[v][w] = false;
         p = state.reassign[v][w].pop_front().expect("unassigned is empty");
-        state.reassign[w][v].push_back(p);
         state.center_of[p.idx()] = Some(w); // reassign y to w
         state.number_of_covered_points[v] -= 1;
         state.number_of_covered_points[w] += 1;
@@ -460,9 +355,12 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
     // rebuilding? Maybe save the arcs that are added/removed.
     build_centers_graph(prob,state); // takes O(k^3) time
 }
-   
+
+
+// rebuilds the data structures path_in_centers_graph and path_in_centers_graph_to_non_private
+// take O(k^3) time
 fn build_centers_graph(prob: &ClusteringProblem, state: &mut State) {
-    // we need to rebuild path_in_centers_graph and path_in_centers_to_non_private
+    // we need to rebuild path_in_centers_graph and path_in_centers_graph_to_non_private
     // TODO: This is not done properly, it takes k^3
     state.path_in_centers_graph_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
     state.path_in_centers_graph = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
@@ -484,3 +382,118 @@ fn build_centers_graph(prob: &ClusteringProblem, state: &mut State) {
     }
 
 }
+
+// note that edge_cursor points at the edge not added
+fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>) -> Clustering<'b>{
+    let mut cursor = edge_cursor;
+
+    println!("  Edge_cursor: {}", edge_cursor);
+    println!("  Bucket to settle: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
+    
+    let edges_present : bool;
+    // first clear or fill bucket:
+    if edge_cursor >= bucket.len()/2 { // in this case fill the bucket
+        while cursor < bucket.len() {
+            println!("  Adding: {:?} in binary search for center: {}", bucket[cursor], i);
+            add_edge(bucket[cursor],i,prob,state);
+            cursor += 1;
+        }
+        edges_present = true;
+    } else { // in this case empty bucket
+        while cursor > 0 {
+            cursor -= 1;
+            println!("  Removing: {:?} in binary search for center: {}", bucket[cursor], i);
+            remove_edge(bucket[cursor],i,prob,state);
+        }
+        edges_present = false;
+    }
+
+    let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
+
+    println!("\n==> Radius found: {}\n", radius);
+
+    // empty bucket for the final time
+    while cursor > 0 {
+        cursor -= 1;
+        println!("  Clean up removing: {:?} in binary search for center: {}", bucket[cursor], i);
+        remove_edge(bucket[cursor],i,prob,state);
+    }
+
+    let mut centers = new_centers(i+1);
+    for c in gonzales.iter().take(i+1) {
+        centers.push(c);
+    }
+
+    let clustering = Clustering {
+        centers,  // centers are the gonzales centers 0,...,i
+        radius, // TODO
+        center_of : state.center_of.iter().map(|c| match c {
+                        Some(idx) => Some(gonzales.get(*idx)),
+                        None => None, 
+                    }).collect(),
+    };
+
+    println!("  Bucket after settling: {:?}", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
+
+    clustering
+}
+
+// search recursevely (binary research) for the correct radius.
+// Input: the edge list, current center list 0,...,i, the cluster prob, the flow state
+// If edges_present == TRUE: expects that ALL edges in the list are part of the flow network
+// If edges_present == FALSE: expects that NONE of the edges in the list are part of the flow network
+// and expects that state.max_flow < max_flow_target
+//
+// Output: None if max_flow_target cannot be reached or Some(radius) if found
+//   list becomes more sorted
+fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut usize, i : usize, prob: &ClusteringProblem, state: &mut State<'a>) -> f32 {
+    println!("  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<f32>>(), edges_present);
+    let list_len = list.len();
+    assert!(list_len > 0, "Empty list in binary search");
+    if list_len == 1 {
+        if !edges_present {
+            println!("  Try add: {:?} in binary search for center: {}", list[0], i);
+            add_edge(list[0],i,prob,state);
+        }
+        assert_eq!(state.max_flow, (i+1) * prob.privacy_bound, "Something went wrong in the binary search.");
+        return list[0].d;
+    }
+
+    let (mut smaller, mut bigger) = split_at_median(list);
+    println!("   smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<f32>>(), bigger.iter().map(|x| x.d).collect::<Vec<f32>>());
+
+
+
+    // take care that smaller edges are added and bigger edges are not present in the flow network
+    if edges_present {
+        for e in bigger.iter() {
+            println!("  Try removing: {:?} in binary search for center: {}", e, i);
+            remove_edge(*e, i, prob, state);
+            *cursor -= 1;
+        }
+    } else {
+        for e in smaller.iter() {
+            println!("  Try adding: {:?} in binary search for center: {}", e, i);
+            add_edge(*e, i, prob, state);
+            *cursor += 1;
+        }
+    }
+
+
+    let radius: f32;
+//    let mut left : Vec<Edge> = Vec::with_capacity(list_len);
+//    let mut right : Vec<Edge> = Vec::with_capacity(list_len/2 + 1);
+    if state.max_flow >= (i+1) * prob.privacy_bound { // we need to settle in smaller
+        radius = search_for_radius(true, &mut smaller, cursor, i, prob, state);
+    } else { // we need to settle in bigger
+        radius = search_for_radius(false, &mut bigger, cursor, i, prob, state);
+    }
+    
+    // concatenate smaller and bigger;
+    list.clear();
+    list.append(&mut smaller);
+    list.append(&mut bigger);
+    radius
+}
+
+
