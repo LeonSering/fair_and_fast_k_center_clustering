@@ -51,9 +51,25 @@ pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dy
 
     let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     // clusterings is now a vector of partial clustering
+    
+    // TEMP:
+    for (c, clustering) in clusterings.iter().enumerate() {
+        let mut dist = 0.0f32;
+        for p in space.point_iter() {
+            if clustering.center_of[p.idx()].is_some() {
+                let current_d = space.dist(p,clustering.center_of[p.idx()].unwrap()); 
+                if current_d > dist {
+                    dist = current_d;
+                }
+            }
+        }
+        println!("Clustering {}: measured radius: {}. written radius: {}", c, dist, clustering.radius);
+    }
 
+    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius).collect::<Vec<f32>>());
 
-
+    clusterings[3].save_to_file("clustering3.clustering");
+    clusterings[5].save_to_file("clustering5.clustering");
 
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //

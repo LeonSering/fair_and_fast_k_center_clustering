@@ -14,7 +14,23 @@ pub struct Edge<'a> { // Care: The ordering of attributes is important for the p
     pub d : f32,
     left : usize, // index of the center in gonzales
     right : &'a Point,
+    present : bool,
 }
+
+pub struct PointQueue<'a> {
+    queue : VecDeque<&'a Point>,
+}
+
+impl<'a> PointQueue<'a> {
+    pub fn pop(&mut self) -> Option<&'a Point> {
+        self.queue.pop_front()
+    }
+
+    pub fn push(&mut self, p : &'a Point) {
+        self.queue.push_back(p);
+    }
+}
+
 
 // centers_graph: nodes = centers 0,...,i (i goes from 0 to k-1) and we have an arc c_1 to c_2 iff
 // there is a point x that is assigned to c_1 but could also be assigne to c_2
@@ -46,9 +62,11 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
     for (j, c) in gonzales.iter().enumerate() {
         for p in space.point_iter() {
             edges.push(Edge{
+                d : space.dist(c, p),
                 left : j,
                 right : p,
-                d : space.dist(c, p)});
+                present : false,    
+            });
         }
     }
 
@@ -115,14 +133,15 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
             while !pending[i][l].is_empty() {
                 let e = pending[i][l].pop_front().unwrap();
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
-                println!("  Adding: {:?} (pending from bucket = {})", e, l);
                 add_edge(e, i, prob, &mut state);
+                println!("  Adding: {:?} (pending from bucket = {}); \tmax_flow: {}", e, l,state.max_flow);
             }
         }
 
 
         while state.max_flow < (i + 1) * prob.privacy_bound {
             assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*prob.privacy_bound);
+
           
             if edge_cursor >= buckets[j].len() { //the current bucket has been completed
                 j += 1;
@@ -140,10 +159,12 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
                 pending[t][j].push_back(e);
             } else {
                 // in this case we do add edge e.
-                println!("  Adding: {:?} from bucket = {}", e,j);
                 add_edge(e, i, prob, &mut state);
+                println!("  Adding: {:?} from bucket = {};\tmaxflow: {}", e,j, state.max_flow);
             }
             edge_cursor += 1;
+
+            
         }
 
 
@@ -178,7 +199,7 @@ fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut Sta
     let x = e.right; // maybe cloning needed
     
     if t > i { // this edge is not considered yet
-        println!("\tnot yet! Max flow: {}\n", state.max_flow);
+//        println!("\tnot yet! Max flow: {}\n", state.max_flow);
         return;
     }
 
@@ -186,13 +207,13 @@ fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut Sta
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:
             state.unassigned[t].push_back(x);
-            println!("\tcurrent point is unassigned");
+//            println!("\tcurrent point is unassigned");
         },
         Some(center_of_x) => {
             // in this case, x is already assigned to center[x], so we have to add the new edges in
             // the centers graph 
             state.reassign[center_of_x][t].push_back(x);
-            println!("\tcurrent point is assigned to {}", center_of_x);
+//            println!("\tcurrent point is assigned to {}", center_of_x);
 
             // There is now a path from center_of_x to t:
             state.path_in_centers_graph[center_of_x][t] = true;
@@ -205,7 +226,7 @@ fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut Sta
         }
     }
     augment_flow(prob,i,state);
-    println!("\tmax_flow: {}\n", state.max_flow);
+//    println!("\tmax_flow: {}\n", state.max_flow);
 }
 
 fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>) {
@@ -213,19 +234,32 @@ fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut 
     let x = e.right;
     
     if t > i { // this edge has not been considered yet, and hence is not in the network
-        println!("\tnot yet! Max flow: {}\n", state.max_flow);
+//        println!("\n\tnot yet! Max flow: {}", state.max_flow);
         return;
     }
-
+//    println!("x: {}, center of x: {:?}", x.idx(), state.center_of[x.idx()]);
     match state.center_of[x.idx()] {
         None => {
-            println!{"\tarc was not flow carrying (point not assigned)!"};
+//            println!{"\tarc was not flow carrying (point not assigned)!"};
+
+            let queue_length = state.unassigned[t].len();
+            for _ in 0..queue_length {
+                let p = state.unassigned[t].pop_front().unwrap();
+                if p == x {
+                    println!("UNASSIGNED CLEANED! length: {}", queue_length);
+                    continue;
+                }
+                state.unassigned[t].push_back(p);
+            }
+
         }
         Some(center_of_x) => {
             if center_of_x == t { // arc e is flow carrying:
+                //println!{"\tarc is flow carrying!"};
                 state.max_flow -= 1;
                 state.number_of_covered_points[t] -= 1;
                 state.center_of[x.idx()] = None;
+                
                 // this unassignment indirectly also updates reassign, because whenever something is
                 // poped from reassign[t][_] we check whether that x is assigned to t 
                 // also x cannot be part unassigned[t] at this point, because the moment it was
@@ -233,11 +267,11 @@ fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut 
                 // again, when edge e is added to the network)
                 build_centers_graph(prob, state); // TODO: This is too expensive
                 augment_flow(prob, i, state); // see if we can add a flow unit along other paths
+            } else {
+//                println!{"\tarc was not flow carrying!"};
             }
-            println!{"\tarc was not flow carrying!"};
         }
     }
-    println!("\tmax_flow: {}\n", state.max_flow);
 }
 
 fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
@@ -252,13 +286,13 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
     while v <=i {
 
         // first look for invalid entries in unassigned[v]
-//        while !state.unassigned[v].is_empty() {
-//            if state.center_of[state.unassigned[v].front().unwrap().idx()] != None { // in the case that the first element is not unassigned anymore..
-//                state.unassigned[v].pop_front(); // ..discard this entry
-//            } else {
-//                break;
-//            }
-//        }
+        while !state.unassigned[v].is_empty() {
+            if state.center_of[state.unassigned[v].front().unwrap().idx()] != None { // in the case that the first element is not unassigned anymore..
+                state.unassigned[v].pop_front(); // ..discard this entry
+            } else {
+                break;
+            }
+        }
         
         // then look for a center that has unassgined nodes and a path to a private node
         if !state.unassigned[v].is_empty() && state.path_in_centers_graph_to_non_private[v] {
@@ -269,19 +303,20 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
     }
 
     if v == i+1{
-        println!("\tno agumenting path found");
+//        println!("\tno agumenting path found");
         return;
     }
-    println!("\taugmenting path exists");
-    state.max_flow += 1;
-
+//    println!("\taugmenting path exists");
 
     // y is a point that is unassigned, i.e. there is a free arc from y to the sink. This is
     // our first arc of the augmenting path (from sink to source)
     let mut p = state.unassigned[v].pop_front().expect("unassigned should not be empty");
+    
+    assert_eq!(state.center_of[p.idx()], None, "WAIT: p is not unassigned");
 
-    state.center_of[p.idx()] = Some(v); // assign y to v
+    state.center_of[p.idx()] = Some(v); // assign p to v
     state.number_of_covered_points[v] += 1; // v covers now one points more
+    state.max_flow += 1;
 
     // Now it could be the case that v is private already (covers privacy_bound many points already), so we need to find a new center
     // for this we do a DFS on the cneters_graph (but only on the centers that has a path to a non_private center)
@@ -308,11 +343,11 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
         }
     }
 
-    println!("hops to non_private: {:?}", hops_to_non_private);
-    println!("number_of_covered_points {:?}", state.number_of_covered_points);
+//    println!("hops to non_private: {:?}", hops_to_non_private);
+//    println!("number_of_covered_points {:?}", state.number_of_covered_points);
 //    
 //    println!("reassign: {:?}", state.reassign);
-    println!("path_in_centers_graph: {:?}", state.path_in_centers_graph);
+//    println!("path_in_centers_graph: {:?}", state.path_in_centers_graph);
              
     while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
 
@@ -343,8 +378,10 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
         // w is our next center in the augmenting path (the dfs). We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
         p = state.reassign[v][w].pop_front().expect("unassigned is empty");
-        state.center_of[p.idx()] = Some(w); // reassign y to w
+        assert_eq!(state.center_of[p.idx()], Some(v), "WAIT: p was not assigned to v!");
         state.number_of_covered_points[v] -= 1;
+        state.center_of[p.idx()] = Some(w); // reassign y to w
+        state.reassign[w][v].push_back(p);
         state.number_of_covered_points[w] += 1;
         
         v = w;
@@ -394,30 +431,38 @@ fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob
     // first clear or fill bucket:
     if edge_cursor >= bucket.len()/2 { // in this case fill the bucket
         while cursor < bucket.len() {
-            println!("  Adding: {:?} in binary search for center: {}", bucket[cursor], i);
             add_edge(bucket[cursor],i,prob,state);
+            println!("  Adding: {:?} in binary search for center: {};\tmax_flow: {}", bucket[cursor], i, state.max_flow);
             cursor += 1;
         }
         edges_present = true;
     } else { // in this case empty bucket
         while cursor > 0 {
             cursor -= 1;
-            println!("  Removing: {:?} in binary search for center: {}", bucket[cursor], i);
             remove_edge(bucket[cursor],i,prob,state);
+            println!("  Removing: {:?} in binary search for center: {};\tmax_flow: {}", bucket[cursor], i, state.max_flow);
         }
         edges_present = false;
     }
 
     let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
 
-    println!("\n==> Radius found: {}\n", radius);
+    println!("\n==> Radius found: {};\tmax_flow: {}\n", radius, state.max_flow);
+    println!("center_of: {:?}", state.center_of);
+    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 
-    // empty bucket for the final time
-    while cursor > 0 {
-        cursor -= 1;
-        println!("  Clean up removing: {:?} in binary search for center: {}", bucket[cursor], i);
-        remove_edge(bucket[cursor],i,prob,state);
-    }
+//    // TEMP:
+//    let mut points_covered = vec!(0; i+1);
+//    for c1 in 0..i+1 {
+//        for c2 in state.center_of.iter() {
+//            if c2.is_some() && c1 == c2.unwrap() {
+//                points_covered[c1] += 1;
+//            }
+//        }
+//        assert_eq!(points_covered[c1],state.number_of_covered_points[c1], "ERROR!");
+//    }
+//    println!("points_covered: {:?}", points_covered);
+ 
 
     let mut centers = new_centers(i+1);
     for c in gonzales.iter().take(i+1) {
@@ -435,6 +480,13 @@ fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob
 
     println!("  Bucket after settling: {:?}", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
 
+    // empty bucket for the final time
+    while cursor > 0 {
+        cursor -= 1;
+        remove_edge(bucket[cursor],i,prob,state);
+        println!("  Clean up removing: {:?} in binary search for center: {};\tmaxflow: {}", bucket[cursor], i,state.max_flow);
+    }
+
     clustering
 }
 
@@ -447,13 +499,14 @@ fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob
 // Output: None if max_flow_target cannot be reached or Some(radius) if found
 //   list becomes more sorted
 fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut usize, i : usize, prob: &ClusteringProblem, state: &mut State<'a>) -> f32 {
-    println!("  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<f32>>(), edges_present);
+    println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<f32>>(), edges_present);
     let list_len = list.len();
     assert!(list_len > 0, "Empty list in binary search");
     if list_len == 1 {
         if !edges_present {
-            println!("  Try add: {:?} in binary search for center: {}", list[0], i);
             add_edge(list[0],i,prob,state);
+            *cursor += 1;
+            println!("  Try add: {:?} in binary search for center: {};\tmax_flow: {}", list[0], i, state.max_flow);
         }
         assert_eq!(state.max_flow, (i+1) * prob.privacy_bound, "Something went wrong in the binary search.");
         return list[0].d;
@@ -466,15 +519,15 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
 
     // take care that smaller edges are added and bigger edges are not present in the flow network
     if edges_present {
-        for e in bigger.iter() {
-            println!("  Try removing: {:?} in binary search for center: {}", e, i);
+        for e in bigger.iter().rev() {
             remove_edge(*e, i, prob, state);
+            println!("  Try removing: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor -= 1;
         }
     } else {
         for e in smaller.iter() {
-            println!("  Try adding: {:?} in binary search for center: {}", e, i);
             add_edge(*e, i, prob, state);
+            println!("  Try adding: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor += 1;
         }
     }
