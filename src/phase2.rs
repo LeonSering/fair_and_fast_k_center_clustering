@@ -98,17 +98,17 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
         println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
-        for l in 0..j {
+        for c in 0..j {
             // here, we process edges from previous (and the current) buckets (< j) that were ignored because they
             // were adjacent to ceners not in the set that was being processed
             // We do not processed pending edges of the current bucket, as the bucket has changed,
             // and therefore pending[_][l] has been cleared
 
-            while !pending[i][l].is_empty() {
-                let e = pending[i][l].pop_front().unwrap();
+            while !pending[i][c].is_empty() {
+                let e = pending[i][c].pop_front().unwrap();
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
                 add_edge(e, i, prob, &mut state);
-                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, l,state.max_flow);
+                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
             }
         }
 
@@ -126,11 +126,11 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
             }
             let e = buckets[j][edge_cursor];
 
-            let t = e.left; // t is the index of the center on the left of e
-            if t > i {
+            let c = e.left; // t is the index of the center on the left of e
+            if c > i {
                 // in this case the left side (t) corresponds to a center not yet considered, so we
-                // postpone the processing of the arc to the point when i == t
-                pending[t][j].push_back(e);
+                // postpone the processing of the arc to the point when i == c
+                pending[c][j].push_back(e);
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, prob, &mut state);

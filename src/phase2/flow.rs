@@ -28,11 +28,6 @@ impl<'a> State<'a> {
         self.reassign[c1][c2].push_back(p);
     }
 
-//    pub fn reassing_peak(&mut self, c1: usize, c2: usize) -> Option<&&'a Point> {
-//        self.clean_reassign(c1,c2);
-//        self.reassign[c1][c2].front()
-//    }
-
     pub fn reassign_is_empty(&mut self, c1: usize, c2: usize) -> bool {
         self.clean_reassign(c1,c2);
         self.reassign[c1][c2].is_empty()
@@ -59,11 +54,6 @@ impl<'a> State<'a> {
     pub fn unassigned_push(&mut self, c : usize, p: &'a Point) {
         self.unassigned[c].push_back(p);
     }
-
-//    pub fn unassigned_peak(&mut self, c: usize) -> Option<&&'a Point> {
-//        self.clean_unassigned(c);
-//        self.unassigned[c].front()
-//    }
 
     pub fn unassigned_is_empty(&mut self, c: usize) -> bool {
         self.clean_unassigned(c);
@@ -131,9 +121,9 @@ pub fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut
             state.can_reach[center_of_x][c] = true;
 
             // update reachability status in centers graph
-            for q in 0..(i+1) {
-                state.can_reach[q][c] = state.can_reach[q][c] || state.can_reach[q][center_of_x];
-                state.path_to_non_private[q] = state.path_to_non_private[q] || (state.can_reach[q][center_of_x] && state.path_to_non_private[c]);
+            for d in 0..(i+1) {
+                state.can_reach[d][c] = state.can_reach[d][c] || state.can_reach[d][center_of_x];
+                state.path_to_non_private[d] = state.path_to_non_private[d] || (state.can_reach[d][center_of_x] && state.path_to_non_private[c]);
             }
         }
     }
@@ -172,7 +162,7 @@ pub fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &
                 // also x cannot be part of unassigned[t] at this point, because the moment it was
                 // assigned to t it was poped from unassigned[t] (and it can only enter this queue
                 // again, when edge e is added to the network)
-                build_centers_graph(prob, state); // TODO: This is too expensive
+                rebuild_reachability(prob, state); // TODO: This is too expensive
                 augment_flow(prob, i, state); // see if we can add a flow unit along other paths
             } else {
 //                println!{"\tarc was not flow carrying!"};
@@ -206,11 +196,11 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 
     // p is a point that is unassigned, i.e. there is a free arc from p to the sink. This is
     // our first arc of the augmenting path (from sink to source)
-    let mut p = state.unassigned_pop(v).expect("unassigned should not be empty");
+    let mut x = state.unassigned_pop(v).unwrap();
 
-    assert_eq!(state.center_of[p.idx()], None, "WAIT: p is not unassigned");
+    assert_eq!(state.center_of[x.idx()], None, "WAIT: p is not unassigned");
 
-    state.center_of[p.idx()] = Some(v); // assign p to v
+    state.center_of[x.idx()] = Some(v); // assign p to v
     state.number_of_covered_points[v] += 1; // v covers now one points more
     state.max_flow += 1;
 
@@ -249,27 +239,21 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
         // non-private center
         let mut w = 0;
         while w <= i {
-            if hops_to_non_private[w] == None || hops_to_non_private[w].unwrap() > hops_to_non_private[v].unwrap() - 1 { // w is not closer to a non-private center
-                w += 1;
-                continue;
-            }
-
-
-            if !state.reassign_is_empty(v,w) { // if there are still a elements left, there is an arc v w in centers_graph, and w leads to a non_private center
+            if hops_to_non_private[w] != None && hops_to_non_private[w].unwrap() <= hops_to_non_private[v].unwrap() - 1 && !state.reassign_is_empty(v,w) { 
+                // w is closer to a non-private center and the arc vw exists
                 break;
-            } else {
-                w += 1;
             }
+            w += 1;
         }
         assert!(w <= i,"There is no center w such that (v, w) is in centers_graph and w leads to a non_private center. This contradicts the fact that B[v] == True; v = {}", v);
 
         // w is our next center in the augmenting path. We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
-        p = state.reassign_pop(v,w).expect("unassigned is empty");
-        assert_eq!(state.center_of[p.idx()], Some(v), "WAIT: p was not assigned to v!");
+        x = state.reassign_pop(v,w).unwrap();
+        assert_eq!(state.center_of[x.idx()], Some(v), "WAIT: p was not assigned to v!");
         state.number_of_covered_points[v] -= 1;
-        state.center_of[p.idx()] = Some(w); // reassign y to w
-        state.reassign_push(w,v,p);
+        state.center_of[x.idx()] = Some(w); // reassign y to w
+        state.reassign_push(w,v,x);
         state.number_of_covered_points[w] += 1;
 
         v = w;
@@ -278,7 +262,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 
     // Since the connectivity in the center_graph has changed we need to update to corresponding
     // data_structures:
-    build_centers_graph(prob,state); // takes O(k^3) time
+    rebuild_reachability(prob,state); // takes O(k^3) time
     // this is done way too often. Is it possible to update these data_structures instead of
     // rebuilding? Maybe save the arcs that are added/removed.
 }
@@ -286,7 +270,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 
 // rebuilds the data structures can_reach and path_to_non_private
 // takes O(k^3) time
-fn build_centers_graph(prob: &ClusteringProblem, state: &mut State) {
+fn rebuild_reachability(prob: &ClusteringProblem, state: &mut State) {
     // we need to rebuild can_reach and path_to_non_private
     // TODO: This is not done properly, it takes k^3
     state.path_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
