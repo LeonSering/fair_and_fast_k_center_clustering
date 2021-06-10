@@ -2,7 +2,9 @@ use super::Edge;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets of size <= ceil(4n/k^4) edges; with property of Lemma 3;
-pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Vec<Edge>> {
+pub fn put_into_buckets(mut list: Vec<Edge>, n: usize, k: usize, power_of_k: u32) -> Vec<Vec<Edge>> {
+    let bucket_size_limit = (4*n-1)/(k.pow(power_of_k)) + 1; // ceil(4n/k^z)
+
     let mut smaller_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
     let mut bigger_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
 
@@ -24,13 +26,13 @@ pub fn put_into_buckets(mut list: Vec<Edge>, bucket_size_limit: usize) -> Vec<Ve
     if smaller.len() <= bucket_size_limit {
         smaller_buckets.push(smaller);
     } else {
-        smaller_buckets.append(&mut put_into_buckets(smaller, bucket_size_limit));
+        smaller_buckets.append(&mut put_into_buckets(smaller, n, k, power_of_k));
     }
 
     if bigger.len() <= bucket_size_limit {
         bigger_buckets.push(bigger);
     } else {
-        bigger_buckets.append(&mut put_into_buckets(bigger, bucket_size_limit));
+        bigger_buckets.append(&mut put_into_buckets(bigger, n, k, power_of_k));
     }
 
     smaller_buckets.append(&mut bigger_buckets);
@@ -107,11 +109,11 @@ fn median_of_medians<'a>(list: & Vec<Edge<'a>>, pos : usize) -> Edge<'a> {
 // asserts that there are at most k^5 buckets, each of size at most ceil(4n/k^4); the distance of
 // each element of a bucket j is bigger than all elements in bucket < j and smaller than all
 // elements in buckets > j.
-pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize) -> bool {
+pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize, power_of_k: u32) -> bool {
 
-    assert!(buckets.len() <= k.pow(5));
+    assert!(buckets.len() <= k.pow(power_of_k+1));
 
-    let size_limit = (4*n-1)/k.pow(4)+1;
+    let size_limit = (4*n-1)/k.pow(power_of_k)+1;
     let mut d_of_last: f32 = <f32>::MIN;
     for bucket in buckets.iter() {
         assert!(bucket.len() <= size_limit);

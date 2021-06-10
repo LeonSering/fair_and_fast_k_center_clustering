@@ -4,7 +4,7 @@ use crate::clustering::{Clustering,Centers,new_centers};
 
 use std::collections::VecDeque;
 
-use super::{Edge,State,add_edge};
+use super::{Edge,flow::{initialize_state,add_edge}};
 
 pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
@@ -33,16 +33,7 @@ pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     
 
-    let mut state = State {
-        center_of: vec!(None; space.n()), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
-        reassign: (0..prob.k).map(|_| (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect(),
-        unassigned: (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect(),
-        path_in_centers_graph: (0..prob.k).map(|i| (0..prob.k).map(|j| if i == j {true} else {false}).collect()).collect(), // in the beginning there are no arcs in centers_graph
-        path_in_centers_graph_to_non_private: vec![true; prob.k], // in the beginning all centers are non_private
-        number_of_covered_points: vec![0; prob.k],
-        max_flow: 0,
-        edge_present: vec!(vec!(false; space.n()); prob.k),
-    };
+    let mut state = initialize_state(space.n(), prob.k);
     
     let mut pending: Vec<VecDeque<Edge>> = (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect();
 
