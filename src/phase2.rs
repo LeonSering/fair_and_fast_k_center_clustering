@@ -51,8 +51,8 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 
 //    println!("edges: {:?}", edges);
 
-    // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 4)
-    let power_of_k: u32 = 4;
+    // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 2)
+    let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
     println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k) = {}.", prob.k*space.n(), buckets.len(), (4*space.n()-1)/prob.k+1);

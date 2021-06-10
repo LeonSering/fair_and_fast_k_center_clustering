@@ -207,22 +207,52 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
     // Now it could be the case that v is private already (covers privacy_bound many points already), so we need to find a new center
     // for this we do a BFS on the centers_graph (but only on the centers that has a path to a non_private center)
 
-    // for the BFS we save the hops needed to reach a non_private center:
-    // This implementation takes O(k^3) time
-    let mut hops_to_non_private: Vec<Option<usize>> = (0..i+1).map(|c| if state.number_of_covered_points[c] < prob.privacy_bound {Some(0)} else {None} ).collect();
-    for _ in 1..i+1 { // we have a maximum of i+1 hops
-        for c1 in 0..i+1 {
-            for c2 in 0..i+1 {
+//    // This implementation takes O(k^3) time
+//    let mut hops_to_non_private: Vec<Option<usize>> = (0..i+1).map(|c| if state.number_of_covered_points[c] < prob.privacy_bound {Some(0)} else {None} ).collect();
+//    for _ in 1..i+1 { // we have a maximum of i+1 hops
+//        for c1 in 0..i+1 {
+//            for c2 in 0..i+1 {
+//
+//                if !state.reassign_is_empty(c1,c2) {
+//                    hops_to_non_private[c1] = match hops_to_non_private[c2] {
+//                        None => hops_to_non_private[c1],
+//                        Some(hops_c2) => match hops_to_non_private[c1] {
+//                            None => Some(hops_c2 + 1),
+//                            Some(hops_c1) => if hops_c2 + 1 < hops_c1 {Some(hops_c2 + 1)} else { Some(hops_c1)},
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
 
-                if !state.reassign_is_empty(c1,c2) {
-                    hops_to_non_private[c1] = match hops_to_non_private[c2] {
-                        None => hops_to_non_private[c1],
-                        Some(hops_c2) => match hops_to_non_private[c1] {
-                            None => Some(hops_c2 + 1),
-                            Some(hops_c1) => if hops_c2 + 1 < hops_c1 {Some(hops_c2 + 1)} else { Some(hops_c1)},
-                        }
-                    }
-                }
+
+    // compute some possible amount of hops to non private (not the minimal number of hops) doing a
+    // BFS. Hence it takes O(i^2) time; note that each center goes into the queue at most once.
+    let mut hops_to_non_private: Vec<Option<usize>> = (0..i+1).map(|c| if state.number_of_covered_points[c] < prob.privacy_bound {Some(0)} else {None} ).collect();
+    let mut center_queue: VecDeque<usize> = VecDeque::with_capacity(i);
+
+    for c in 0..i+1 {
+        if hops_to_non_private[c].is_some() {
+            center_queue.push_back(c);
+        }
+    }
+    while !center_queue.is_empty() {
+        let c1 = center_queue.pop_front().unwrap();
+        for c2 in 0..i+1 {
+            if hops_to_non_private[c2].is_none() && !state.reassign_is_empty(c2,c1) {
+                hops_to_non_private[c2] = Some(hops_to_non_private[c1].unwrap() + 1);
+                center_queue.push_back(c2);
+            }
+        }
+    }
+
+
+
+    for c1 in 0..i+1 {
+        for c2 in 0..i+1 {
+
+            if !state.reassign_is_empty(c1,c2) {
             }
         }
     }
