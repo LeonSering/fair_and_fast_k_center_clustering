@@ -13,8 +13,8 @@ pub struct State<'a>{
     // or a point in unassigned might be assigned to some point or not assignable to c. 
     // So whenever an element is poped (or we check for is_empty()) it needs to be checked if it still makes sense.
     pub number_of_covered_points: Vec<usize>, // the number of points covered by center c; if this equals privacy_bound this center is "private"; if it is smaller than it is "non-private".; if the has more than that it is "overfull"
-    pub path_in_centers_graph: Vec<Vec<bool>>, // indicates whether there is a path in centers_graph from c_1 to c_2; 
-    pub path_in_centers_graph_to_non_private: Vec<bool>, // indicates whether a center is non-private or has a path in centers_graph to a non-private center
+    pub can_reach: Vec<Vec<bool>>, // indicates whether there is a path in centers_graph from c_1 to c_2; 
+    pub path_to_non_private: Vec<bool>, // indicates whether a center is non-private or has a path in centers_graph to a non-private center
     pub max_flow: usize, // the current value of a maximum flow
     pub edge_present: Vec<Vec<bool>> // edge_present[c][p] denotes whether the arc from center c to point p is currently present in the flow network 
 }
@@ -88,8 +88,8 @@ pub fn initialize_state<'a>(n: usize, k: usize) -> State<'a> {
         center_of: vec!(None; n), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
         reassign: (0..k).map(|_| (0..k).map(|_| VecDeque::with_capacity(k*k)).collect()).collect(),
         unassigned: (0..k).map(|_| VecDeque::with_capacity(k*k)).collect(),
-        path_in_centers_graph: (0..k).map(|i| (0..k).map(|j| if i == j {true} else {false}).collect()).collect(), // in the beginning there are no arcs in centers_graph
-        path_in_centers_graph_to_non_private: vec![true; k], // in the beginning all centers are non_private
+        can_reach: (0..k).map(|i| (0..k).map(|j| if i == j {true} else {false}).collect()).collect(), // in the beginning there are no arcs in centers_graph
+        path_to_non_private: vec![true; k], // in the beginning all centers are non_private
         number_of_covered_points: vec![0; k],
         max_flow: 0,
         edge_present: vec!(vec!(false; n); k),
@@ -128,12 +128,12 @@ pub fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut
 //            println!("\tcurrent point is assigned to {}", center_of_x);
 
             // There is now a path from center_of_x to c:
-            state.path_in_centers_graph[center_of_x][c] = true;
+            state.can_reach[center_of_x][c] = true;
 
             // update reachability status in centers graph
             for q in 0..(i+1) {
-                state.path_in_centers_graph[q][c] = state.path_in_centers_graph[q][c] || state.path_in_centers_graph[q][center_of_x];
-                state.path_in_centers_graph_to_non_private[q] = state.path_in_centers_graph_to_non_private[q] || (state.path_in_centers_graph[q][center_of_x] && state.path_in_centers_graph_to_non_private[c]);
+                state.can_reach[q][c] = state.can_reach[q][c] || state.can_reach[q][center_of_x];
+                state.path_to_non_private[q] = state.path_to_non_private[q] || (state.can_reach[q][center_of_x] && state.path_to_non_private[c]);
             }
         }
     }
@@ -142,17 +142,17 @@ pub fn add_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut
 }
 
 pub fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>) {
-    let t = e.left;
+    let c = e.left;
     let x = e.right;
 
-    if t > i { // this edge has not been considered yet, and hence is not in the network
+    if c > i { // this edge has not been considered yet, and hence is not in the network
 //        println!("\n\tnot yet! Max flow: {}", state.max_flow);
         return;
     }
 
     // as the edge is now removed from the flow networks we mark it that way:
-    assert_eq!(state.edge_present[t][x.idx()], true, "Edge was present before");
-    state.edge_present[t][x.idx()] = false;
+    assert_eq!(state.edge_present[c][x.idx()], true, "Edge was present before");
+    state.edge_present[c][x.idx()] = false;
 
 //    println!("x: {}, center of x: {:?}", x.idx(), state.center_of[x.idx()]);
     match state.center_of[x.idx()] {
@@ -161,10 +161,10 @@ pub fn remove_edge<'a>(e: Edge<'a>, i: usize, prob: &ClusteringProblem, state: &
 
         }
         Some(center_of_x) => {
-            if center_of_x == t { // arc e is flow carrying:
+            if center_of_x == c { // arc e is flow carrying:
                 //println!{"\tarc is flow carrying!"};
                 state.max_flow -= 1;
-                state.number_of_covered_points[t] -= 1;
+                state.number_of_covered_points[c] -= 1;
                 state.center_of[x.idx()] = None;
 
                 // this unassignment indirectly also updates reassign, because whenever something is
@@ -188,7 +188,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
     // and has unassigned nodes that could be assigned to v
     let mut v = 0;
     while v <=i {
-        if !state.unassigned_is_empty(v) && state.path_in_centers_graph_to_non_private[v] {
+        if !state.unassigned_is_empty(v) && state.path_to_non_private[v] {
             break;
         } else {
             v += 1;
@@ -241,7 +241,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 //    println!("number_of_covered_points {:?}", state.number_of_covered_points);
 //
 //    println!("reassign: {:?}", state.reassign);
-//    println!("path_in_centers_graph: {:?}", state.path_in_centers_graph);
+//    println!("can_reach: {:?}", state.can_reach);
 
     while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
 
@@ -284,19 +284,19 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: usize, state: &mut State<'a>) {
 }
 
 
-// rebuilds the data structures path_in_centers_graph and path_in_centers_graph_to_non_private
+// rebuilds the data structures can_reach and path_to_non_private
 // takes O(k^3) time
 fn build_centers_graph(prob: &ClusteringProblem, state: &mut State) {
-    // we need to rebuild path_in_centers_graph and path_in_centers_graph_to_non_private
+    // we need to rebuild can_reach and path_to_non_private
     // TODO: This is not done properly, it takes k^3
-    state.path_in_centers_graph_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
-    state.path_in_centers_graph = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
+    state.path_to_non_private = (0..prob.k).map(|c| state.number_of_covered_points[c] < prob.privacy_bound).collect();
+    state.can_reach = (0..prob.k).map(|c1| (0..prob.k).map(|c2| if c1 == c2 {true} else {false}).collect()).collect();
     for c1 in 0..prob.k {
         for c2 in 0..prob.k {
             if !state.reassign_is_empty(c1,c2) { // there is an arc from c1 to c2:
                 for c3 in 0..prob.k {
-                    state.path_in_centers_graph[c1][c3] = state.path_in_centers_graph[c1][c3] || state.path_in_centers_graph[c2][c3];
-                    state.path_in_centers_graph_to_non_private[c1] = state.path_in_centers_graph_to_non_private[c1] || (state.path_in_centers_graph[c1][c3] && state.path_in_centers_graph_to_non_private[c3]);
+                    state.can_reach[c1][c3] = state.can_reach[c1][c3] || state.can_reach[c2][c3];
+                    state.path_to_non_private[c1] = state.path_to_non_private[c1] || (state.can_reach[c1][c3] && state.path_to_non_private[c3]);
                 }
             }
         }
