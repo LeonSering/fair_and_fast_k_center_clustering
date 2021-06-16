@@ -1,4 +1,4 @@
-use crate::{ClusteringProblem,Clustering,clustering::{Centers,new_centers}};
+use crate::{ClusteringProblem,Clustering,clustering::Centers};
 use super::{Edge,buckets::split_at_median,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet
@@ -33,7 +33,7 @@ pub fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, 
 //    println!("center_of: {:?}", state.center_of);
 //    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 
-    let mut centers = new_centers(i+1);
+    let mut centers = Centers::with_capacity(i+1);
     for c in gonzales.iter().take(i+1) {
         centers.push(c);
     }

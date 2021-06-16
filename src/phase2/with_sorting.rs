@@ -1,6 +1,6 @@
 use crate::ClusteringProblem;
 use crate::space::ColoredMetric;
-use crate::clustering::{Clustering,Centers,new_centers};
+use crate::clustering::{Clustering,Centers};
 
 use std::collections::VecDeque;
 
@@ -78,7 +78,7 @@ pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : 
         println!("\n+++ Center {} settles with radius: {}\n", i, current_d);
 
         // create new clustering:
-        let mut centers = new_centers(i+1);
+        let mut centers = Centers::with_capacity(i+1);
         for c in gonzales.iter().take(i+1) {
             centers.push(c);
         }

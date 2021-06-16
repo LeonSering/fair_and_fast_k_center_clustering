@@ -1,9 +1,9 @@
-use crate::clustering::{Centers,new_centers};
+use crate::clustering::Centers;
 use crate::space::{Point,ColoredMetric};
 
 pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Centers {
 
-    let mut gonzales : Centers = new_centers(k);//Centers{centers : Vec::with_capacity(k)};
+    let mut gonzales : Centers = Centers::with_capacity(k);//Centers{centers : Vec::with_capacity(k)};
 
     let first_center = space.point_iter().as_slice().first().expect("No points in metric.");
     // we can add any point as first center, so lets take 0

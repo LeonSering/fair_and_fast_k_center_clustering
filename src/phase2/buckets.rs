@@ -134,7 +134,7 @@ pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: usize, k: usize, p
 mod tests {
     use rand::Rng;
     use super::*;
-    use crate::space::{Point,new_space_with_random_2dpoints};
+    use crate::space::{Point,Space2D};
     #[test]
     fn median_test() {
         let n = 100;
@@ -142,7 +142,7 @@ mod tests {
         // create n*k edges with dublicates:
         let mut rng = rand::thread_rng();
         let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
-        let space = new_space_with_random_2dpoints(n*k);
+        let space = Space2D::new_random(n*k);
         let points : Vec<&Point> = space.point_iter().collect();
         let mut list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
             left: i,
@@ -164,15 +164,15 @@ mod tests {
         // create n*k edges with dublicates:
         let mut rng = rand::thread_rng();
         let vals: Vec<f32> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<f32>()).collect();
-        let space = new_space_with_random_2dpoints(n*k);
+        let space = Space2D::new_random(n*k);
         let points : Vec<&Point> = space.point_iter().collect();
         let list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
             left: i,
             right: points[i],
             d: vals[rng.gen_range(0..100)]}).collect(); // do a list with dublicates
-        let size_limit = (4*n)/k;
-        let buckets = put_into_buckets(list, size_limit);
-        assert!(assert_buckets_properties(&buckets, n, k));
+        let power_of_k = 2;
+        let buckets = put_into_buckets(list, n, k, power_of_k);
+        assert!(assert_buckets_properties(&buckets, n, k, power_of_k));
     }
 }
 

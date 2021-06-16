@@ -8,8 +8,8 @@ pub struct ClusteringProblem {
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
 
-mod space;
-pub use space::{Point,ColoredMetric,new_space_by_matrix,new_space_by_2dpoints_file,new_space_by_2dpoints,new_space_with_random_2dpoints}; // make it also public for external user (without the need to write ::space::)
+pub mod space;
+use space::ColoredMetric;
 
 mod clustering;
 use clustering::Clustering;

@@ -47,10 +47,10 @@ impl<'a> Centers<'a>{
         f.write_all(text.as_bytes()).expect("Could not write into centers-file");
 
     }
-}
 
-pub fn new_centers(capacity : usize) -> Centers<'static>{
-    Centers{centers : Vec::with_capacity(capacity)}
+    pub fn with_capacity(capacity : usize) -> Centers<'static>{
+        Centers{centers : Vec::with_capacity(capacity)}
+    }
 }
 
 
