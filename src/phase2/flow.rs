@@ -1,5 +1,5 @@
 use super::Edge;
-use crate::{ClusteringProblem,PointCount,space::Point,clustering::CenterIdx};
+use crate::{ClusteringProblem,PointCount,space::{Point,Distance},clustering::CenterIdx};
 use std::collections::VecDeque;
 
 // describes the state of the flow network and of the centers graph.
@@ -15,7 +15,8 @@ pub struct State<'a>{
     // So whenever an element is poped (or we check for is_empty()) it needs to be checked if it still makes sense.
     pub next_to_non_private: Vec<Option<CenterIdx>>, // indicates whether a center is non-private or has a path in centers_graph to a non-private center
     pub number_of_covered_points: Vec<PointCount>, // the number of points covered by center c; if this equals privacy_bound this center is "private"; if it is smaller than it is "non-private".; if the has more than that it is "overfull"
-    pub edge_present: Vec<Vec<bool>> // edge_present[c][p] denotes whether the arc from center c to point p is currently present in the flow network 
+    pub edge_present: Vec<Vec<bool>>, // edge_present[c][p] denotes whether the arc from center c to point p is currently present in the flow network 
+//    pub target_distance: Distance, // TODO determines which edges are in the flow networks and which are not. All edges e with e.d < target_distance are present; all others are not.
 }
 impl<'a> State<'a> {
     pub fn reassign_pop(&mut self, c1 : CenterIdx, c2: CenterIdx) -> Option<&'a Point> {

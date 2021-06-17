@@ -40,7 +40,7 @@ pub fn settle<'a, 'b>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: Cente
 
     let clustering = Clustering {
         centers,  // centers are the gonzales centers 0,...,i
-        radius, // TODO
+        radius,
         center_of : state.center_of.iter().map(|c| match c {
                         Some(idx) => Some(gonzales.get(*idx)),
                         None => None,
