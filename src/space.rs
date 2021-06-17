@@ -108,15 +108,33 @@ pub trait ColoredMetric{
 
 // a metric space of N point with color classes. Distances are given by NxN-array and color class
 // by N-array.
-pub struct SpaceMatrix<const N: PointCount>{
-    distances: [[Distance; N]; N], // distance matrix (later maybe implicit as distance function to avoid n^2 space)
+pub struct SpaceMatrix{
+    distances: Vec<Vec<Distance>>, // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
-    colors: [ColorIdx; N], // points as array or implicit? If implicity: array of color-classes.
+    colors: Vec<ColorIdx>, // points as array or implicit? If implicity: array of color-classes.
 }
 
-// builder:
-impl<const N: PointCount> SpaceMatrix<N> {
-    pub fn new(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix::<{N}> {
+
+impl SpaceMatrix {
+// builders:
+    pub fn new(distances: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> SpaceMatrix {
+        // check if distances is a qudratic matrix:
+        let number_of_rows = distances.len();
+        let mut points: Vec<Point> = Vec::with_capacity(number_of_rows);
+        for (i, row) in distances.iter().enumerate() {
+            assert_eq!(row.len(), number_of_rows, "Matrix is not qudratic. row {} has {} entries; number of rows: {}", i, row.len(), number_of_rows);
+            points.push(Point{index:i});
+        }
+        assert_eq!(number_of_rows, colors.len(), "Number of points: {} do not match number of colors: {}", number_of_rows, colors.len());
+    
+        SpaceMatrix {
+            distances,
+            colors,
+            points,
+        }
+    }
+
+    pub fn new_by_array<const N: PointCount>(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix {
 
         // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
         // without unsafe rust.
@@ -125,6 +143,8 @@ impl<const N: PointCount> SpaceMatrix<N> {
         for i in 0..N {
             points.push(Point{index:i});
         }
+        let distances : Vec<Vec<Distance>> = distances.iter().map(|row| row.to_vec()).collect();
+        let colors = colors.to_vec();
         SpaceMatrix {
             distances,
             colors,
@@ -133,7 +153,7 @@ impl<const N: PointCount> SpaceMatrix<N> {
     }
 }
 
-impl<const N: PointCount> ColoredMetric for SpaceMatrix<N> {
+impl ColoredMetric for SpaceMatrix {
     fn dist(&self, x1: &Point, x2: &Point) -> Distance {
         self.distances[x1.idx()][x2.idx()]
     }
@@ -143,7 +163,7 @@ impl<const N: PointCount> ColoredMetric for SpaceMatrix<N> {
     }
 
     fn n(&self) -> PointCount {
-        N
+        self.points.len() 
     }
 
     fn point_iter(&self) -> std::slice::Iter<Point> {
@@ -248,13 +268,11 @@ impl ColoredMetric for Space2D {
 
 #[cfg(test)]
 mod tests {
-    use crate::PointCount;
     use super::{Point,SpaceMatrix,Space2D,Distance,ColoredMetric};
     #[test]
     fn matrix_space_3x3() { 
         // create test SpaceMatrix space with 3 points
-        const N : PointCount = 3;
-        let space_by_matrix = SpaceMatrix::<{N}>::new(
+        let space_by_matrix = SpaceMatrix::new_by_array(
                         [[0.0, 2.0, 1.5],
                          [2.0, 0.0, 0.6],
                          [1.5, 0.6, 0.0]], [0, 0, 1]);
