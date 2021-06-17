@@ -9,7 +9,8 @@
  * clustering: centers, radius and assignment of points to centers
  *
  */
-use crate::space::Point;
+use crate::{PointCount,space::{Point,PointIdx,Distance}};
+pub type CenterIdx = usize;
 
 pub struct Centers<'a>{
     centers : Vec<&'a Point>,
@@ -18,11 +19,11 @@ pub struct Centers<'a>{
 use std::fs::File;
 use std::io::prelude::*;
 impl<'a> Centers<'a>{
-    pub fn m(&self) -> usize {
+    pub fn m(&self) -> PointCount {
         self.centers.len()
     }
 
-    pub fn get(&self, i: usize) -> &'a Point {
+    pub fn get(&self, i: CenterIdx) -> &'a Point {
        self.centers[i]  // TODO: Maybe cloning? 
 
     }
@@ -48,7 +49,7 @@ impl<'a> Centers<'a>{
 
     }
 
-    pub fn with_capacity(capacity : usize) -> Centers<'static>{
+    pub fn with_capacity(capacity : PointCount) -> Centers<'static>{
         Centers{centers : Vec::with_capacity(capacity)}
     }
 }
@@ -59,7 +60,7 @@ impl<'a> Centers<'a>{
 
 pub struct Clustering<'a>{
     pub centers : Centers<'a>,
-    pub radius : f32,
+    pub radius : Distance,
     pub center_of : Vec<Option<&'a Point>>, // returns center to which point with index x belongs, if not assigned to center its None
     // alternative ways to save: reference: list of Cluster typs (consisting of Center and
     // Vector of Points
@@ -74,7 +75,7 @@ use std::collections::HashMap;
 impl<'a> Clustering<'a>{
     pub fn save_to_file(&self, file_path : &str){
 
-        let mut clients_of : HashMap<&Point, Vec<usize>> = HashMap::with_capacity(self.centers.m());
+        let mut clients_of : HashMap<&Point, Vec<PointIdx>> = HashMap::with_capacity(self.centers.m());
         for center in self.centers.iter() {
             clients_of.insert(center,Vec::new());
         }

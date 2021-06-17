@@ -1,13 +1,13 @@
-use crate::{ClusteringProblem,Clustering,clustering::Centers};
-use super::{Edge,buckets::split_at_median,flow::{State,add_edge,remove_edge}};
+use crate::{ClusteringProblem,Clustering,clustering::{Centers,CenterIdx}, space::Distance};
+use super::{Edge,EdgeIdx,buckets::split_at_median,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet
 // (the edge at edge_curser-1 has been added already)
-pub fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>) -> Clustering<'b>{
+pub fn settle<'a, 'b>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>) -> Clustering<'b>{
     let mut cursor = edge_cursor;
 
     println!("  Edge_cursor: {}", edge_cursor);
-    println!("  Bucket to settle: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
+    println!("  Bucket to settle: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
     let edges_present : bool;
     // first clear or fill bucket:
@@ -47,7 +47,7 @@ pub fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, 
                     }).collect(),
     };
 
-    println!("  Bucket after settling: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<f32>>());
+    println!("  Bucket after settling: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
     // empty bucket for the final time
     while cursor > 0 {
@@ -67,8 +67,8 @@ pub fn settle<'a, 'b>(edge_cursor: usize, bucket: &mut Vec<Edge<'a>>, i: usize, 
 //
 // Output: None if max_flow_target cannot be reached or Some(radius) if found
 //   list becomes more sorted
-fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut usize, i : usize, prob: &ClusteringProblem, state: &mut State<'a>) -> f32 {
-    println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<f32>>(), edges_present);
+fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut EdgeIdx, i : CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>) -> Distance {
+    println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<Distance>>(), edges_present);
     let list_len = list.len();
     assert!(list_len > 0, "Empty list in binary search");
     if list_len == 1 {
@@ -82,7 +82,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
     }
 
     let (mut smaller, mut bigger) = split_at_median(list);
-    println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<f32>>(), bigger.iter().map(|x| x.d).collect::<Vec<f32>>());
+    println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
 
 
@@ -102,7 +102,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
     }
 
 
-    let radius: f32;
+    let radius: Distance;
 //    let mut left : Vec<Edge> = Vec::with_capacity(list_len);
 //    let mut right : Vec<Edge> = Vec::with_capacity(list_len/2 + 1);
     if state.max_flow >= (i+1) * prob.privacy_bound { // we need to settle in smaller

@@ -1,9 +1,12 @@
+type PointCount = usize;
+type ColorCount = u16;
+
 pub struct ClusteringProblem {
-    pub k : usize, // maximal number of centers
-    pub privacy_bound : usize, // lower bound of representation L
-    //pub gamma : u16, // number of colors
-    //pub a : Vec<usize>, // lower bounds for color classes
-    //pub b : Vec<usize>, // upper bounds for color classes
+    pub k : PointCount, // maximal number of centers
+    pub privacy_bound : PointCount, // lower bound of representation L
+    //pub gamma : ColorCount, // number of colors
+    //pub a : Vec<PointCount>, // lower bounds for color classes
+    //pub b : Vec<PointCount>, // upper bounds for color classes
 
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
@@ -27,7 +30,7 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
-pub fn compute_privacy_preserving_representative_k_center<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem) -> Clustering<'a> {
+pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
 
 
     assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center

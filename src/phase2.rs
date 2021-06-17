@@ -1,6 +1,6 @@
 use crate::ClusteringProblem;
-use crate::space::{Point,ColoredMetric};
-use crate::clustering::{Clustering,Centers};
+use crate::space::{Point,ColoredMetric,Distance};
+use crate::clustering::{Clustering,Centers,CenterIdx};
 
 mod buckets;
 use buckets::{put_into_buckets,assert_buckets_properties};
@@ -16,12 +16,14 @@ pub mod with_sorting;
 
 use std::collections::VecDeque;
 
+type EdgeIdx = usize;
+
 // An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
 pub struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
-    pub d : f32,
-    left : usize, // index of the center in gonzales
+    pub d : Distance,
+    left : CenterIdx, // index of the center in gonzales
     right : &'a Point,
 }
 
@@ -35,7 +37,7 @@ pub struct Edge<'a> { // Care: The ordering of attributes is important for the p
 /// Given a metric space and a ClusteringProblem, make_private takes a set of ordered centers
 /// 0,...,k-1, and determines for each prefix of centers (0,...,i) a partial clustering with minimal radius that satisfy the
 /// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points. 
-pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
+pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
@@ -43,7 +45,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
         for p in space.point_iter() {
             edges.push(Edge{
                 d : space.dist(c, p),
-                left : j,
+                left : j as CenterIdx,
                 right : p,
             });
         }
@@ -52,7 +54,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 //    println!("edges: {:?}", edges);
 
     // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 1)
-    let power_of_k: u32 = 1;
+    let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
     println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k+1);
@@ -62,7 +64,7 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
 
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
-        let bucket_of_dist : Vec<f32> = bucket.iter().map(|x| x.d).collect();
+        let bucket_of_dist : Vec<Distance> = bucket.iter().map(|x| x.d).collect();
         println!(" Bucket {}: {:?}", i, bucket_of_dist);
     }
 
@@ -87,9 +89,9 @@ pub fn make_private<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a Clusterin
     let mut state = initialize_state(space.n(),prob.k);
 
 
-    let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
+    let mut i : CenterIdx = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
-    let mut edge_cursor = 0; // an cursor pointing to the current edge in the current bucket
+    let mut edge_cursor : EdgeIdx = 0; // an cursor pointing to the current edge in the current bucket
 
 
     println!("\n\nMAKE_PRIVTE with L = {}", prob.privacy_bound);

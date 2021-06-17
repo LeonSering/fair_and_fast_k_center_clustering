@@ -1,7 +1,7 @@
 use crate::clustering::Centers;
-use crate::space::{Point,ColoredMetric};
+use crate::{PointCount,space::{Point,ColoredMetric,Distance}};
 
-pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Centers {
+pub fn gonzales_heuristic<M : ColoredMetric>(space : &M, k : PointCount) -> Centers {
 
     let mut gonzales : Centers = Centers::with_capacity(k);//Centers{centers : Vec::with_capacity(k)};
 
@@ -9,7 +9,7 @@ pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Centers
     // we can add any point as first center, so lets take 0
     gonzales.push(first_center);
 
-    let mut dist_x_center : Vec<f32> = Vec::with_capacity(space.n()); // current distance of point x to the set of already determined centers
+    let mut dist_x_center : Vec<Distance> = Vec::with_capacity(space.n()); // current distance of point x to the set of already determined centers
     
 
     for i in space.point_iter() {
@@ -17,7 +17,7 @@ pub fn gonzales_heuristic(space : &Box<dyn ColoredMetric>, k : usize) -> Centers
     }
 
     for i in 1..k {
-        let mut current_distance = std::f32::MIN; // maximal distance to set of centers
+        let mut current_distance = <Distance>::MIN; // maximal distance to set of centers
         let mut current_point : Option<&Point> = None; // corresponing point with this max distance.
         for (j, p) in space.point_iter().enumerate(){
             let dist_to_newest_center = space.dist(p, gonzales.get(i-1)); // as distance of j to gonzales 0..i-2 is known, we only need to measure distance to newest center i-1.

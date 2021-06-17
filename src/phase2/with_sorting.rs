@@ -1,12 +1,12 @@
 use crate::ClusteringProblem;
-use crate::space::ColoredMetric;
+use crate::space::{ColoredMetric,Distance};
 use crate::clustering::{Clustering,Centers};
 
 use std::collections::VecDeque;
 
 use super::{Edge,flow::{initialize_state,add_edge}};
 
-pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
+pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
@@ -23,7 +23,7 @@ pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : 
     println!("\n\nMAKE_PRIVTE WITH SORT with L = {}\n", prob.privacy_bound);
 
     edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let list_of_dist : Vec<f32> = edges.iter().map(|x| x.d).collect();
+    let list_of_dist : Vec<Distance> = edges.iter().map(|x| x.d).collect();
     println!("Edges: {:?}", list_of_dist);
 
     let mut edge_iter = edges.iter();
@@ -39,7 +39,7 @@ pub fn make_private_with_sorting<'a>(space : &'a Box<dyn ColoredMetric>, prob : 
 
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
 
-    let mut current_d = 0.0f32;
+    let mut current_d = <Distance>::MIN;
     while i < prob.k { // extend set of gonzales centers one by one
         println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k

@@ -5,27 +5,33 @@
 /* Module space maintains all datastructure of metric spaces where points have colors.
  *
  * All functionalities are stored in the public trait ColoredMetric:
- * - Distances can be obtained by using dist(x1 : usize, x2 : usize) -> f32
- * - Colors can be obtained by using color(x: usize) -> u16
- * - Distance to a set can be obtained by dist_set(x: usize, point_set: &Vec<usize>) -> f32
- * - The number of points can be obtained by n() -> usize
+ * - Distances can be obtained by using dist(x1 : PointIdx, x2 : PointIdx) -> Distance
+ * - Colors can be obtained by using color(x: PointIdx) -> ColorIdx
+ * - Distance to a set can be obtained by dist_set(x: PointIdx, point_set: &Vec<PointIdx>) -> Distance
+ * - The number of points can be obtained by n() -> PointCount 
  *
  * The most general metric can be created by new_space_by_matrix
- * Input: distances_by_NxN-Matrix: [[f32; N]; N],
- *        colors: [u16; N]
- * Output: Box<dyn ColoredMetric>
+ * Input: distances_by_NxN-Matrix: [[Distance; N]; N],
+ *        colors: [ColorCount; N]
+ * Output: SpaceMatrix 
  *
  * Other builder functions are new_space_by_2dpoints and new_space_by_2dpoints_file
  * These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
  */
 
+pub type PointIdx = usize;
+pub type Distance = f32;
+pub type ColorIdx = u16;
+
+use crate::{ColorCount,PointCount};
+
 #[derive(Debug,PartialOrd,PartialEq,Eq,Hash)]
 pub struct Point{ // a point in the metric
-    index : usize,
+    index : PointIdx,
 }
 
 impl Point {
-    pub fn idx(&self) -> usize {
+    pub fn idx(&self) -> PointIdx {
         self.index
     }
 }
@@ -33,13 +39,13 @@ impl Point {
 // Trait to obtain the distance between two points.
 pub trait ColoredMetric{
 
-    fn dist(&self, x1 : &Point, x2 : &Point) -> f32; // returns the distance between x1 and x2
+    fn dist(&self, x1 : &Point, x2 : &Point) -> Distance; // returns the distance between x1 and x2
 
-    fn color(&self, x : &Point) -> u16;
+    fn color(&self, x : &Point) -> ColorIdx;
 
-    fn dist_set(&self, x : &Point, point_set: &Vec<Point>) -> f32 {
-        let mut current_distance = f32::MAX;
-        let mut d: f32;
+    fn dist_set(&self, x : &Point, point_set: &Vec<Point>) -> Distance {
+        let mut current_distance = Distance::MAX;
+        let mut d: Distance;
         for p in point_set {
             d = self.dist(x,p);
             if d < current_distance {
@@ -49,11 +55,11 @@ pub trait ColoredMetric{
         current_distance
     }
 
-    fn n(&self) -> usize; // return number of points
+    fn n(&self) -> PointCount; // return number of points
 
     fn point_iter(&self) -> std::slice::Iter<Point>;
 
-    fn gamma(&self) -> u16; // returns number of color classes
+    fn gamma(&self) -> ColorCount; // returns number of color classes
 
     // Care this need O(n^3) time
     fn is_metric(&self) -> bool {
@@ -102,15 +108,15 @@ pub trait ColoredMetric{
 
 // a metric space of N point with color classes. Distances are given by NxN-array and color class
 // by N-array.
-pub struct SpaceMatrix<const N: usize>{
-    distances: [[f32; N]; N], // distance matrix (later maybe implicit as distance function to avoid n^2 space)
+pub struct SpaceMatrix<const N: PointCount>{
+    distances: [[Distance; N]; N], // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
-    colors: [u16; N], // points as array or implicit? If implicity: array of color-classes.
+    colors: [ColorIdx; N], // points as array or implicit? If implicity: array of color-classes.
 }
 
 // builder:
-impl<const N: usize> SpaceMatrix<N> {
-    pub fn new(distances : [[f32; N]; N], colors: [u16; N]) -> Box<dyn ColoredMetric> {
+impl<const N: PointCount> SpaceMatrix<N> {
+    pub fn new(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix::<{N}> {
 
         // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
         // without unsafe rust.
@@ -119,24 +125,24 @@ impl<const N: usize> SpaceMatrix<N> {
         for i in 0..N {
             points.push(Point{index:i});
         }
-        Box::new(SpaceMatrix {
+        SpaceMatrix {
             distances,
             colors,
             points,
-        })
+        }
     }
 }
 
-impl<const N: usize> ColoredMetric for SpaceMatrix<N> {
-    fn dist(&self, x1: &Point, x2: &Point) -> f32 {
+impl<const N: PointCount> ColoredMetric for SpaceMatrix<N> {
+    fn dist(&self, x1: &Point, x2: &Point) -> Distance {
         self.distances[x1.idx()][x2.idx()]
     }
 
-    fn color(&self, x: &Point) -> u16 {
+    fn color(&self, x: &Point) -> ColorIdx {
         self.colors[x.idx()]
     }
 
-    fn n(&self) -> usize {
+    fn n(&self) -> PointCount {
         N
     }
 
@@ -144,7 +150,7 @@ impl<const N: usize> ColoredMetric for SpaceMatrix<N> {
         self.points.iter()
     }
 
-    fn gamma(&self) -> u16 {
+    fn gamma(&self) -> ColorCount {
         *self.colors.iter().max().expect("No maximal color found")
     }
 }
@@ -153,14 +159,14 @@ impl<const N: usize> ColoredMetric for SpaceMatrix<N> {
 
 
 ///////////////////////// Space2D /////////////////////////
-
+type Position = (f32, f32);
 // the euclidean metric space in 2D.
 
 // TODO: expand this to k-dim space by using "const generic"
 pub struct Space2D{
     points : Vec<Point>, // points are saved as vector of tuples
-    positions : Vec<[f32;2]>,
-    colors : Vec<u16>,
+    positions : Vec<Position>,
+    colors : Vec<ColorIdx>,
 }
 use rand::Rng;
 use std::fs::File;
@@ -168,37 +174,37 @@ use std::io::{BufReader,BufRead};
 
 impl Space2D {
     // builder
-    pub fn by_2dpoints(positions : Vec<[f32;2]>, colors : Vec<u16>) -> Box<dyn ColoredMetric> {
-        Box::new(Space2D {
+    pub fn by_2dpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> Space2D {
+        Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
-        })
+        }
     }
 
     // crates n random 2dpoints in the [-100,100]x[-100,100] box with random colors from [10]
-    pub fn new_random(n : usize) -> Box<dyn ColoredMetric> {
+    pub fn new_random(n : PointCount) -> Space2D {
         let mut rng = rand::thread_rng();
-        let positions = (0..n).map(|_| [rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32)]).collect();
+        let positions = (0..n).map(|_| (rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32))).collect();
         let colors = (0..n).map(|_| rng.gen_range(0..10)).collect();
         Space2D::by_2dpoints(positions, colors)
     }
 
-    pub fn by_file(file_path : &str, expected_number_of_points : usize) -> Box<dyn ColoredMetric> {
+    pub fn by_file(file_path : &str, expected_number_of_points : PointCount) -> Space2D {
 
         let f = File::open(file_path).expect("Cannot open file to read 2dpoints.");
         let f = BufReader::new(f);
 
 
         // create vectors with initial capacity given expected number of points.
-        let mut positions : Vec<[f32;2]> = Vec::with_capacity(expected_number_of_points);
-        let mut colors : Vec<u16> = Vec::with_capacity(expected_number_of_points);
+        let mut positions : Vec<Position> = Vec::with_capacity(expected_number_of_points);
+        let mut colors : Vec<ColorIdx> = Vec::with_capacity(expected_number_of_points);
 
         for line in f.lines() {
             let content = line.unwrap();
             let content: Vec<&str> = content.split(',').collect();
-            positions.push([content[0].parse::<f32>().expect(format!("Cannot parse x-entry to f32  on line {}.",positions.len()).as_str()), content[1].parse::<f32>().expect(format!("Cannot parse y-entry to f32 on line {}.", positions.len()).as_str())]);
-            colors.push(content[2].parse::<u16>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
+            positions.push((content[0].parse::<Distance>().expect(format!("Cannot parse x-entry to f32  on line {}.",positions.len()).as_str()), content[1].parse::<Distance>().expect(format!("Cannot parse y-entry to f32 on line {}.", positions.len()).as_str())));
+            colors.push(content[2].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
 
         }
         println!("Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
@@ -207,21 +213,21 @@ impl Space2D {
         println!("positions: {:?}", positions);
         #[cfg(debug_assertions)]
         println!("colors: {:?}", colors);
-        Box::new(Space2D {
+        Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
-        })
+        }
     }
 }
 
 impl ColoredMetric for Space2D {
-    fn dist(&self, x1: &Point, x2: &Point) -> f32 { // euclidean norm
-        let d_squared : f32 = (self.positions[x1.idx()][0] - self.positions[x2.idx()][0]) * (self.positions[x1.idx()][0] - self.positions[x2.idx()][0]) + (self.positions[x1.idx()][1] - self.positions[x2.idx()][1]) *(self.positions[x1.idx()][1] - self.positions[x2.idx()][1]);
+    fn dist(&self, x1: &Point, x2: &Point) -> Distance { // euclidean norm
+        let d_squared : Distance = (self.positions[x1.idx()].0 - self.positions[x2.idx()].0) * (self.positions[x1.idx()].0 - self.positions[x2.idx()].0) + (self.positions[x1.idx()].1 - self.positions[x2.idx()].1) *(self.positions[x1.idx()].1 - self.positions[x2.idx()].1);
         d_squared.sqrt()
     }
 
-    fn color(&self, x : &Point) -> u16 {
+    fn color(&self, x : &Point) -> ColorIdx {
         self.colors[x.idx()]
     }
 
@@ -229,11 +235,11 @@ impl ColoredMetric for Space2D {
         self.points.iter()
     }
 
-    fn n(&self) -> usize {
+    fn n(&self) -> PointCount {
         self.points.len()
     }
     
-    fn gamma(&self) -> u16 {
+    fn gamma(&self) -> ColorCount {
         *self.colors.iter().max().expect("No maximal color found.")
     }
 }
@@ -242,13 +248,13 @@ impl ColoredMetric for Space2D {
 
 #[cfg(test)]
 mod tests {
-    use crate::*;
-    use super::{Point,SpaceMatrix,Space2D};
+    use crate::PointCount;
+    use super::{Point,SpaceMatrix,Space2D,Distance,ColoredMetric};
     #[test]
     fn matrix_space_3x3() { 
         // create test SpaceMatrix space with 3 points
-        const N : usize = 3;
-        let space_by_matrix : Box<dyn ColoredMetric> = SpaceMatrix::<{N}>::new(
+        const N : PointCount = 3;
+        let space_by_matrix = SpaceMatrix::<{N}>::new(
                         [[0.0, 2.0, 1.5],
                          [2.0, 0.0, 0.6],
                          [1.5, 0.6, 0.0]], [0, 0, 1]);
@@ -262,13 +268,13 @@ mod tests {
     #[test]
     fn point_space_3_points() {
         // create test Space2D:
-        let space_by_points : Box<dyn ColoredMetric> = Space2D::by_2dpoints(vec!([0.0,0.0], [1.5,1.1], [1.0,0.5]), vec!(0,0,1));
+        let space_by_points = Space2D::by_2dpoints(vec!((0.0,0.0), (1.5,1.1), (1.0,0.5)), vec!(0,0,1));
 
         assert!(space_by_points.is_metric());
 
         let points : Vec<&Point> = space_by_points.point_iter().collect(); 
 
-        assert_eq!(space_by_points.dist(points[1],points[2]),f32::sqrt(0.25+0.36));
+        assert_eq!(space_by_points.dist(points[1],points[2]),<Distance>::sqrt(0.25+0.36));
         assert_eq!(space_by_points.color(points[2]),1);
         assert_eq!(space_by_points.n(),3);
         println!("dist between 1 and 2: {}", space_by_points.dist(points[1],points[2]));

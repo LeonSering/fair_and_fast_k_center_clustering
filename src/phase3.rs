@@ -7,7 +7,7 @@ use crate::clustering::Clustering;
 /// and returns a vector of (full) clustering in which each center (except one) covers a multiple of L
 /// points.
 ///
-pub fn redistribute<'a>(space : &Box<dyn ColoredMetric>, prob : &ClusteringProblem, clusterings : Vec<Clustering<'a>>) -> Vec<Clustering<'a>> {
+pub fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : Vec<Clustering<'a>>) -> Vec<Clustering<'a>> {
     clusterings
 }
 
