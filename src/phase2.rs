@@ -146,9 +146,11 @@ pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProb
 
         // at this point, we have identified the bucket that settles the set S_i
         #[cfg(debug_assertions)]
-        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
+        
+        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); 
+        // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
+        
         println!("\n+++ Center {} settles in bucket {}:\n", i, j);
-        //TODO Settle centers 0...i in bucket j
         clusterings.push(settle(edge_cursor, &mut buckets[j], i, prob, &mut state, &gonzales));
         
         // start bucket from beginning, hence clear all pendings
@@ -158,10 +160,40 @@ pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProb
         }
         i += 1;
     }
+
+    // assigne all unassigned points to its nearest neighbor:
+    // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
+    fill_up_clusterings(&mut clusterings, space); 
     
     clusterings
 }
 
 
+fn fill_up_clusterings<M : ColoredMetric>(clusterings :&mut Vec<Clustering>, space : &M) {
+    println!("\n* Assign unassigned points to nearest center.\n");
+    for clust in clusterings.iter_mut() {
+        if clust.radius.is_none() {
+            clust.radius = Some(0.0);
+        }
+        for p in space.point_iter() {
+            if clust.center_of[p.idx()].is_none() {
+                // in this case p is not assigned to a center yet: Assigne it to nearest center
+                let mut current_dist = <Distance>::MAX;
+                let mut best_center = None;
+                for &center in clust.centers.iter() {
+                    let dist = space.dist(center,p);
+                    if dist < current_dist {
+                        current_dist = dist;
+                        best_center = Some(center);
+                    }
+                }
+                clust.center_of[p.idx()] = best_center;
+                if current_dist > clust.radius.unwrap() {
+                    clust.radius = Some(current_dist);
+                }
+            }
 
+        }
+    }
+}
 

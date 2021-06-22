@@ -4,7 +4,7 @@ use crate::clustering::{Clustering,Centers};
 
 use std::collections::VecDeque;
 
-use super::{Edge,flow::{initialize_state,add_edge}};
+use super::{Edge,fill_up_clusterings,flow::{initialize_state,add_edge}};
 
 pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
@@ -95,7 +95,7 @@ pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a C
         
         i += 1;
     }
-    
+    fill_up_clusterings(&mut clusterings, space);
     clusterings
 }
 

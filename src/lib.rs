@@ -79,10 +79,12 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
-
-    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
+    
+    // TEMP:
     // clusterings is now a vector of partial clustering
     let clusterings_with_sorting : Vec<Clustering<'a>> = make_private_with_sorting(space, prob, &gonzales);
+
+    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
     // TEMP:
     for (c, clustering) in clusterings.iter().enumerate() {
