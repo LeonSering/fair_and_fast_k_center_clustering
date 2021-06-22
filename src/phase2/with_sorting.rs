@@ -85,7 +85,7 @@ pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a C
 
         let clustering = Clustering {
             centers,  // centers are the gonzales centers 0,...,i
-            radius:current_d, // TODO
+            radius: Some(current_d), // TODO
             center_of : state.center_of.iter().map(|c| match c {
                             Some(idx) => Some(gonzales.get(*idx)),
                             None => None, 

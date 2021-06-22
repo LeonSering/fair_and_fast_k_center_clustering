@@ -2,7 +2,7 @@ extern crate ff_k_center_lib;
 use std::fs::create_dir_all;
 
 use ff_k_center_lib::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
-use ff_k_center_lib::space::Space2D;
+use ff_k_center_lib::Space2D;
 
 fn main() {
     let space_name = "mono_space";

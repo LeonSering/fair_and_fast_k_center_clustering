@@ -1,21 +1,43 @@
+//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>3</sup>).
+//!
+//! # Quick Start
+//!
+//! First create a metric space with color classes by either loading them through a file or by
+//! manually entering the distance matrix and colors.
+//! The metric space must implement the [ColoredMetric]-trait.
+//! For details on how to create or load metric spaces see: [SpaceMatrix] and [Space2D].
+//!
+//! Then create a [ClusteringProblem] by specifying the maximal number of clusters k, the lower bound
+//! for privacy condition privacy_bound, and a list intervals (one for each color class) for the representaive conditon.
+//!
+//! With [compute_privacy_preserving_representative_k_center] a [Clustering] is created, which
+//! contains a list of centers (see [Centers]) and an assignment of each point to a center.
+//! This clustering is a 13-approximation on the optimal "privacy preserving representative k-center"-clustering.
+//!
+
+
 type PointCount = usize;
 type ColorCount = u16;
+//type Interval = (usize,usize);
 
+/// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
+/// k is the maximal number of centers that can be opened;
+/// privacy_bound specifies a lower bound on the number of clients that needs to be assigned to each center;
+/// rep_interval contains an interval [a,b] for each color class, the number of centers of that
+/// color must be within the interval.
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
     pub privacy_bound : PointCount, // lower bound of representation L
-    //pub gamma : ColorCount, // number of colors
-    //pub a : Vec<PointCount>, // lower bounds for color classes
-    //pub b : Vec<PointCount>, // upper bounds for color classes
+    //pub rep_interval : Vec<Interval>, // one integer interval for each color class
 
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
 
-pub mod space;
-use space::ColoredMetric;
+mod space;
+pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
 
 mod clustering;
-use clustering::Clustering;
+pub use clustering::{Clustering,Centers};
 
 mod phase1;
 use phase1::gonzales_heuristic;
@@ -30,6 +52,12 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
+/// Computes a privacy preserving representative k-clustering.
+/// Input: A metric space implementing the [ColoredMetric] trait and a [ClusteringProblem].
+/// Output: A clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
+/// each client to a center.
+/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>3</sup>). 
+/// TODO: Update this doc-comment
 pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
 
 
@@ -67,10 +95,10 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
                 }
             }
         }
-        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.radius, clusterings_with_sorting[c].radius);
+        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.radius.unwrap(), clusterings_with_sorting[c].radius.unwrap());
     }
 
-    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius).collect::<Vec<f32>>());
+    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius.unwrap()).collect::<Vec<f32>>());
     
     for i in 0..prob.k {
         let save_path = format!("output/after_phase_2_with_i_{}.clustering", i);

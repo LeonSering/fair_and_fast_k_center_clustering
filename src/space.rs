@@ -2,22 +2,22 @@
 ///////////////////// module: space ///////////////////////////
 ///////////////////////////////////////////////////////////////
 
-/* Module space maintains all datastructure of metric spaces where points have colors.
- *
- * All functionalities are stored in the public trait ColoredMetric:
- * - Distances can be obtained by using dist(x1 : PointIdx, x2 : PointIdx) -> Distance
- * - Colors can be obtained by using color(x: PointIdx) -> ColorIdx
- * - Distance to a set can be obtained by dist_set(x: PointIdx, point_set: &Vec<PointIdx>) -> Distance
- * - The number of points can be obtained by n() -> PointCount 
- *
- * The most general metric can be created by new_space_by_matrix
- * Input: distances_by_NxN-Matrix: [[Distance; N]; N],
- *        colors: [ColorCount; N]
- * Output: SpaceMatrix 
- *
- * Other builder functions are new_space_by_2dpoints and new_space_by_2dpoints_file
- * These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
- */
+/// Module space maintains all datastructure of metric spaces where points have colors.
+///
+/// All functionalities are stored in the public trait ColoredMetric:
+/// - Distances can be obtained by using dist(x1 : PointIdx, x2 : PointIdx) -> Distance
+/// - Colors can be obtained by using color(x: PointIdx) -> ColorIdx
+/// - Distance to a set can be obtained by dist_set(x: PointIdx, point_set: &Vec<PointIdx>) -> Distance
+/// - The number of points can be obtained by n() -> PointCount 
+///
+/// The most general metric can be created by new_space_by_matrix
+/// Input: distances_by_NxN-Matrix: [[Distance; N]; N],
+///        colors: [ColorCount; N]
+/// Output: SpaceMatrix 
+///
+/// Other builder functions are new_space_by_2dpoints and new_space_by_2dpoints_file
+/// These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
+///
 
 pub type PointIdx = usize;
 pub type Distance = f32;
@@ -25,24 +25,31 @@ pub type ColorIdx = u16;
 
 use crate::{ColorCount,PointCount};
 
+/// A point of a metric space. Their only attribute is an index, which can be obtained by idx().
+/// Points are create by metric spaces and can only be accessed via the point_inter() method of the
+/// [ColoredMetric] trait.
 #[derive(Debug,PartialOrd,PartialEq,Eq,Hash)]
 pub struct Point{ // a point in the metric
     index : PointIdx,
 }
 
 impl Point {
+    /// Return the index of the point.
     pub fn idx(&self) -> PointIdx {
         self.index
     }
 }
 
-// Trait to obtain the distance between two points.
+/// Trait for a metric space with colored points.
 pub trait ColoredMetric{
-
+    
+    /// Returns the distance between two points x1 and x2.
     fn dist(&self, x1 : &Point, x2 : &Point) -> Distance; // returns the distance between x1 and x2
 
+    /// Returns the the color of point x.
     fn color(&self, x : &Point) -> ColorIdx;
 
+    /// Returns the distance between a point x and a set of points.
     fn dist_set(&self, x : &Point, point_set: &Vec<Point>) -> Distance {
         let mut current_distance = Distance::MAX;
         let mut d: Distance;
@@ -54,14 +61,23 @@ pub trait ColoredMetric{
         }
         current_distance
     }
-
+    
+    /// Return the number of points in the metric space.
     fn n(&self) -> PointCount; // return number of points
 
+    /// Provides an iterator of all points of the metric space. This is the only way to access the
+    /// points.
     fn point_iter(&self) -> std::slice::Iter<Point>;
 
-    fn gamma(&self) -> ColorCount; // returns number of color classes
+    /// Returns the number of color classes that are present in the metric space. More precesely it
+    /// return the highest color value + 1.
+    fn gamma(&self) -> ColorCount {
+        self.point_iter().map(|p| self.color(p)).max().expect("No maximal color found") + 1
+    }
 
-    // Care this need O(n^3) time
+    /// Checks whether the dist function satisfy the metric properties in which case true is
+    /// returned.
+    /// Care: this need O(n<sup>3</sup>) time.
     fn is_metric(&self) -> bool {
 
         // check for symmetry, non-negativity and identity of indiscernibles
@@ -106,8 +122,10 @@ pub trait ColoredMetric{
 
 //////////////////// SpaceMatrix /////////////////////////
 
-// a metric space of N point with color classes. Distances are given by NxN-array and color class
-// by N-array.
+/// A general finite metric space with color classes. </br> 
+/// Distances are given by a symetric distance matrx of type nxn; </br>
+/// Colors are given by a list of size n; </br>
+/// Implements the [ColoredMetric] trait.
 pub struct SpaceMatrix{
     distances: Vec<Vec<Distance>>, // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
@@ -116,7 +134,18 @@ pub struct SpaceMatrix{
 
 
 impl SpaceMatrix {
-// builders:
+    /// Creates a new [SpaceMatrix];
+    /// distances has to be a 2d-vector that represents a quadratic matrix satisfying the metric properties
+    /// (symmetry, non-negativity, identity of indiscernibles and the triangle inequality);
+    /// colors is a vector that stores the color of each point;
+    ///
+    /// To assert the metric properties, the run time is O(n^3).
+    ///
+    /// # Panics
+    ///
+    /// Panics, if distances is not a quadratic matrix;
+    /// Panics, if the length of the color classes does not match the number of points given by distances;
+    /// Panics, if distances does not satisfy the metric properties;
     pub fn new(distances: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> SpaceMatrix {
         // check if distances is a qudratic matrix:
         let number_of_rows = distances.len();
@@ -126,14 +155,32 @@ impl SpaceMatrix {
             points.push(Point{index:i});
         }
         assert_eq!(number_of_rows, colors.len(), "Number of points: {} do not match number of colors: {}", number_of_rows, colors.len());
-    
-        SpaceMatrix {
+
+        let space = SpaceMatrix {
             distances,
             colors,
             points,
-        }
-    }
+        };
 
+        assert!(space.is_metric(), "distances do not satisfy the metric properties.");
+        space
+    }
+    
+    /// Creates a new [SpaceMatrix] as in new but the distances and color data are received by arrays.
+    ///
+    /// # Example
+    /// ```rust
+    /// use ff_k_center_lib::{Point,SpaceMatrix,ColoredMetric};
+    /// let space = SpaceMatrix::new_by_array(
+    ///                 [[0.0, 2.0, 1.5],
+    ///                  [2.0, 0.0, 0.6],
+    ///                  [1.5, 0.6, 0.0]], [0, 0, 1]);
+    /// let points : Vec<&Point> = space.point_iter().collect(); 
+    /// assert!(space.is_metric());
+    /// assert_eq!(space.dist(points[1],points[2]),0.6);
+    /// assert_eq!(space.color(points[2]),1);
+    /// assert_eq!(space.n(),3);
+    /// ``` 
     pub fn new_by_array<const N: PointCount>(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix {
 
         // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
@@ -170,9 +217,6 @@ impl ColoredMetric for SpaceMatrix {
         self.points.iter()
     }
 
-    fn gamma(&self) -> ColorCount {
-        *self.colors.iter().max().expect("No maximal color found")
-    }
 }
 
 
@@ -183,8 +227,12 @@ type Position = (f32, f32);
 // the euclidean metric space in 2D.
 
 // TODO: expand this to k-dim space by using "const generic"
+
+/// A metric space in the euklidean plane. Implements the [ColoredMetric] trait.
+/// Beside the color it also stores the position of type (f32,f32) of each point.
+/// The distance is computed by the Eucleadean metric.
 pub struct Space2D{
-    points : Vec<Point>, // points are saved as vector of tuples
+    points : Vec<Point>,
     positions : Vec<Position>,
     colors : Vec<ColorIdx>,
 }
@@ -193,8 +241,31 @@ use std::fs::File;
 use std::io::{BufReader,BufRead};
 
 impl Space2D {
-    // builder
+    /// Creates a new metric space of type [Space2D].
+    /// Input: An vector of positions (f32,f32) and a vector of colors (u16).
+    ///
+    /// # Panics
+    ///
+    /// Panics if the two vectors have different size.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use ff_k_center_lib::{Point,Space2D,ColoredMetric};
+    /// let space_by_points = Space2D::by_2dpoints(vec!((0.0,0.0), (1.5,1.1), (1.0,0.5)), vec!(0,0,1));
+    /// 
+    /// assert!(space_by_points.is_metric());
+    /// 
+    /// let points : Vec<&Point> = space_by_points.point_iter().collect(); 
+    /// 
+    /// assert_eq!(space_by_points.dist(points[1],points[2]),<f32>::sqrt(0.25+0.36));
+    /// assert_eq!(space_by_points.color(points[2]),1);
+    /// assert_eq!(space_by_points.n(),3);
+    /// println!("dist between 1 and 2: {}", space_by_points.dist(points[1],points[2]));
+    /// ```
+    ///
     pub fn by_2dpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> Space2D {
+        assert_eq!(positions.len(),colors.len(),"The number of points in position must equal the number of colors!");
         Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
@@ -202,7 +273,8 @@ impl Space2D {
         }
     }
 
-    // crates n random 2dpoints in the [-100,100]x[-100,100] box with random colors from [10]
+    /// Crates a new metric space of type [Space2D].
+    /// It containt n random points in the [-100,100]x[-100,100] box with random colors from [1..10]
     pub fn new_random(n : PointCount) -> Space2D {
         let mut rng = rand::thread_rng();
         let positions = (0..n).map(|_| (rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32))).collect();
@@ -210,6 +282,23 @@ impl Space2D {
         Space2D::by_2dpoints(positions, colors)
     }
 
+    /// Loads a new metric space of type [Space2D] from a file.
+    /// The expected_number_of_points is used to allocate enough storage.
+    /// File_path must point into a text-file that stores a triplet in each line, separated by a comma.
+    /// The first two entries of each line must be of type f32 specifying the position (in 2d);
+    /// the third entry must be a non-negative integer specifying the color (of type u16).
+    /// 
+    /// Example:
+    /// ```txt
+    /// -8.19,-7.88,0
+    /// -8.06,-6.58,0
+    /// -7.3,-6.9,0
+    /// -5.97,-8.26,0
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the file cannot be open of if it cannot parse the triplets.
     pub fn by_file(file_path : &str, expected_number_of_points : PointCount) -> Space2D {
 
         let f = File::open(file_path).expect("Cannot open file to read 2dpoints.");
@@ -259,42 +348,5 @@ impl ColoredMetric for Space2D {
         self.points.len()
     }
     
-    fn gamma(&self) -> ColorCount {
-        *self.colors.iter().max().expect("No maximal color found.")
-    }
 }
 
-
-
-#[cfg(test)]
-mod tests {
-    use super::{Point,SpaceMatrix,Space2D,Distance,ColoredMetric};
-    #[test]
-    fn matrix_space_3x3() { 
-        // create test SpaceMatrix space with 3 points
-        let space_by_matrix = SpaceMatrix::new_by_array(
-                        [[0.0, 2.0, 1.5],
-                         [2.0, 0.0, 0.6],
-                         [1.5, 0.6, 0.0]], [0, 0, 1]);
-        let points : Vec<&Point> = space_by_matrix.point_iter().collect(); 
-        assert!(space_by_matrix.is_metric());
-        assert_eq!(space_by_matrix.dist(points[1],points[2]),0.6);
-        assert_eq!(space_by_matrix.color(points[2]),1);
-        assert_eq!(space_by_matrix.n(),3);
-    }
-
-    #[test]
-    fn point_space_3_points() {
-        // create test Space2D:
-        let space_by_points = Space2D::by_2dpoints(vec!((0.0,0.0), (1.5,1.1), (1.0,0.5)), vec!(0,0,1));
-
-        assert!(space_by_points.is_metric());
-
-        let points : Vec<&Point> = space_by_points.point_iter().collect(); 
-
-        assert_eq!(space_by_points.dist(points[1],points[2]),<Distance>::sqrt(0.25+0.36));
-        assert_eq!(space_by_points.color(points[2]),1);
-        assert_eq!(space_by_points.n(),3);
-        println!("dist between 1 and 2: {}", space_by_points.dist(points[1],points[2]));
-    }
-}
