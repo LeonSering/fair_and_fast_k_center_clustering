@@ -1,4 +1,4 @@
-//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>3</sup>).
+//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>4</sup>).
 //!
 //! # Quick Start
 //!
@@ -56,7 +56,7 @@ use phase4::finalize;
 /// Input: A metric space implementing the [ColoredMetric] trait and a [ClusteringProblem].
 /// Output: A clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
-/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>3</sup>). 
+/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>). 
 /// TODO: Update this doc-comment
 pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
 

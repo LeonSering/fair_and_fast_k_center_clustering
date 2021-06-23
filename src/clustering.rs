@@ -92,6 +92,11 @@ pub struct Clustering<'a>{
 use std::collections::HashMap;
 impl<'a> Clustering<'a>{
 
+    /// Returns the number of centers/clusters m.
+    pub fn m(&self) -> PointCount {
+        self.centers.m()
+    }
+
     /// Saves the clustering to the text-file specified by file_path.
     /// The output is as follows:
     /// For each center we have one line in the output file of the form
