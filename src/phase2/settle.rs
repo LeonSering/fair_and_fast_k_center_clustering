@@ -1,9 +1,9 @@
-use crate::{ClusteringProblem,Clustering,clustering::{Centers,CenterIdx}, space::Distance};
+use crate::{ClusteringProblem,Clustering,Centers,ColoredMetric,clustering::CenterIdx, space::Distance};
 use super::{Edge,EdgeIdx,buckets::split_at_median,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet
 // (the edge at edge_curser-1 has been added already)
-pub fn settle<'a, 'b>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>) -> Clustering<'b>{
+pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>, space: &M) -> Clustering<'b>{
     let mut cursor = edge_cursor;
 
     println!("  Edge_cursor: {}", edge_cursor);
@@ -38,14 +38,9 @@ pub fn settle<'a, 'b>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: Cente
         centers.push(c);
     }
 
-    let clustering = Clustering {
-        centers,  // centers are the gonzales centers 0,...,i
-        radius: Some(radius),
-        center_of : state.center_of.iter().map(|c| match c {
-                        Some(idx) => Some(gonzales.get(*idx)),
-                        None => None,
-                    }).collect(),
-    };
+    let clustering = Clustering::new(centers,state.center_of.clone(),space);
+    #[cfg(debug_assertions)]
+    assert_eq!(radius,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
 
     println!("  Bucket after settling: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<Distance>>());
 

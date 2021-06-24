@@ -4,9 +4,9 @@ use crate::clustering::{Clustering,Centers};
 
 use std::collections::VecDeque;
 
-use super::{Edge,fill_up_clusterings,flow::{initialize_state,add_edge}};
+use super::{Edge,flow::{initialize_state,add_edge}};
 
-pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
+pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
@@ -83,19 +83,16 @@ pub fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob : &'a C
             centers.push(c);
         }
 
-        let clustering = Clustering {
-            centers,  // centers are the gonzales centers 0,...,i
-            radius: Some(current_d), // TODO
-            center_of : state.center_of.iter().map(|c| match c {
-                            Some(idx) => Some(gonzales.get(*idx)),
-                            None => None, 
-                        }).collect(),
-        };
+        let clustering = Clustering::new(centers,state.center_of.clone(),space);
+        #[cfg(debug_assertions)]
+        assert_eq!(current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
         clusterings.push(clustering);
         
         i += 1;
     }
-    fill_up_clusterings(&mut clusterings, space);
+    for clustering in clusterings.iter_mut() {
+        clustering.fill_up(space);
+    }
     clusterings
 }
 

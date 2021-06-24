@@ -3,7 +3,7 @@ use super::{Edge,EdgeIdx};
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets of size <= ceil(4n/k^4) edges; with property of Lemma 3;
-pub fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount, power_of_k: u32) -> Vec<Vec<Edge>> {
+pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount, power_of_k: u32) -> Vec<Vec<Edge>> {
     let bucket_size_limit = (4*n-1)/(k.pow(power_of_k)) + 1; // ceil(4n/k^z)
 
     let mut smaller_buckets : Vec<Vec<Edge>> = Vec::with_capacity(list.len()/2 + 1);
@@ -42,7 +42,7 @@ pub fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount, power
 
 // split bucket at the median into (left, right). All elements in left are smaller or equal to all
 // elements on the right.
-pub fn split_at_median<'a>(list: &mut Vec<Edge<'a>>) -> (Vec<Edge<'a>>, Vec<Edge<'a>>) {
+pub(super) fn split_at_median<'a>(list: &mut Vec<Edge<'a>>) -> (Vec<Edge<'a>>, Vec<Edge<'a>>) {
     let median = median_of_medians(&list, (list.len() - 1) / 2);
     let mut smaller : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1);
     let mut bigger : Vec<Edge> = Vec::with_capacity(list.len()/2 + 1); 
@@ -110,7 +110,7 @@ fn median_of_medians<'a>(list: & Vec<Edge<'a>>, pos : EdgeIdx) -> Edge<'a> {
 // asserts that there are at most k^5 buckets, each of size at most ceil(4n/k^4); the distance of
 // each element of a bucket j is bigger than all elements in bucket < j and smaller than all
 // elements in buckets > j.
-pub fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: PointCount, k: PointCount, power_of_k: u32) -> bool {
+pub(super) fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: PointCount, k: PointCount, power_of_k: u32) -> bool {
 
     assert!(buckets.len() <= k.pow(power_of_k+1));
 

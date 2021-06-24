@@ -1,7 +1,7 @@
 use crate::clustering::Centers;
 use crate::{PointCount,space::{Point,ColoredMetric,Distance}};
 
-pub fn gonzales_heuristic<M : ColoredMetric>(space : &M, k : PointCount) -> Centers {
+pub(crate) fn gonzales_heuristic<M : ColoredMetric>(space : &M, k : PointCount) -> Centers {
 
     let mut gonzales : Centers = Centers::with_capacity(k);//Centers{centers : Vec::with_capacity(k)};
 

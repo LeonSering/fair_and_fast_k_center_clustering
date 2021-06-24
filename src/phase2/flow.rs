@@ -4,7 +4,7 @@ use std::collections::VecDeque;
 
 // describes the state of the flow network and of the centers graph.
 #[derive(Debug)]
-pub struct State<'a>{
+pub(super) struct State<'a>{
     pub center_of: Vec<Option<CenterIdx>>, // center[x] is the assigned center (in form of gonzales index) of point x
     pub max_flow: PointCount, // the current value of a maximum flow
     reassign: Vec<Vec<VecDeque<&'a Point>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
@@ -73,7 +73,7 @@ impl<'a> State<'a> {
     }
 }
 
-pub fn initialize_state<'a>(n: PointCount, k: PointCount) -> State<'a> {
+pub(super) fn initialize_state<'a>(n: PointCount, k: PointCount) -> State<'a> {
     State {
         center_of: vec!(None; n), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
         max_flow: 0,
@@ -91,7 +91,7 @@ pub fn initialize_state<'a>(n: PointCount, k: PointCount) -> State<'a> {
 // task: add edge e to the current flow network and look for an augmenting path to increase the
 // flow by 1; then execute this augmentation
 
-pub fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>){
+pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>){
     let c = e.left;
     let x = e.right; // maybe cloning needed
 
@@ -127,7 +127,7 @@ pub fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: 
     augment_flow(prob,i,state); // trying to increase flow. If no augmenting path: O(k), if increase possible: O(k^2)
 }
 
-pub fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>) {
+pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>) {
     let c = e.left;
     let x = e.right;
 

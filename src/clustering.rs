@@ -74,12 +74,15 @@ impl<'a> Centers<'a>{
 /// A (partial) clustering specified by a list of centers and an assignment of clients to centers.
 pub struct Clustering<'a>{
     /// a collection of points (of type &[Point])
-    pub centers : Centers<'a>,
-    /// for each point it contains the center it is assigned to. For partial clustering this value can be None
-    pub center_of : Vec<Option<&'a Point>>, // returns center to which point with index x belongs, if not assigned to center its None
+    centers : Centers<'a>,
+    /// for each point it contains the index of the center it is assigned to. For partial clustering this value can be None
+    center_of : Vec<Option<CenterIdx>>, // returns center to which point with index x belongs, if not assigned to center its None
     /// the maximal distance between a client and its center 
     /// (this is not computed but assigned; so there is some redundance)
-    pub radius : Option<Distance>,
+    radius : Distance,
+
+    /// the number of points covered by each center
+    cluster_sizes : Vec<PointCount>,
     // alternative ways to save: reference: list of Cluster typs (consisting of Center and
     // Vector of Points
 
@@ -89,13 +92,112 @@ pub struct Clustering<'a>{
     // method: print to file
 }
 
-use std::collections::HashMap;
+use crate::ColoredMetric;
 impl<'a> Clustering<'a>{
+
+    /// Creates a new (partial) clustering for a given list of centers and an assignment of clients
+    /// to center indices; 
+    /// Computes the minimum cover radius, hence, it needs a reference to the metric space;
+    /// Computation takes O(n) time.
+    ///
+    /// #Panics
+    ///
+    /// Panics if the size of the assignment center_of does not match the number of points
+    /// space.n()
+    pub fn new<M : ColoredMetric>(centers: Centers<'a>, center_of: Vec<Option<CenterIdx>>, space: &M) -> Clustering<'a> {
+        assert_eq!(center_of.len(),space.n(), "The assignment center_of must have an entry for each point");
+
+        let mut cluster_sizes: Vec<PointCount> = vec!(0; centers.m());
+        let mut radius = <Distance>::MIN;
+        for p in space.point_iter() {
+            let covered_by = center_of[p.idx()];
+            if let Some(c) = covered_by {
+                cluster_sizes[c] += 1;
+                let dist = space.dist(p, centers.get(c));
+                if dist > radius {
+                    radius = dist;
+                }
+            }
+
+        }
+
+        Clustering{centers, center_of, radius, cluster_sizes}
+
+    }
+    
+    /// Returns the list of centers
+    pub fn get_centers(&self) -> &Centers {
+        &self.centers
+    }
+
+    /// Returns the (partial) assignment of the clients;
+    /// Centers are represented by their index (0 to m) in the list of centers.
+    pub fn get_assignment(&self) -> &Vec<Option<CenterIdx>> {
+        &self.center_of
+    }
+
+    /// Returns the maximum distance between a client and the center it is assigned to;
+    /// As this is pre-computed this takes O(1) time.
+    pub fn get_radius(&self) -> Distance {
+        self.radius
+    }
+
+    /// Returns the size of each cluster, i.e., the number of clients that are assigned to each
+    /// center; 
+    /// As this is pre-computed this takes O(1) time.
+    pub fn get_cluster_sizes(&self) -> &Vec<PointCount> {
+        &self.cluster_sizes
+    }
 
     /// Returns the number of centers/clusters m.
     pub fn m(&self) -> PointCount {
         self.centers.m()
     }
+
+    /// Returns the center (as &Point) with index center_idx.
+    pub fn get_center(&self, center_idx: CenterIdx) -> &Point {
+        self.centers.get(center_idx)
+    }
+
+    pub fn assign<M : ColoredMetric>(&mut self, p : &Point, center_idx: CenterIdx, space: &M) {
+        if self.center_of[p.idx()].is_some() {
+            let old_center = self.center_of[p.idx()].unwrap();
+            println!("WARNING: Point {} is already assigned to {} and is reassigned to {}; Radius might be wrong now!", p.idx(), old_center, center_idx);
+            self.cluster_sizes[old_center] -= 1;
+        }
+        self.center_of[p.idx()] = Some(center_idx);
+        self.cluster_sizes[center_idx] += 1;
+        let dist = space.dist(p, self.centers.get(center_idx));
+        if dist > self.radius {
+            self.radius = dist;
+        }
+    }
+
+    /// Assignes non assigned clients to their nearest center;
+    /// Takes O(nm) time.
+    pub fn fill_up<M : ColoredMetric>(&mut self, space : &M) {
+        for p in space.point_iter() {
+            if self.center_of[p.idx()].is_none() {
+                // in this case p is not assigned to a center yet: Assigne it to nearest center
+                let mut current_dist = <Distance>::MAX;
+                let mut best_center = 0;
+                for (j, &center) in self.centers.iter().enumerate() {
+                    let dist = space.dist(center,p);
+                    if dist < current_dist {
+                        current_dist = dist;
+                        best_center = j;
+                    }
+                }
+                self.center_of[p.idx()] = Some(best_center);
+                self.cluster_sizes[best_center] += 1;
+                if current_dist > self.radius {
+                    self.radius = current_dist;
+                }
+            }
+
+        }
+}
+
 
     /// Saves the clustering to the text-file specified by file_path.
     /// The output is as follows:
@@ -117,22 +219,19 @@ impl<'a> Clustering<'a>{
     /// Panics if the file connot be open for writing.
     pub fn save_to_file(&self, file_path : &str){
 
-        let mut clients_of : HashMap<&Point, Vec<PointIdx>> = HashMap::with_capacity(self.centers.m());
-        for center in self.centers.iter() {
-            clients_of.insert(center,Vec::new());
-        }
+        let mut clients_of : Vec<Vec<PointIdx>> = vec!(Vec::new(); self.centers.m());
 
-        for (point_idx,center) in self.center_of.iter().enumerate() {
-            if let Some(c) = center {
-                clients_of.get_mut(c).unwrap().push(point_idx);
+        for (point_idx,&center_idx) in self.center_of.iter().enumerate() {
+            if let Some(c) = center_idx {
+                clients_of[c].push(point_idx);
             }
         }
 
         let mut f = File::create(file_path).expect("Cannot open file for writing clustering");
         let mut text = String::new();
-        for c in self.centers.iter(){
-            text = text + &format!("{}:",c.idx());
-            for point_idx in clients_of.get(c).expect("Error").iter() {
+        for (center_idx, center) in self.centers.iter().enumerate(){
+            text = text + &format!("{}:",center.idx());
+            for point_idx in clients_of.get(center_idx).unwrap().iter() {
                 text = text + &format!("{},", point_idx);
             }
             text = text + "\n";

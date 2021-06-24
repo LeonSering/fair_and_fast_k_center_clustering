@@ -52,6 +52,10 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
+struct OpeningList {
+    eta : Vec<PointCount>
+}
+
 /// Computes a privacy preserving representative k-clustering.
 /// Input: A metric space implementing the [ColoredMetric] trait and a [ClusteringProblem].
 /// Output: A clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
@@ -90,17 +94,17 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     for (c, clustering) in clusterings.iter().enumerate() {
         let mut dist = 0.0f32;
         for p in space.point_iter() {
-            if clustering.center_of[p.idx()].is_some() {
-                let current_d = space.dist(p,clustering.center_of[p.idx()].unwrap()); 
+            if clustering.get_assignment()[p.idx()].is_some() {
+                let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
                 if current_d > dist {
                     dist = current_d;
                 }
             }
         }
-        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.radius.unwrap(), clusterings_with_sorting[c].radius.unwrap());
+        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
     }
 
-    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.radius.unwrap()).collect::<Vec<f32>>());
+    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
     for i in 0..prob.k {
         let save_path = format!("output/after_phase_2_with_i_{}.clustering", i);
@@ -111,7 +115,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     
-    clusterings = redistribute(space, prob, clusterings);
+    let opening_lists = redistribute(space, prob, clusterings);
 
 
 
@@ -119,11 +123,11 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    clusterings = finalize(space, &prob, clusterings); 
+    let mut final_clusterings = finalize(space, &prob, opening_lists); 
     
 
 
 
     // TODO somehwere here we should pick the best clustering
-    clusterings.pop().unwrap()
+    final_clusterings.pop().unwrap()
 }

@@ -12,7 +12,7 @@ mod settle;
 use settle::settle;
 
 //TEMP:
-pub mod with_sorting;
+pub(crate) mod with_sorting;
 
 use std::collections::VecDeque;
 
@@ -21,7 +21,7 @@ type EdgeIdx = usize;
 // An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
-pub struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
+struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
     pub d : Distance,
     left : CenterIdx, // index of the center in gonzales
     right : &'a Point,
@@ -37,7 +37,7 @@ pub struct Edge<'a> { // Care: The ordering of attributes is important for the p
 /// Given a metric space and a ClusteringProblem, make_private takes a set of ordered centers
 /// 0,...,k-1, and determines for each prefix of centers (0,...,i) a partial clustering with minimal radius that satisfy the
 /// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points. 
-pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
+pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
@@ -151,7 +151,7 @@ pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProb
         // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
         
         println!("\n+++ Center {} settles in bucket {}:\n", i, j);
-        clusterings.push(settle(edge_cursor, &mut buckets[j], i, prob, &mut state, &gonzales));
+        clusterings.push(settle(edge_cursor, &mut buckets[j], i, prob, &mut state, &gonzales, space));
         
         // start bucket from beginning, hence clear all pendings
         edge_cursor = 0;
@@ -163,37 +163,12 @@ pub fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a ClusteringProb
 
     // assigne all unassigned points to its nearest neighbor:
     // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
-    fill_up_clusterings(&mut clusterings, space); 
+    println!("\n* Assign unassigned points to nearest center.\n");
+    for clustering in clusterings.iter_mut() {
+        clustering.fill_up(space);
+    }
     
     clusterings
 }
 
-
-fn fill_up_clusterings<M : ColoredMetric>(clusterings :&mut Vec<Clustering>, space : &M) {
-    println!("\n* Assign unassigned points to nearest center.\n");
-    for clust in clusterings.iter_mut() {
-        if clust.radius.is_none() {
-            clust.radius = Some(0.0);
-        }
-        for p in space.point_iter() {
-            if clust.center_of[p.idx()].is_none() {
-                // in this case p is not assigned to a center yet: Assigne it to nearest center
-                let mut current_dist = <Distance>::MAX;
-                let mut best_center = None;
-                for &center in clust.centers.iter() {
-                    let dist = space.dist(center,p);
-                    if dist < current_dist {
-                        current_dist = dist;
-                        best_center = Some(center);
-                    }
-                }
-                clust.center_of[p.idx()] = best_center;
-                if current_dist > clust.radius.unwrap() {
-                    clust.radius = Some(current_dist);
-                }
-            }
-
-        }
-    }
-}
 
