@@ -71,9 +71,9 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
         
         for &threshold in [-1.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
             // first threshold is -1.0 so we obtain the forest without edges
-            println!("\tthreshold: {}", threshold);
+//            println!("\tthreshold: {}", threshold);
 
-            println!("\tForest: {:?}", spanning_tree.get_edges(threshold));
+//            println!("\tForest: {:?}", spanning_tree.get_edges(threshold));
 
             let mut eta: Vec<PointCount> = clustering.get_cluster_sizes().clone(); // starts with the size of each cluster and is then converted to be the muliplier of L
             let mut pushed: Vec<bool> = vec!(false;i+1);
@@ -86,16 +86,16 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
                 is_leaf[e.up] = false;
             }
 
-            println!("leafs:{:?}", is_leaf);
+//            println!("leafs:{:?}", is_leaf);
             let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1);
             for j in (0..i+1).filter(|l| is_leaf[*l]) {
                 queue.push_back(j);
                 pushed[j] = true;
             }
-            println!("queue with leafs:{:?}", queue);
+//            println!("queue with leafs:{:?}", queue);
 
             while !queue.is_empty() {
-                println!("eta:{:?}", eta);
+//                println!("eta:{:?}", eta);
                 let node = queue.pop_front().unwrap();
                 let potential_up_edge = spanning_tree.get_edge(node,threshold);
                 match potential_up_edge {
