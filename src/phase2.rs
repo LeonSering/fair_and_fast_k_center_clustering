@@ -21,7 +21,7 @@ type EdgeIdx = usize;
 // An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
-struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
+pub (crate) struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
     pub d : Distance,
     left : CenterIdx, // index of the center in gonzales
     right : &'a Point,
@@ -57,7 +57,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
     let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
-    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k+1);
+    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k.pow(power_of_k)+1);
 
     #[cfg(debug_assertions)]
     assert!(assert_buckets_properties(&buckets, space.n(), prob.k, power_of_k));
@@ -95,9 +95,9 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
 
 
     println!("\n\nMAKE_PRIVTE with L = {}", prob.privacy_bound);
-    println!("\n\n************************ Bucket {} ***********************", j);
+//    println!("\n\n************************ Bucket {} ***********************", j);
     while i < prob.k { // extend set of gonzales centers one by one
-        println!{"\n+++ center {} now considered!\n", i};
+//        println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
         for c in 0..j {
@@ -110,7 +110,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
                 let e = pending[i][c].pop_front().unwrap();
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
                 add_edge(e, i, prob, &mut state);
-                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
+//                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
             }
         }
 
@@ -121,7 +121,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
           
             if edge_cursor >= buckets[j].len() { //the current bucket has been completed
                 j += 1;
-                println!("\n\n************************ Bucket {} ***********************", j);
+//                println!("\n\n************************ Bucket {} ***********************", j);
                 assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
                 edge_cursor = 0; 
                 continue; //continue the while loop
@@ -136,7 +136,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, prob, &mut state);
-                println!("  Adding: {:?} from bucket = {};\tmaxflow: {}", e,j, state.max_flow);
+//                println!("  Adding: {:?} from bucket = {};\tmaxflow: {}", e,j, state.max_flow);
             }
             edge_cursor += 1;
 
@@ -150,7 +150,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
         assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); 
         // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
         
-        println!("\n+++ Center {} settles in bucket {}:\n", i, j);
+//        println!("\n+++ Center {} settles in bucket {}:\n", i, j);
         clusterings.push(settle(edge_cursor, &mut buckets[j], i, prob, &mut state, &gonzales, space));
         
         // start bucket from beginning, hence clear all pendings

@@ -17,8 +17,8 @@
 
 
 type PointCount = usize;
-type ColorCount = u16;
-//type Interval = (usize,usize);
+type ColorCount = usize;
+type Interval = (usize,usize);
 
 /// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
 /// k is the maximal number of centers that can be opened;
@@ -28,7 +28,7 @@ type ColorCount = u16;
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
     pub privacy_bound : PointCount, // lower bound of representation L
-    //pub rep_interval : Vec<Interval>, // one integer interval for each color class
+    pub rep_interval : Vec<Interval>, // one integer interval for each color class
 
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
@@ -39,12 +39,14 @@ pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
 mod clustering;
 pub use clustering::{Clustering,Centers};
 
+mod utilities;
+
 mod phase1;
 use phase1::gonzales_heuristic;
 
 mod phase2;
 use phase2::make_private;
-use phase2::with_sorting::make_private_with_sorting; // TEMP
+//use phase2::with_sorting::make_private_with_sorting; // TEMP
 
 mod phase3;
 use phase3::redistribute;
@@ -52,6 +54,7 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
+#[derive(Debug)]
 struct OpeningList {
     eta : Vec<PointCount>
 }
@@ -84,25 +87,25 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
     
-    // TEMP:
-    // clusterings is now a vector of partial clustering
-    let clusterings_with_sorting : Vec<Clustering<'a>> = make_private_with_sorting(space, prob, &gonzales);
-
-    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
+    let clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
     // TEMP:
-    for (c, clustering) in clusterings.iter().enumerate() {
-        let mut dist = 0.0f32;
-        for p in space.point_iter() {
-            if clustering.get_assignment()[p.idx()].is_some() {
-                let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
-                if current_d > dist {
-                    dist = current_d;
-                }
-            }
-        }
-        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
-    }
+    // clusterings is now a vector of partial clustering
+//    let clusterings_with_sorting : Vec<Clustering<'a>> = make_private_with_sorting(space, prob, &gonzales);
+//
+//    
+//    for (c, clustering) in clusterings.iter().enumerate() {
+//        let mut dist = 0.0f32;
+//        for p in space.point_iter() {
+//            if clustering.get_assignment()[p.idx()].is_some() {
+//                let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
+//                if current_d > dist {
+//                    dist = current_d;
+//                }
+//            }
+//        }
+//        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
+//    }
 
     println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
@@ -117,13 +120,14 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     
     let opening_lists = redistribute(space, prob, clusterings);
 
+    println!("** Phase 3 done: opening_lists {:?}", opening_lists);
 
 
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    let mut final_clusterings = finalize(space, &prob, opening_lists); 
+    let mut final_clusterings = finalize(space, &prob, opening_lists, &gonzales); 
     
 
 

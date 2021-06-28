@@ -5,7 +5,7 @@ use ff_k_center_lib::{ClusteringProblem,compute_privacy_preserving_representativ
 use ff_k_center_lib::Space2D;
 
 fn main() {
-    let space_name = "mono_space";
+    let space_name = "example";
 
 
     match create_dir_all("output") {
@@ -18,7 +18,7 @@ fn main() {
     let prob = ClusteringProblem{
         k : 6, // number of center;
         privacy_bound : 5, // number of points to represent;
-        //gamma : space.gamma();
+        rep_interval : vec!((1,3); 4), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
     let clustering = compute_privacy_preserving_representative_k_center(&space, &prob);

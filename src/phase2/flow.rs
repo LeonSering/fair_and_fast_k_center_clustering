@@ -99,9 +99,8 @@ pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, 
 //        println!("\tnot yet! Max flow: {}\n", state.max_flow);
         return;
     }
-
     // as the edge is now added to the flow networks we mark it that way:
-    assert_eq!(state.edge_present[c][x.idx()], false, "Edge was present before");
+    assert_eq!(state.edge_present[c][x.idx()], false, "Edge {:?} was present before", e);
     state.edge_present[c][x.idx()] = true;
 
     match state.center_of[x.idx()] {

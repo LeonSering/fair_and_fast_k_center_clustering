@@ -21,7 +21,7 @@
 
 pub type PointIdx = usize;
 pub type Distance = f32;
-pub type ColorIdx = u16;
+pub type ColorIdx = usize;
 
 use crate::{ColorCount,PointCount};
 
@@ -71,9 +71,7 @@ pub trait ColoredMetric{
 
     /// Returns the number of color classes that are present in the metric space. More precesely it
     /// return the highest color value + 1.
-    fn gamma(&self) -> ColorCount {
-        self.point_iter().map(|p| self.color(p)).max().expect("No maximal color found") + 1
-    }
+    fn gamma(&self) -> ColorCount;
 
     /// Checks whether the dist function satisfy the metric properties in which case true is
     /// returned.
@@ -130,6 +128,7 @@ pub struct SpaceMatrix{
     distances: Vec<Vec<Distance>>, // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
     colors: Vec<ColorIdx>, // points as array or implicit? If implicity: array of color-classes.
+    gamma: ColorCount,
 }
 
 
@@ -155,11 +154,13 @@ impl SpaceMatrix {
             points.push(Point{index:i});
         }
         assert_eq!(number_of_rows, colors.len(), "Number of points: {} do not match number of colors: {}", number_of_rows, colors.len());
+        let gamma = colors.iter().max().expect("No maximal color found") + 1;
 
         let space = SpaceMatrix {
             distances,
             colors,
             points,
+            gamma,
         };
 
         assert!(space.is_metric(), "distances do not satisfy the metric properties.");
@@ -192,10 +193,12 @@ impl SpaceMatrix {
         }
         let distances : Vec<Vec<Distance>> = distances.iter().map(|row| row.to_vec()).collect();
         let colors = colors.to_vec();
+        let gamma = colors.iter().max().expect("No maximal color found") + 1;
         SpaceMatrix {
             distances,
             colors,
             points,
+            gamma,
         }
     }
 }
@@ -216,6 +219,10 @@ impl ColoredMetric for SpaceMatrix {
     fn point_iter(&self) -> std::slice::Iter<Point> {
         self.points.iter()
     }
+    
+    fn gamma(&self) -> ColorCount {
+        self.gamma
+    }
 
 }
 
@@ -235,6 +242,7 @@ pub struct Space2D{
     points : Vec<Point>,
     positions : Vec<Position>,
     colors : Vec<ColorIdx>,
+    gamma : ColorCount,
 }
 use rand::Rng;
 use std::fs::File;
@@ -266,10 +274,12 @@ impl Space2D {
     ///
     pub fn by_2dpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> Space2D {
         assert_eq!(positions.len(),colors.len(),"The number of points in position must equal the number of colors!");
+        let gamma = colors.iter().max().expect("No maximal color found") + 1;
         Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
+            gamma,
         }
     }
 
@@ -322,10 +332,12 @@ impl Space2D {
         println!("positions: {:?}", positions);
         #[cfg(debug_assertions)]
         println!("colors: {:?}", colors);
+        let gamma = colors.iter().max().expect("No maximal color found") + 1;
         Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
+            gamma,
         }
     }
 }
@@ -346,6 +358,10 @@ impl ColoredMetric for Space2D {
 
     fn n(&self) -> PointCount {
         self.points.len()
+    }
+
+    fn gamma(&self) -> ColorCount {
+        self.gamma
     }
     
 }
