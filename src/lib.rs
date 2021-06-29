@@ -92,7 +92,14 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center
     assert!(space.n() >= prob.k, "we have n < k ({} < {})! We need more points than centers", space.n(), prob.k); // the number of points should not be less than the number of centers
     assert!(space.n() >= prob.k * prob.privacy_bound, "We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound);
+
+    for (c, interval) in prob.rep_interval.iter().enumerate() {
+        assert!(interval.0 <= interval.1, "The interval of color {} is ({}, {}). Lower bound cannot be bigger than the upper bound.", c, interval.0, interval.1);
+    }
+
     let mut sum_of_a = 0;
+
+    // check whether the sum of the lower bounds is not bigger than k
     for (a,_) in prob.rep_interval.iter() {
         sum_of_a += a;
     }
@@ -104,12 +111,27 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     }
 
     let restricted_colors = if space.gamma() < prob.rep_interval.len() {space.gamma()} else {prob.rep_interval.len()}; // min{gamma, rep_interval.len()}
+
+    // check if lower bound can be satisfied
     for c in 0..restricted_colors {
         assert!(number_of_points_of_color[c] >= prob.rep_interval[c].0, "There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_interval[c].0);
     }
     for c in restricted_colors..prob.rep_interval.len() {
         assert_eq!(prob.rep_interval[c].0, 0, "We want {} centers of color {}, but there is not a single point of that color. We have gamma = {}.", prob.rep_interval[c].0, c, space.gamma());
     }
+
+    // check sum of the upper bounds (min{ left side of interval, number of points }) is not
+    // smaller than k 
+    let mut sum_of_b = 0;
+    for c in 0..restricted_colors {
+        let upper_bound = if prob.rep_interval[c].1 < number_of_points_of_color[c] {prob.rep_interval[c].1} else {number_of_points_of_color[c]};
+        sum_of_b += upper_bound;
+    }
+    for c in restricted_colors..space.gamma() {
+        sum_of_b += number_of_points_of_color[c];
+    }
+    assert!(sum_of_b >= prob.k, "The sum of the upper bounds of the representative intervals (or the number of points of that color) is {}, which is smaller than k = {}.", sum_of_b, prob.k);
+
 
     
     /////////////////////////////////////////////////////////////////////////////////////

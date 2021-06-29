@@ -29,7 +29,7 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<
         println!("Care: list has only length {}, but is asked to be truncated to a length of t = {}. Nothing will happen.", list.len(), t);
         return;
     }
-    median_of_medians(list, t);
+    median_of_medians(list, t-1);
     list.truncate(t);
 }
 
@@ -42,7 +42,7 @@ pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: u
         split.append(list);
         return split;
     }
-    median_of_medians(list, t);
+    median_of_medians(list, t-1);
     list.split_off(t)
 }
 
