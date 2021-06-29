@@ -32,6 +32,22 @@ pub struct ClusteringProblem {
 
     // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
+use std::fmt;
+impl fmt::Display for ClusteringProblem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Clustering-Problem with k = {}, privacy_bound = {} and representative_intervals: ",self.k,self.privacy_bound)?;
+        let mut iter = self.rep_interval.iter();
+        if let Some(first_interval) = iter.next() {
+            write!(f, "({},{})", first_interval.0, first_interval.1)?;
+            for interval in iter {
+                write!(f, ", ({},{})", interval.0, interval.1)?;
+            }
+        }
+        write!(f, ".")
+    }
+
+
+}
 
 mod space;
 pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
@@ -67,10 +83,34 @@ struct OpeningList {
 /// TODO: Update this doc-comment
 pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
 
+    println!("\n**** Solving: {}", prob);
+
+    /////////////////////////////////////////////////////////////////////////////////////
+    ////////////////////////// Assertions on the ClusteringProblem //////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////
 
     assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center
     assert!(space.n() >= prob.k, "we have n < k ({} < {})! We need more points than centers", space.n(), prob.k); // the number of points should not be less than the number of centers
     assert!(space.n() >= prob.k * prob.privacy_bound, "We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound);
+    let mut sum_of_a = 0;
+    for (a,_) in prob.rep_interval.iter() {
+        sum_of_a += a;
+    }
+    assert!(sum_of_a <= prob.k, "The sum of the lower bounds of the representative intervals is {}, which is larger than k = {}.", sum_of_a, prob.k);
+
+    let mut number_of_points_of_color: Vec<PointCount> = vec!(0; space.gamma());
+    for p in space.point_iter() {
+        number_of_points_of_color[space.color(p)] += 1;
+    }
+
+    let restricted_colors = if space.gamma() < prob.rep_interval.len() {space.gamma()} else {prob.rep_interval.len()}; // min{gamma, rep_interval.len()}
+    for c in 0..restricted_colors {
+        assert!(number_of_points_of_color[c] >= prob.rep_interval[c].0, "There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_interval[c].0);
+    }
+    for c in restricted_colors..prob.rep_interval.len() {
+        assert_eq!(prob.rep_interval[c].0, 0, "We want {} centers of color {}, but there is not a single point of that color. We have gamma = {}.", prob.rep_interval[c].0, c, space.gamma());
+    }
+
     
     /////////////////////////////////////////////////////////////////////////////////////
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
@@ -78,7 +118,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
 
     let gonzales = gonzales_heuristic(space, prob.k);
 
-    println!("** Phase 1: Determined k = {} centers by the Gonzales Heuristic: {:?}", prob.k, gonzales.iter().as_slice());
+    print!("\n**** Phase 1 done: Determined k = {} centers by the Gonzales heuristic: {}.\n", prob.k, gonzales);
 //    println!("index of center {}: {}", gonzales.centers[2], gonzales_index_by_center.get(&gonzales.centers[2]).expect(""));
     gonzales.save_to_file("test.centers");
 
@@ -91,23 +131,24 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     
     // TEMP:
     // clusterings is now a vector of partial clustering
-//    let clusterings_with_sorting : Vec<Clustering<'a>> = make_private_with_sorting(space, prob, &gonzales);
-//
-//    
-//    for (c, clustering) in clusterings.iter().enumerate() {
-//        let mut dist = 0.0f32;
-//        for p in space.point_iter() {
-//            if clustering.get_assignment()[p.idx()].is_some() {
-//                let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
-//                if current_d > dist {
-//                    dist = current_d;
-//                }
-//            }
-//        }
-//        println!("Clustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
-//    }
+    #[cfg(debug_assertions)]
+    {
+        let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
+        for (c, clustering) in clusterings.iter().enumerate() {
+            let mut dist = 0.0f32;
+            for p in space.point_iter() {
+                if clustering.get_assignment()[p.idx()].is_some() {
+                    let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
+                    if current_d > dist {
+                        dist = current_d;
+                    }
+                }
+            }
+            println!("\tClustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
+        }
+    }
 
-    println!("** Phase 2: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
+    println!("\n**** Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
     for i in 0..prob.k {
         let save_path = format!("output/after_phase_2_with_i_{}.clustering", i);
@@ -120,7 +161,12 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     
     let opening_lists = redistribute(space, prob, clusterings);
 
-    println!("** Phase 3 done: opening_lists {:?}", opening_lists);
+    
+    println!("\n**** Phase 3 done: Determined the following opening lists:");
+    #[cfg(debug_assertions)]
+    for (i,openings) in opening_lists.iter().enumerate() {
+        println!("  C_{}:\t{:?}", i, openings.iter().map(|open| &open.eta).collect::<Vec<_>>());
+    }
 
 
     //////////////////////////////////////////////////////////////////////

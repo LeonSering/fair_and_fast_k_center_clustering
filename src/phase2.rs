@@ -57,7 +57,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
     let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
-    println!("** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k.pow(power_of_k)+1);
+    println!("\n  ** Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k.pow(power_of_k)+1);
 
     #[cfg(debug_assertions)]
     assert!(assert_buckets_properties(&buckets, space.n(), prob.k, power_of_k));
@@ -65,14 +65,14 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
         let bucket_of_dist : Vec<Distance> = bucket.iter().map(|x| x.d).collect();
-        println!(" Bucket {}: {:?}", i, bucket_of_dist);
+        println!("\t Bucket {}: {:?}", i, bucket_of_dist);
     }
 
 
 
 
     // step 2: solve flow problem
-    println!("** Phase 2b: Determine smallest radii and assignment that satisfy privacy. Privacy constant privacy_bound = {}.", prob.privacy_bound);
+    println!("\n  ** Phase 2b: Determine smallest radii and assignment that satisfy privacy. Privacy constant privacy_bound = {}.", prob.privacy_bound);
     
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     
@@ -94,7 +94,6 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
     let mut edge_cursor : EdgeIdx = 0; // an cursor pointing to the current edge in the current bucket
 
 
-    println!("\n\nMAKE_PRIVTE with L = {}", prob.privacy_bound);
 //    println!("\n\n************************ Bucket {} ***********************", j);
     while i < prob.k { // extend set of gonzales centers one by one
 //        println!{"\n+++ center {} now considered!\n", i};
@@ -163,7 +162,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &M, prob : &'a Cluster
 
     // assigne all unassigned points to its nearest neighbor:
     // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
-    println!("\n* Assign unassigned points to nearest center.\n");
+    println!("\n  ** Assign unassigned points to nearest center.");
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }

@@ -8,6 +8,13 @@ pub(super) fn split_at_median<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>) -
 /// elements of the right list.
 /// list is empty afterwards.
 pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
+    if pos > list.len() {
+        println!("Care: list has only length {}, but is asked to be split at pos = {}. Everyting will be in smaller.", list.len(), pos);
+        let mut smaller: Vec<E> = Vec::with_capacity(list.len());
+        let bigger: Vec<E> = Vec::new();
+        smaller.append(list);
+        return (smaller, bigger)
+    }
     median_of_medians(list, pos);
 
     let bigger = list.split_off(pos+1);
@@ -16,9 +23,33 @@ pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos:
     (smaller, bigger)
 }
 
+/// deletes element from the list, such that only the t smallest elements remain (unsorted)
+pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize){
+    if t > list.len() {
+        println!("Care: list has only length {}, but is asked to be truncated to a length of t = {}. Nothing will happen.", list.len(), t);
+        return;
+    }
+    median_of_medians(list, t);
+    list.truncate(t);
+}
+
+/// splits of all elements except for the t smallest. Hence, afterwords the list consists of the t
+/// smallest elements and the remaining elements are returned.
+pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize) -> Vec<E>{
+    if t > list.len() {
+        println!("Care: list has only length {}, but is asked to split of the t = {} smallest elements. Everything is split up.", list.len(), t);
+        let mut split: Vec<E> = Vec::with_capacity(list.len());
+        split.append(list);
+        return split;
+    }
+    median_of_medians(list, t);
+    list.split_off(t)
+}
+
 /// input: list of unsorted edges; an integer pos;
 /// output: the value of the element that would have pos as index if list was sorted.
-pub fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usize) -> E {
+fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usize) -> E {
+    assert!(pos <= list.len(), "Cannot compute the element at position pos = {} if the list has only length = {}", pos, list.len());
 
     let chunks = list.chunks(5);
     let mut sublist: Vec<E> = Vec::with_capacity(list.len()/5+1);
@@ -74,14 +105,17 @@ pub fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : 
 mod tests {
     use rand::Rng;
     use super::*;
+
+    fn create_random_list_with_dublicates(n: usize, range: usize) -> Vec<usize> {
+        let mut rng = rand::thread_rng();
+        let vals: Vec<usize> = (0..range).map(|_| rng.gen_range(0..10*range)).collect();
+        (0..n).map(|_| vals[rng.gen_range(0..range)]).collect() // do a list with dublicates
+    }
+
     #[test]
     fn median_test() {
-        let n = 100;
-        let k = 20;
-        // create n*k edges with dublicates:
-        let mut rng = rand::thread_rng();
-        let vals: Vec<usize> = (0..(n*k/2)).map(|_| rng.gen_range(0..100)).collect();
-        let mut list: Vec<usize> = (0..(n*k)).map(|_| vals[rng.gen_range(0..n*k/2)]).collect(); // do a list with dublicates
+        let mut list = create_random_list_with_dublicates(10000, 1000);
+            // create n*k edges with dublicates:
         let mut clone = list.clone();
         let middle = (list.len() - 1)/2;
         let median = median_of_medians(&mut list, middle);
@@ -91,5 +125,22 @@ mod tests {
         clone.sort();
         assert_eq!(median, clone[(clone.len()-1)/2]);
         println!("our median: {}; median by sorting: {}", median, list[(list.len()-1)/2]);
+    }
+
+    #[test]
+    fn truncate_to_shortest_test() {
+        let mut list = create_random_list_with_dublicates(1000, 1000);
+        let mut clone = list.clone();
+
+        let t = 200;
+        truncate_to_smallest(&mut list, t);
+
+        // TODO Create two lists to compare
+
+        clone.sort();
+        clone.truncate(t);
+        println!("t={} smallest element. List: {:?}; By sorting: {:?}", t,list, clone);
+        list.sort();
+        assert_eq!(list, clone);
     }
 }

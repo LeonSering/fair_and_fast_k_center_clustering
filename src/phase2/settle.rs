@@ -1,4 +1,4 @@
-use crate::{ClusteringProblem,Clustering,Centers,ColoredMetric,clustering::CenterIdx, space::Distance, utilities::split_at_median};
+use crate::{ClusteringProblem,Clustering,Centers,ColoredMetric,clustering::CenterIdx, space::Distance, utilities};
 use super::{Edge,EdgeIdx,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet
@@ -29,7 +29,8 @@ pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mu
 
     let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
 
-    println!("==> Radius for center {} found: {};\tmax_flow: {}", i, radius, state.max_flow);
+    #[cfg(debug_assertions)]
+    println!("\tRadius for center {} found: {};\tmax_flow: {}", i, radius, state.max_flow);
 //    println!("center_of: {:?}", state.center_of);
 //    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 
@@ -76,7 +77,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
         return list[0].d;
     }
 
-    let (mut smaller, mut bigger) = split_at_median(list);
+    let (mut smaller, mut bigger) = utilities::split_at_median(list);
 //    println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
 

@@ -1,6 +1,6 @@
 use crate::{PointCount,space::Distance};
 use super::Edge;
-use crate::utilities::split_at_median;
+use crate::utilities;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets of size <= ceil(4n/k^4) edges; with property of Lemma 3;
@@ -12,7 +12,7 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
 
 
 //    println!("\nList before: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
-    let (smaller, bigger) = split_at_median(&mut list);
+    let (smaller, bigger) = utilities::split_at_median(&mut list);
     
 //    println!("smaller: {:?}", smaller.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("bigger: {:?}", bigger.iter().map(|e| e.d).collect::<Vec<_>>());

@@ -16,9 +16,9 @@ fn main() {
     // load test Space2D from file:
     let space = Space2D::by_file(format!("{}.2dspace",space_name).as_str(),15);
     let prob = ClusteringProblem{
-        k : 6, // number of center;
-        privacy_bound : 5, // number of points to represent;
-        rep_interval : vec!((1,3); 4), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        k : 9, // number of center;
+        privacy_bound : 3, // number of points to represent;
+        rep_interval : vec!((3,5),(4,5),(0,5)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
     let clustering = compute_privacy_preserving_representative_k_center(&space, &prob);

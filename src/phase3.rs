@@ -57,12 +57,14 @@ use std::collections::VecDeque;
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center. 
 pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : Vec<Clustering<'a>>) -> Vec<Vec<OpeningList>> {
+    println!("\n  ** Phase 3a: Computing spanning trees");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
 
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-        println!("** spanning_tree[{}]: {:?}", i, spanning_trees[i].edges);
+//        println!("** spanning_tree[{}]: {:?}", i, spanning_trees[i].edges);
+        #[cfg(debug_assertions)]
         println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
         let clustering = &clusterings[i];
         let mut opening_lists: Vec<OpeningList> = Vec::with_capacity(i+1);
@@ -115,7 +117,7 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
                 }
 
             }
-            println!("final eta:{:?}", eta);
+//            println!("final eta:{:?}", eta);
 
             opening_lists.push(OpeningList{eta});
         }

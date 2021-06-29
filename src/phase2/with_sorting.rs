@@ -20,11 +20,10 @@ pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob 
         }
     }
 
-    println!("\n\nMAKE_PRIVTE WITH SORT with L = {}\n", prob.privacy_bound);
+    println!("\n  ** make_private_with_sort with privacy_bound = {}\n", prob.privacy_bound);
 
     edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    let list_of_dist : Vec<Distance> = edges.iter().map(|x| x.d).collect();
-    println!("Edges: {:?}", list_of_dist);
+//    println!("Edges: {:?}", edges.iter().map(|x| x.d).collect::<Vec<_>>());
 
     let mut edge_iter = edges.iter();
 
@@ -41,14 +40,14 @@ pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob 
 
     let mut current_d = <Distance>::MIN;
     while i < prob.k { // extend set of gonzales centers one by one
-        println!{"\n+++ center {} now considered!\n", i};
+//        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
         
         while !pending[i].is_empty() {
             let e = pending[i].pop_front().unwrap();
             assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
             add_edge(e, i, prob, &mut state);
-            println!("  Pending edge added: {:?}; \tmax_flow: {}", e, state.max_flow);
+//            println!("  Pending edge added: {:?}; \tmax_flow: {}", e, state.max_flow);
         }
 
         while state.max_flow < (i + 1) * prob.privacy_bound {
@@ -64,7 +63,7 @@ pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob 
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, prob, &mut state);
-                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
+//                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
             }
             current_d = e.d;
             
@@ -75,7 +74,7 @@ pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &M, prob 
         #[cfg(debug_assertions)]
         assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
-        println!("\n+++ Center {} settles with radius: {}\n", i, current_d);
+        println!("\tRadius for center {} found: {}", i, current_d);
 
         // create new clustering:
         let mut centers = Centers::with_capacity(i+1);

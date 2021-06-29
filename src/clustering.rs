@@ -67,7 +67,20 @@ impl<'a> Centers<'a>{
         Centers{centers : Vec::with_capacity(capacity)}
     }
 }
-
+use std::fmt;
+impl<'a> fmt::Display for Centers<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut iter = self.centers.iter();
+        if let Some(c) = iter.next() {
+            write!(f, "{}", c.idx())?;
+            for c in iter {
+                write!(f, ", {}", c.idx())?;
+            }
+        }
+        Ok(())
+    }
+    
+}
 
 
 

@@ -326,12 +326,12 @@ impl Space2D {
             colors.push(content[2].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
 
         }
-        println!("Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
+        println!("\n**** Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
         
         #[cfg(debug_assertions)]
-        println!("positions: {:?}", positions);
+        println!("    positions: {:?}", positions);
         #[cfg(debug_assertions)]
-        println!("colors: {:?}", colors);
+        println!("    colors: {:?}", colors);
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
         Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
