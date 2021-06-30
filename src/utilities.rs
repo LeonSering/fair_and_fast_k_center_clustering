@@ -8,7 +8,8 @@ pub(super) fn split_at_median<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>) -
 /// elements of the right list.
 /// list is empty afterwards.
 pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
-    if pos > list.len() {
+    if pos >= list.len() {
+        #[cfg(debug_assertions)]
         println!("Care: list has only length {}, but is asked to be split at pos = {}. Everyting will be in smaller.", list.len(), pos);
         let mut smaller: Vec<E> = Vec::with_capacity(list.len());
         let bigger: Vec<E> = Vec::new();
@@ -25,24 +26,27 @@ pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos:
 
 /// deletes element from the list, such that only the t smallest elements remain (unsorted)
 pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize){
-    if t > list.len() {
+    if t >= list.len() {
+        #[cfg(debug_assertions)]
         println!("Care: list has only length {}, but is asked to be truncated to a length of t = {}. Nothing will happen.", list.len(), t);
         return;
     }
-    median_of_medians(list, t-1);
+    median_of_medians(list, t);
     list.truncate(t);
 }
 
 /// splits of all elements except for the t smallest. Hence, afterwords the list consists of the t
 /// smallest elements and the remaining elements are returned.
 pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize) -> Vec<E>{
-    if t > list.len() {
+    if t >= list.len() {
+        #[cfg(debug_assertions)]
         println!("Care: list has only length {}, but is asked to split of the t = {} smallest elements. Everything is split up.", list.len(), t);
-        let mut split: Vec<E> = Vec::with_capacity(list.len());
-        split.append(list);
-        return split;
+//        let mut split: Vec<E> = Vec::with_capacity(list.len());
+//        split.append(list);
+//        return split;
+        return list.split_off(list.len())
     }
-    median_of_medians(list, t-1);
+    median_of_medians(list, t);
     list.split_off(t)
 }
 

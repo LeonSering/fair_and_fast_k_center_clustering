@@ -18,7 +18,7 @@ fn main() {
     let prob = ClusteringProblem{
         k : 9, // number of center;
         privacy_bound : 3, // number of points to represent;
-        rep_interval : vec!((1,2),(1,2),(1,6),(3,3)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        rep_interval : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
     let clustering = compute_privacy_preserving_representative_k_center(&space, &prob);

@@ -18,7 +18,7 @@
 
 type PointCount = usize;
 type ColorCount = usize;
-type Interval = (usize,usize);
+type Interval = (PointCount,PointCount);
 
 /// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
 /// k is the maximal number of centers that can be opened;
