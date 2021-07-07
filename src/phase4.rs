@@ -125,14 +125,19 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         
 
 
-        // not that we only have k^2 edges so at most k^2 color classes can occur
-        // We reindex the relevant colors. The new indices are called color-node index and they are
+        // not that we only have k^2 edges so at most k^2 point and color classes can occur
+        // We reindex the relevant points and colors. The new indices are called point-node and color-node index and they are
         // used in the flow network
-
+       
+        let mut point_to_node: HashMap<PointIdx, usize> = HashMap::with_capacity((i + 1) * prob.k); // maps a point index to the point-node index used in the flow network
+        let mut point_counter = 0; // number of relevant points (= number of point-nodes)
+        
         let mut a: Vec<PointCount> = Vec::with_capacity((i + 1) * prob.k); // lower bound given by the color-node index
         let mut b: Vec<PointCount> = Vec::with_capacity((i +1) * prob.k); // upper bound given by the color-node index
         let mut color_to_node: HashMap<ColorIdx, usize> = HashMap::with_capacity((i + 1) * prob.k); // maps a color index to the color-node index used in the flow network
         let mut color_counter = 0; // number of relevant colors (= number of color-nodes)
+
+        let mut point_idx_to_color_idx: Vec<ColorIdx> = Vec::with_capacity((i+1) * prob.k);
         for &e in edges.iter() {
             if !color_to_node.contains_key(&e.color) {
                 color_to_node.insert(e.color, color_counter);
@@ -145,7 +150,13 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
                 }
                 color_counter += 1;
             }
+            if !point_to_node.contains_key(&e.point) {
+                point_to_node.insert(e.point, point_counter);
+                point_idx_to_color_idx.push(*color_to_node.get(&e.color).unwrap());
+                point_counter += 1;
+            }
         }
+        
 
 //        println!("\n i = {}", i);
 //        println!("number of edges: {:?}", edges.len());
@@ -159,8 +170,6 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 //        println!("\nedges_of_cluser[{}]: {:?}", i, edges_of_cluster[i]);
 //        println!("** i = {}; openings = {:?}", i, openings);
 
-        // it makes more sense to implements a general max flow algorithm
-        // now we initialize the flow:
 
 
         // without any edges present the maximal flow has only flow an the path (source, z, sink)
@@ -171,13 +180,17 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             flow_source_center: vec!(false; i),
             flow_source_z: initial_flow_value, 
             flow_z_center: vec!(0; i),
-            edge_flow_carrying: vec!(vec!(false;prob.k);i),
+            point_covered_by: vec!(None;point_counter),
             flow_color_t: vec!(0;color_counter),
             flow_t_z: 0,
             flow_color_sink: vec!(0;color_counter),
             flow_z_sink: initial_flow_value,
-            direct_res_path_from_color_to_source: vec!(false;color_counter),
-            direct_res_path_from_center_to_sink: vec!(false; i)};
+            direct_res_path_from_center_to_sink: vec!(VecDeque::new(); i),
+            direct_res_path_from_center_to_z: vec!(VecDeque::new(); i),
+            direct_res_path_from_center_to_center: vec!(vec!(VecDeque::new(); i); i),
+            path_to_sink: vec!(false; i),
+            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
+        };
 
 
     }
@@ -192,7 +205,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     clusterings.push(Clustering::new(centers,center_of, space));
     clusterings
 }
-
+use std::collections::VecDeque;
 struct State {
     // network:
     current_largest_edge: ColorEdge, // is used to indicate which edges are present in the network
@@ -201,17 +214,33 @@ struct State {
     flow_source_center: Vec<bool>, // true <=> the arc from source to center is saturated (flow = 1)
     flow_source_z: usize, // has capacity sum_of_a
     flow_z_center: Vec<usize>, // one entry for each center j (0 .. i); these arcs have capacity eta_j - 1
-    edge_flow_carrying: Vec<Vec<bool>>, // edge_flow_carrying[j][l] = true <=> edges_of_cluster[j][l] is saturated (flow = 1) 
-    flow_color_t: Vec<usize>, // one entry for each color class l; each has a capacity of a_l - b_l
+    point_covered_by: Vec<Option<CenterIdx>>, // edge_flow_carrying[p] = Some(j) <=> point with point-node index p is covered by center j <=> edges from j to p and arc from p to l (color of p) is saturated (flow = 1) 
+    flow_color_t: Vec<usize>, // one entry for each color class l (color-node index); each has a capacity of a_l - b_l
     flow_t_z: usize, // has capacity k- sum_of_a
     flow_color_sink: Vec<usize>, // one entry for each color class l; each has a capacity of a_l
     flow_z_sink: usize, // has capacity i
 
-    // utility:
-    direct_res_path_from_color_to_source: Vec<bool>, // one entry for each color class l; true <=> there exists a center s_j with a unsaturated edge to color class l, and flow_source_center[j] = false.
-    direct_res_path_from_center_to_sink: Vec<bool>, // one entry for each center j; true <=> there exists a color class l with unsaturated edge (j,l) and unsaturated arc from l to sink.
+    // utilities:
+    direct_res_path_from_center_to_sink: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated arc from l to sink.
+    direct_res_path_from_center_to_z: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a color class point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated path from l to t to z.
+    direct_res_path_from_center_to_center: Vec<Vec<VecDeque<CenterPath>>>, // non_empty <=> there is a res path from j1 to j2 that only goes over point-nodes and color-nodes and t.
+    path_to_sink: Vec<bool>, // true <=> there is some (possibly complicated) residual path from center j to the sink; is updated over a BFS over the centers-graph given by direct_res_path_from_center_to_center
+    direct_res_path_from_color_to_center: Vec<Vec<CenterIdx>>, // entry[l] contains a list of centers such that center j covers a point of color class l <=> there is a direct res part from the color-node l to center j
 }
 
+#[derive(Clone)]
+enum CenterPath {
+    OverPoint(PointIdx),
+    OverColor(PointIdx, PointIdx),
+    OverT(PointIdx, PointIdx),
+}
+
+//fn add_edge j, p, l
+// 0) current_largest_edge = edge
+// 1) if point_coverd_by[p] == Some(c) => directed_res_path_from_center_to_center[j][c] = true
+// 2) Else (point_covered_by[p] == None:
+// 3) for all center c with direct_res_path_from_color_to_center[l][c] == true: add arc from j to c 
+//
 // fn add edge (s_j,l):
 // Check whether there is a res path from source to s_j (backwards):
 // 1) check whether flow_source_center[j] = false => Path found
