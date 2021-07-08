@@ -169,31 +169,50 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
 //        println!("\nedges_of_cluser[{}]: {:?}", i, edges_of_cluster[i]);
 //        println!("** i = {}; openings = {:?}", i, openings);
-
+        
 
 
         // without any edges present the maximal flow has only flow an the path (source, z, sink)
-        // of value min{sum_of_a, i}
-        let initial_flow_value = if sum_of_a < i {sum_of_a} else {i}; // = min {sum_of_a, i}
+        // of value min{sum_of_a, i + 1} (note that we have i+1 centers)
+        let initial_flow_value = if sum_of_a < i + 1 {sum_of_a} else {i + 1}; // = min {sum_of_a, i}
         let mut state = State{
             current_largest_edge: ColorEdge{ d: <Distance>::MIN, center: 0, point: 0, color: 0},
-            flow_source_center: vec!(false; i),
+            flow_value: initial_flow_value,
+            flow_source_center: vec!(false; i+1),
             flow_source_z: initial_flow_value, 
-            flow_z_center: vec!(0; i),
+            flow_z_center: vec!(0; i+1),
             point_covered_by: vec!(None;point_counter),
             flow_color_t: vec!(0;color_counter),
             flow_t_z: 0,
             flow_color_sink: vec!(0;color_counter),
             flow_z_sink: initial_flow_value,
-            direct_res_path_from_center_to_sink: vec!(VecDeque::new(); i),
-            direct_res_path_from_center_to_z: vec!(VecDeque::new(); i),
-            direct_res_path_from_center_to_center: vec!(vec!(VecDeque::new(); i); i),
-            path_to_sink: vec!(false; i),
-            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
+//            direct_res_path_from_center_to_sink: vec!(VecDeque::new(); i),
+//            direct_res_path_from_center_to_z: vec!(VecDeque::new(); i),
+//            direct_res_path_from_center_to_center: vec!(vec!(VecDeque::new(); i); i),
+//            path_to_sink: vec!(false; i),
+//            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
         };
 
+        for edge in edges {
+            // add edge:
+            state.current_largest_edge = *edge;
+
+            // augment flow by 1 if possible
+            find_augmenting_path(&mut state, point_counter, color_counter, i, sum_of_a, &prob);
+            
+            // check whether max_flow saturates all source leaving arcs:
+            if state.flow_value == sum_of_a + i + 1 {
+                break;
+            }
+        }
+
+        assert_eq!(state.flow_value, sum_of_a + i + 1, "All edges added but still not all source leaving arcs saturated.");
+
+
+        // TODO: Create centers from max flow
 
     }
+
 
 
 
@@ -205,12 +224,15 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     clusterings.push(Clustering::new(centers,center_of, space));
     clusterings
 }
+
 use std::collections::VecDeque;
+
 struct State {
     // network:
     current_largest_edge: ColorEdge, // is used to indicate which edges are present in the network
 
     // flow:
+    flow_value: usize,
     flow_source_center: Vec<bool>, // true <=> the arc from source to center is saturated (flow = 1)
     flow_source_z: usize, // has capacity sum_of_a
     flow_z_center: Vec<usize>, // one entry for each center j (0 .. i); these arcs have capacity eta_j - 1
@@ -221,18 +243,131 @@ struct State {
     flow_z_sink: usize, // has capacity i
 
     // utilities:
-    direct_res_path_from_center_to_sink: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated arc from l to sink.
-    direct_res_path_from_center_to_z: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a color class point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated path from l to t to z.
-    direct_res_path_from_center_to_center: Vec<Vec<VecDeque<CenterPath>>>, // non_empty <=> there is a res path from j1 to j2 that only goes over point-nodes and color-nodes and t.
-    path_to_sink: Vec<bool>, // true <=> there is some (possibly complicated) residual path from center j to the sink; is updated over a BFS over the centers-graph given by direct_res_path_from_center_to_center
-    direct_res_path_from_color_to_center: Vec<Vec<CenterIdx>>, // entry[l] contains a list of centers such that center j covers a point of color class l <=> there is a direct res part from the color-node l to center j
+//    direct_res_path_from_center_to_sink: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated arc from l to sink.
+//    direct_res_path_from_center_to_z: Vec<VecDeque<PointIdx>>, // one queue (containing points) for each center j; non_empty <=> there exists a color class point p of color l with unsaturated edge (j,p) and (p,l) and unsaturated path from l to t to z.
+//    direct_res_path_from_center_to_center: Vec<Vec<VecDeque<CenterPath>>>, // non_empty <=> there is a res path from j1 to j2 that only goes over point-nodes and color-nodes and t.
+//    path_to_sink: Vec<bool>, // true <=> there is some (possibly complicated) residual path from center j to the sink; is updated over a BFS over the centers-graph given by direct_res_path_from_center_to_center
+//    direct_res_path_from_color_to_center: Vec<Vec<CenterIdx>>, // entry[l] contains a list of centers such that center j covers a point of color class l <=> there is a direct res part from the color-node l to center j
 }
 
-#[derive(Clone)]
-enum CenterPath {
-    OverPoint(PointIdx),
-    OverColor(PointIdx, PointIdx),
-    OverT(PointIdx, PointIdx),
+//#[derive(Clone)]
+//enum CenterPath {
+//    OverPoint(PointIdx),
+//    OverColor(PointIdx, PointIdx),
+//    OverT(PointIdx, PointIdx),
+//}
+//
+
+struct Node {
+    visited: bool,
+    discovered_by: Option<NodeKind>,
+    kind : NodeKind,
+}
+
+enum NodeKind {
+    Source, 
+    Z,
+    Center(CenterIdx),
+    Point(PointIdx),
+    Color(ColorIdx),
+    T,
+    Sink,
+}
+
+fn find_augmenting_path(state: &mut State, point_counter: usize, color_counter: usize, i : CenterIdx, sum_of_a: usize, prob: &ClusteringProblem) { 
+
+    // create nodes:
+//    let source_node = Node{visited:true, discovered_by:None, kind:NodeKind::Source};
+    let mut z_node = Node{visited:false, discovered_by:None, kind:NodeKind::Z};
+    
+    let mut center_nodes : Vec<Node> = Vec::with_capacity(i + 1);
+    for j in 0..i+1 {
+        center_nodes.push(Node{visited: false, discovered_by:None, kind: NodeKind::Center(j)});
+    }
+
+    let mut point_nodes : Vec<Node> = Vec::with_capacity(point_counter);
+    for p in 0..point_counter {
+        point_nodes.push(Node{visited: false, discovered_by:None, kind:NodeKind::Point(p)});
+    }
+
+    let mut color_nodes : Vec<Node> = Vec::with_capacity(color_counter);
+    for l in 0..color_counter {
+        color_nodes.push(Node{visited: false, discovered_by:None, kind:NodeKind::Color(l)});
+    }
+    let mut t_node = Node{visited: false, discovered_by:None, kind: NodeKind::T};
+    let mut sink_node = Node{visited:false, discovered_by:None, kind:NodeKind::Sink};
+
+    // find augmenting path:
+
+    let mut queue: VecDeque<NodeKind> = VecDeque::new();
+
+    queue.push_back(NodeKind::Source);
+
+    while !queue.is_empty() {
+        let current_node = queue.pop_front().unwrap();
+
+        match current_node {
+            NodeKind::Source => {
+                if state.flow_source_z < sum_of_a {
+                    z_node.visited = true;
+                    z_node.discovered_by = Some(NodeKind::Source);
+                    queue.push_back(NodeKind::Z);
+                }
+
+                for j in 0..i+1 {
+                    if !state.flow_source_center[j] {
+                        center_nodes[j].visited = true;
+                        center_nodes[j].discovered_by = Some(NodeKind::Source);
+                        queue.push_back(NodeKind::Center(j));
+                    }
+                }
+
+
+            }
+            NodeKind::Z => {
+                if state.flow_z_sink < i+1 && !sink_node.visited {
+                    sink_node.visited = true;
+                    sink_node.discovered_by = Some(NodeKind::Z);
+                    break;
+                }
+
+                if state.flow_t_z > 0 && !t_node.visited {
+                    t_node.visited = true;
+                    t_node.discovered_by = Some(NodeKind::Z);
+                    queue.push_back(NodeKind::T);
+                }
+
+                // To be continued with edges z to center
+
+
+
+            }
+            NodeKind::Center(idx) => {
+            }
+
+            NodeKind::Point(idx) => {
+
+            }
+
+            NodeKind::Color(idx) => {
+
+            }
+
+            NodeKind::T => {
+
+            }
+
+            NodeKind::Sink => {
+
+            }
+
+        }
+
+    }
+
+
+
+
 }
 
 //fn add_edge j, p, l
