@@ -38,8 +38,9 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     }
     // TEMP END
     
-    
-    // define the neighborhood of each gonzales center:
+    /////////////////////////////////////////////////////////////////    
+    //////// define the neighborhood of each gonzales center: ///////
+    /////////////////////////////////////////////////////////////////    
     let mut edges_of_cluster: Vec<Vec<ColorEdge>> = vec!(Vec::with_capacity(prob.k);prob.k);
 
 
@@ -64,7 +65,6 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         let mut remaining_edges: Vec<ColorEdge> = Vec::new();
         let mut num_edges_to_fill = prob.k;
 
-//        println!("restricted_colors: {}", restricted_colors);
 
         for c in 0..restricted_colors {
             // take only the b smallest in each class; all others cannot play any role.
@@ -72,7 +72,6 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             // the a smallest have to be present for sure, so each center can satisfy this
             // condition by itself;
             // the remaining b-a edges are collected in remaining_edges
-//            println!("c: {}, edges_by_color {:?}, a: {}", c, edges_by_color[c], prob.rep_interval[c].0);
             remaining_edges.append(&mut utilities::split_off_at(&mut edges_by_color[c], prob.rep_interval[c].0));
             num_edges_to_fill -= prob.rep_interval[c].0;
         }
@@ -81,13 +80,6 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         for c in restricted_colors..space.gamma() {
             remaining_edges.append(&mut edges_by_color[c]);
         }
-        
-//        println!("\n\n************ i = {}; center = {:?} ****************", i, gonzales.get(i));
-//        for (c, cclass) in edges_by_color.iter().enumerate() {
-//            println!("\nColorclass {}: {:?}", c, cclass);
-//        }
-//        println!("\nRemaining: {:?}", remaining_edges);
-
         
         // so far sum(a) edges where chosen, so we fill up with the nearest k - sum(a) edges,
         // independent of the color 
@@ -103,17 +95,27 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         // there are now max k edges in edges_of_cluster[i]; so we can sort them:
         edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
+        println!("edges of center i: {:?}", edges_of_cluster[i]);
 
     }
 
 
 
+
+
+
+    /////////////////////////////////////////////////////////////////    
+    ///////////////////////// solve flow problem: ///////////////////
+    /////////////////////////////////////////////////////////////////    
+
+
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
-
-
-    println!("edges of center 0: {:?}", edges_of_cluster[0]);
-
+    
     for i in 0..prob.k {
+
+        println!("\n\n************** i = {} ******************", i);
+
+        // consider all edges starting from centers 0 to i in increasing order:
     
         let mut edges: Vec<&ColorEdge> = Vec::with_capacity((i+1) * prob.k); // a reference to all edges with centers in S_i
         for j in 0..i+1 {
@@ -157,6 +159,10 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
                 point_counter += 1;
             }
         }
+
+
+
+        // edges should also be referrable from their points and their color classes:
         
         let mut edges_by_color_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); color_counter);
         let mut edges_by_point_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); point_counter);
@@ -168,27 +174,35 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         edges_by_color_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
         edges_by_point_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
 
-//        println!("\n i = {}", i);
-//        println!("number of edges: {:?}", edges.len());
-//        println!("color_to_node: {:?}", color_to_node);
-//        println!("a: {:?}", a);
-//        println!("b: {:?}", b);
+       
 
 
+        // for each eta vector we solve the flow problem individually:
 
-
-//        println!("\nedges_of_cluser[{}]: {:?}", i, edges_of_cluster[i]);
-//        println!("** i = {}; openings = {:?}", i, openings);
-        
         for opening in opening_lists[i].iter() {
 
+            let network = Network {
+                opening,
+                i,
+                number_of_points: point_counter,
+                number_of_colors: color_counter,
+                sum_of_a,
+                a : &a,
+                b : &b,
+                edges_of_cluster : &edges_of_cluster,
+                point_to_node : &point_to_node,
+//                color_to_node : &color_to_node,
+                point_idx_to_color_idx : &point_idx_to_color_idx,
+                edges_by_color_node : &edges_by_color_node,
+                edges_by_point_node : &edges_by_point_node,
+            };
 
             // without any edges present the maximal flow has only flow an the path (source, z, sink)
             // of value min{sum_of_a, i + 1} (note that we have i+1 centers)
             let initial_flow_value = if sum_of_a < i + 1 {sum_of_a} else {i + 1}; // = min {sum_of_a, i}
             let mut state = State{
                 current_largest_edge: ColorEdge{ d: <Distance>::MIN, center: 0, point: 0, color: 0},
-                flow_value: initial_flow_value,
+                flow_value: initial_flow_value, // max flow value
                 flow_source_center: vec!(false; i+1),
                 flow_source_z: initial_flow_value, 
                 flow_z_center: vec!(0; i+1),
@@ -204,34 +218,27 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     //            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
             };
 
-            let network = Network {
-                opening,
-                i,
-                number_of_points: point_counter,
-                number_of_colors: color_counter,
-                sum_of_a,
-                a : &a,
-                b : &b,
-                edges_of_cluster : &edges_of_cluster,
-                point_to_node : &point_to_node,
-                color_to_node : &color_to_node,
-                point_idx_to_color_idx : &point_idx_to_color_idx,
-                edges_by_color_node : &edges_by_color_node,
-                edges_by_point_node : &edges_by_point_node,
-            };
 
+            // now we add one edge after the other in increasing order:
             for &edge in edges.iter() {
-                // add edge:
+
+                // add edge (happens implicitly now)
                 state.current_largest_edge = *edge;
 
-                // augment flow by 1 if possible
-                find_augmenting_path(&mut state, &network, prob);
+                // augment flow by one if possible
+                augmenting_flow(&mut state, &network, prob);
+
                 
                 // check whether max_flow saturates all source leaving arcs:
                 if state.flow_value == sum_of_a + i + 1 {
                     break;
                 }
+//                println!("\n\tState: {:?}", state);
             }
+
+            println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
+            println!("  Final State: {:?}", state);
+
 
             assert_eq!(state.flow_value, sum_of_a + i + 1, "All edges added but still not all source leaving arcs saturated.");
 
@@ -265,12 +272,13 @@ struct Network<'a> {
     b : &'a Vec<usize>,
     edges_of_cluster : &'a Vec<Vec<ColorEdge>>,
     point_to_node : &'a HashMap<PointIdx, usize>,
-    color_to_node : &'a HashMap<ColorIdx, usize>,
+//    color_to_node : &'a HashMap<ColorIdx, usize>,
     point_idx_to_color_idx : &'a Vec<usize>,
     edges_by_color_node : &'a Vec<Vec<&'a ColorEdge>>,
     edges_by_point_node : &'a Vec<Vec<&'a ColorEdge>>,
 }
 
+#[derive(Debug)]
 struct State {
     // network:
     current_largest_edge: ColorEdge, // is used to indicate which edges are present in the network
@@ -318,12 +326,9 @@ enum NodeKind {
     Sink,
 }
 
-fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProblem) { 
-
-    println!("\nCurrent largest edge: {:?}", state.current_largest_edge);
+fn augmenting_flow(state: &mut State, net: &Network, prob: &ClusteringProblem) { 
 
     // create nodes:
-//    let source_node = Node{visited:true, discovered_by:None, kind:NodeKind::Source};
     let mut z_node = Node{discovered_by:None, kind:NodeKind::Z};
     
     let mut center_nodes : Vec<Node> = Vec::with_capacity(net.i + 1);
@@ -343,7 +348,9 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
     let mut t_node = Node{discovered_by:None, kind: NodeKind::T};
     let mut sink_discovered_by : Option<NodeKind> = None;
 
-    // find augmenting path:
+
+
+    // search for augmenting path:
 
     let mut queue: VecDeque<NodeKind> = VecDeque::new();
 
@@ -351,7 +358,6 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
 
     while !queue.is_empty() {
         let current_node = queue.pop_front().unwrap();
-        println!("{:?}", current_node);
 
         match current_node {
             NodeKind::Source => {
@@ -372,7 +378,7 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
             NodeKind::Z => {
                 if state.flow_z_sink < net.i+1 && sink_discovered_by.is_none() {
                     sink_discovered_by = Some(NodeKind::Z);
-                    println!("Augmenting path found");
+                    // Augmenting path found!
                     break;
                 }
 
@@ -435,7 +441,7 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
 
             NodeKind::Color(idx) => {
                 if state.flow_color_sink[idx] < net.a[idx] && sink_discovered_by.is_none() {
-                    println!("Augmenting path found");
+                    // Augmenting path found!
                     sink_discovered_by = Some(NodeKind::Color(idx));
                     break;
                 }
@@ -481,18 +487,20 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
     }
 
     if sink_discovered_by.is_none() {
-        println!("No augmenting path found!\n");
+        // No augmenting path found!
         return;
     }
 
+    // Augmenting path found!
     state.flow_value += 1;
-    println!("\n *** Backtrack from sink:");
+
+    // Now augment flow along this path:
     let mut current_node = &NodeKind::Sink; 
     let mut last_node = &NodeKind::Sink;
     loop {
+//        println!("{:?}", current_node);
         match *current_node {
             NodeKind::Source => {
-                println!("Source");
                 match *last_node {
                     NodeKind::Z => {
                         state.flow_source_z += 1;
@@ -507,7 +515,6 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
                 break;
             }
             NodeKind::Z => {
-                println!("Z");
                 match *last_node {
                     NodeKind::Sink => {
                         state.flow_z_sink += 1;
@@ -526,7 +533,6 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
                 current_node = z_node.discovered_by.as_ref().unwrap();
             }
             NodeKind::Center(idx) => {
-                println!("Center {}", idx);
                 match *last_node {
                     NodeKind::Z => {
                         state.flow_z_center[idx] -= 1;
@@ -542,7 +548,6 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
                 current_node = center_nodes[idx].discovered_by.as_ref().unwrap();
             }
             NodeKind::Point(idx) => {
-                println!("Point {}", idx);
                 match *last_node {
                     NodeKind::Center(_) => {
                         state.point_covered_by[idx] = None;
@@ -556,7 +561,6 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
                 current_node = point_nodes[idx].discovered_by.as_ref().unwrap();
             }
             NodeKind::Color(idx) => {
-                println!("Color {}", idx);
                 match *last_node {
                     NodeKind::T => {
                         state.flow_color_t[idx] += 1;
@@ -584,29 +588,19 @@ fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProbl
                         panic!("This should never happen");
                     }
                 }
-                println!("T");
                 last_node = current_node;
                 current_node = t_node.discovered_by.as_ref().unwrap();
             }
             NodeKind::Sink => {
-                println!("Sink");
                 last_node = current_node;
                 current_node = sink_discovered_by.as_ref().unwrap();
             }
-
-
-
-
         }
-
-
     }
-
-
-
-
 }
 
+
+// ideas for quicker flow augmentation:
 //fn add_edge j, p, l
 // 0) current_largest_edge = edge
 // 1) if point_coverd_by[p] == Some(c) => directed_res_path_from_center_to_center[j][c] = true
