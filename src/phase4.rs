@@ -137,8 +137,9 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         let mut color_to_node: HashMap<ColorIdx, usize> = HashMap::with_capacity((i + 1) * prob.k); // maps a color index to the color-node index used in the flow network
         let mut color_counter = 0; // number of relevant colors (= number of color-nodes)
 
+
         let mut point_idx_to_color_idx: Vec<ColorIdx> = Vec::with_capacity((i+1) * prob.k);
-        for &e in edges.iter() {
+        for e in edges.iter() {
             if !color_to_node.contains_key(&e.color) {
                 color_to_node.insert(e.color, color_counter);
                 if e.color >= prob.rep_interval.len() {
@@ -157,6 +158,15 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             }
         }
         
+        let mut edges_by_color_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); color_counter);
+        let mut edges_by_point_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); point_counter);
+
+        for e in edges.iter() {
+            edges_by_color_node[color_to_node[&e.color]].push(e);
+            edges_by_point_node[point_to_node[&e.point]].push(e);
+        }
+        edges_by_color_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
+        edges_by_point_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
 
 //        println!("\n i = {}", i);
 //        println!("number of edges: {:?}", edges.len());
@@ -170,46 +180,64 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 //        println!("\nedges_of_cluser[{}]: {:?}", i, edges_of_cluster[i]);
 //        println!("** i = {}; openings = {:?}", i, openings);
         
+        for opening in opening_lists[i].iter() {
 
 
-        // without any edges present the maximal flow has only flow an the path (source, z, sink)
-        // of value min{sum_of_a, i + 1} (note that we have i+1 centers)
-        let initial_flow_value = if sum_of_a < i + 1 {sum_of_a} else {i + 1}; // = min {sum_of_a, i}
-        let mut state = State{
-            current_largest_edge: ColorEdge{ d: <Distance>::MIN, center: 0, point: 0, color: 0},
-            flow_value: initial_flow_value,
-            flow_source_center: vec!(false; i+1),
-            flow_source_z: initial_flow_value, 
-            flow_z_center: vec!(0; i+1),
-            point_covered_by: vec!(None;point_counter),
-            flow_color_t: vec!(0;color_counter),
-            flow_t_z: 0,
-            flow_color_sink: vec!(0;color_counter),
-            flow_z_sink: initial_flow_value,
-//            direct_res_path_from_center_to_sink: vec!(VecDeque::new(); i),
-//            direct_res_path_from_center_to_z: vec!(VecDeque::new(); i),
-//            direct_res_path_from_center_to_center: vec!(vec!(VecDeque::new(); i); i),
-//            path_to_sink: vec!(false; i),
-//            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
-        };
+            // without any edges present the maximal flow has only flow an the path (source, z, sink)
+            // of value min{sum_of_a, i + 1} (note that we have i+1 centers)
+            let initial_flow_value = if sum_of_a < i + 1 {sum_of_a} else {i + 1}; // = min {sum_of_a, i}
+            let mut state = State{
+                current_largest_edge: ColorEdge{ d: <Distance>::MIN, center: 0, point: 0, color: 0},
+                flow_value: initial_flow_value,
+                flow_source_center: vec!(false; i+1),
+                flow_source_z: initial_flow_value, 
+                flow_z_center: vec!(0; i+1),
+                point_covered_by: vec!(None;point_counter),
+                flow_color_t: vec!(0;color_counter),
+                flow_t_z: 0,
+                flow_color_sink: vec!(0;color_counter),
+                flow_z_sink: initial_flow_value,
+    //            direct_res_path_from_center_to_sink: vec!(VecDeque::new(); i),
+    //            direct_res_path_from_center_to_z: vec!(VecDeque::new(); i),
+    //            direct_res_path_from_center_to_center: vec!(vec!(VecDeque::new(); i); i),
+    //            path_to_sink: vec!(false; i),
+    //            direct_res_path_from_color_to_center: vec!(Vec::new(); i),
+            };
 
-        for edge in edges {
-            // add edge:
-            state.current_largest_edge = *edge;
+            let network = Network {
+                opening,
+                i,
+                number_of_points: point_counter,
+                number_of_colors: color_counter,
+                sum_of_a,
+                a : &a,
+                b : &b,
+                edges_of_cluster : &edges_of_cluster,
+                point_to_node : &point_to_node,
+                color_to_node : &color_to_node,
+                point_idx_to_color_idx : &point_idx_to_color_idx,
+                edges_by_color_node : &edges_by_color_node,
+                edges_by_point_node : &edges_by_point_node,
+            };
 
-            // augment flow by 1 if possible
-            find_augmenting_path(&mut state, point_counter, color_counter, i, sum_of_a, &prob);
-            
-            // check whether max_flow saturates all source leaving arcs:
-            if state.flow_value == sum_of_a + i + 1 {
-                break;
+            for &edge in edges.iter() {
+                // add edge:
+                state.current_largest_edge = *edge;
+
+                // augment flow by 1 if possible
+                find_augmenting_path(&mut state, &network, prob);
+                
+                // check whether max_flow saturates all source leaving arcs:
+                if state.flow_value == sum_of_a + i + 1 {
+                    break;
+                }
             }
+
+            assert_eq!(state.flow_value, sum_of_a + i + 1, "All edges added but still not all source leaving arcs saturated.");
+
+
+            // TODO: Create centers from max flow
         }
-
-        assert_eq!(state.flow_value, sum_of_a + i + 1, "All edges added but still not all source leaving arcs saturated.");
-
-
-        // TODO: Create centers from max flow
 
     }
 
@@ -226,6 +254,22 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 }
 
 use std::collections::VecDeque;
+
+struct Network<'a> {
+    opening : &'a OpeningList,
+    i : CenterIdx,
+    number_of_points : PointCount,
+    number_of_colors : usize,
+    sum_of_a : usize,
+    a : &'a Vec<usize>,
+    b : &'a Vec<usize>,
+    edges_of_cluster : &'a Vec<Vec<ColorEdge>>,
+    point_to_node : &'a HashMap<PointIdx, usize>,
+    color_to_node : &'a HashMap<ColorIdx, usize>,
+    point_idx_to_color_idx : &'a Vec<usize>,
+    edges_by_color_node : &'a Vec<Vec<&'a ColorEdge>>,
+    edges_by_point_node : &'a Vec<Vec<&'a ColorEdge>>,
+}
 
 struct State {
     // network:
@@ -259,11 +303,11 @@ struct State {
 //
 
 struct Node {
-    visited: bool,
     discovered_by: Option<NodeKind>,
     kind : NodeKind,
 }
 
+#[derive(Debug)]
 enum NodeKind {
     Source, 
     Z,
@@ -274,28 +318,30 @@ enum NodeKind {
     Sink,
 }
 
-fn find_augmenting_path(state: &mut State, point_counter: usize, color_counter: usize, i : CenterIdx, sum_of_a: usize, prob: &ClusteringProblem) { 
+fn find_augmenting_path(state: &mut State, net: &Network, prob: &ClusteringProblem) { 
+
+    println!("\nCurrent largest edge: {:?}", state.current_largest_edge);
 
     // create nodes:
 //    let source_node = Node{visited:true, discovered_by:None, kind:NodeKind::Source};
-    let mut z_node = Node{visited:false, discovered_by:None, kind:NodeKind::Z};
+    let mut z_node = Node{discovered_by:None, kind:NodeKind::Z};
     
-    let mut center_nodes : Vec<Node> = Vec::with_capacity(i + 1);
-    for j in 0..i+1 {
-        center_nodes.push(Node{visited: false, discovered_by:None, kind: NodeKind::Center(j)});
+    let mut center_nodes : Vec<Node> = Vec::with_capacity(net.i + 1);
+    for j in 0..net.i+1 {
+        center_nodes.push(Node{discovered_by:None, kind: NodeKind::Center(j)});
     }
 
-    let mut point_nodes : Vec<Node> = Vec::with_capacity(point_counter);
-    for p in 0..point_counter {
-        point_nodes.push(Node{visited: false, discovered_by:None, kind:NodeKind::Point(p)});
+    let mut point_nodes : Vec<Node> = Vec::with_capacity(net.number_of_points);
+    for p in 0..net.number_of_points {
+        point_nodes.push(Node{discovered_by:None, kind:NodeKind::Point(p)});
     }
 
-    let mut color_nodes : Vec<Node> = Vec::with_capacity(color_counter);
-    for l in 0..color_counter {
-        color_nodes.push(Node{visited: false, discovered_by:None, kind:NodeKind::Color(l)});
+    let mut color_nodes : Vec<Node> = Vec::with_capacity(net.number_of_colors);
+    for l in 0..net.number_of_colors {
+        color_nodes.push(Node{discovered_by:None, kind:NodeKind::Color(l)});
     }
-    let mut t_node = Node{visited: false, discovered_by:None, kind: NodeKind::T};
-    let mut sink_node = Node{visited:false, discovered_by:None, kind:NodeKind::Sink};
+    let mut t_node = Node{discovered_by:None, kind: NodeKind::T};
+    let mut sink_discovered_by : Option<NodeKind> = None;
 
     // find augmenting path:
 
@@ -305,18 +351,17 @@ fn find_augmenting_path(state: &mut State, point_counter: usize, color_counter: 
 
     while !queue.is_empty() {
         let current_node = queue.pop_front().unwrap();
+        println!("{:?}", current_node);
 
         match current_node {
             NodeKind::Source => {
-                if state.flow_source_z < sum_of_a {
-                    z_node.visited = true;
+                if state.flow_source_z < net.sum_of_a {
                     z_node.discovered_by = Some(NodeKind::Source);
                     queue.push_back(NodeKind::Z);
                 }
 
-                for j in 0..i+1 {
+                for j in 0..net.i+1 {
                     if !state.flow_source_center[j] {
-                        center_nodes[j].visited = true;
                         center_nodes[j].discovered_by = Some(NodeKind::Source);
                         queue.push_back(NodeKind::Center(j));
                     }
@@ -325,43 +370,235 @@ fn find_augmenting_path(state: &mut State, point_counter: usize, color_counter: 
 
             }
             NodeKind::Z => {
-                if state.flow_z_sink < i+1 && !sink_node.visited {
-                    sink_node.visited = true;
-                    sink_node.discovered_by = Some(NodeKind::Z);
+                if state.flow_z_sink < net.i+1 && sink_discovered_by.is_none() {
+                    sink_discovered_by = Some(NodeKind::Z);
+                    println!("Augmenting path found");
                     break;
                 }
 
-                if state.flow_t_z > 0 && !t_node.visited {
-                    t_node.visited = true;
+                if state.flow_t_z > 0 && t_node.discovered_by.is_none() {
                     t_node.discovered_by = Some(NodeKind::Z);
                     queue.push_back(NodeKind::T);
                 }
 
                 // To be continued with edges z to center
+                for j in 0..net.i+1 {
+                    if state.flow_z_center[j] < net.opening.eta[j] - 1 && center_nodes[j].discovered_by.is_none() {
+                        center_nodes[j].discovered_by = Some(NodeKind::Z);
+                        queue.push_back(NodeKind::Center(j));
 
-
+                    }
+                }
 
             }
             NodeKind::Center(idx) => {
+                if state.flow_z_center[idx] > 0 && z_node.discovered_by.is_none() {
+                    z_node.discovered_by = Some(NodeKind::Center(idx));
+                    queue.push_back(NodeKind::Z);
+                }
+                for &edge in net.edges_of_cluster[idx].iter() {
+                    let p:usize = *net.point_to_node.get(&edge.point).unwrap();
+                    if edge <= state.current_largest_edge // edge present in network
+                    && (state.point_covered_by[p].is_none() || state.point_covered_by[p].unwrap() != idx)  // edge present in res network
+                    && point_nodes[p].discovered_by.is_none() { // point_node not visited yet
+
+                        point_nodes[p].discovered_by = Some(NodeKind::Center(idx));
+                        queue.push_back(NodeKind::Point(p));
+
+                    }
+
+                }
+
+
             }
 
             NodeKind::Point(idx) => {
+                let l: usize = net.point_idx_to_color_idx[idx];
+                if state.point_covered_by[idx].is_none() && color_nodes[l].discovered_by.is_none() {
+                    color_nodes[l].discovered_by = Some(NodeKind::Point(idx));
+                    queue.push_back(NodeKind::Color(l));
+                }
+                for &edge in net.edges_by_point_node[idx].iter() {
+                    if edge > &state.current_largest_edge {
+                        break; // edges_by_point_node are sorted; we go from small to big
+                    }
+                    let j = edge.center;
+                    if state.point_covered_by[idx] == Some(j) && center_nodes[j].discovered_by.is_none() {
+                        center_nodes[j].discovered_by = Some(NodeKind::Point(idx));
+                        queue.push_back(NodeKind::Center(j));
+                    }
+                     
+
+                }
 
             }
 
             NodeKind::Color(idx) => {
+                if state.flow_color_sink[idx] < net.a[idx] && sink_discovered_by.is_none() {
+                    println!("Augmenting path found");
+                    sink_discovered_by = Some(NodeKind::Color(idx));
+                    break;
+                }
 
+                if state.flow_color_t[idx] < net.b[idx] - net.a[idx] && t_node.discovered_by.is_none() {
+                    t_node.discovered_by = Some(NodeKind::Color(idx));
+                    queue.push_back(NodeKind::T);
+                }
+
+                for &edge in net.edges_by_color_node[idx].iter() {
+                    if edge > &state.current_largest_edge {
+                        break;
+                    }
+                    let p = *net.point_to_node.get(&edge.point).unwrap();
+
+                    if state.point_covered_by[idx] == Some(edge.center) && point_nodes[p].discovered_by.is_none() {
+                        point_nodes[p].discovered_by = Some(NodeKind::Color(idx));
+                        queue.push_back(NodeKind::Point(p));
+                    }
+                }
             }
 
             NodeKind::T => {
+                if state.flow_t_z < prob.k - net.sum_of_a && z_node.discovered_by.is_none() {
+                    z_node.discovered_by = Some(NodeKind::T);
+                    queue.push_back(NodeKind::Z);
+                }
+
+                for l in 0 .. net.number_of_colors {
+                    if state.flow_color_t[l] > 0 && color_nodes[l].discovered_by.is_none() {
+                        color_nodes[l].discovered_by = Some(NodeKind::T);
+                        queue.push_back(NodeKind::Color(l));
+                    }
+                }
 
             }
-
             NodeKind::Sink => {
-
+                panic!("The sink should never enter the queue.");
             }
 
         }
+
+    }
+
+    if sink_discovered_by.is_none() {
+        println!("No augmenting path found!\n");
+        return;
+    }
+
+    state.flow_value += 1;
+    println!("\n *** Backtrack from sink:");
+    let mut current_node = &NodeKind::Sink; 
+    let mut last_node = &NodeKind::Sink;
+    loop {
+        match *current_node {
+            NodeKind::Source => {
+                println!("Source");
+                match *last_node {
+                    NodeKind::Z => {
+                        state.flow_source_z += 1;
+                    }
+                    NodeKind::Center(j) => {
+                        state.flow_source_center[j] = true;
+                    }
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                break;
+            }
+            NodeKind::Z => {
+                println!("Z");
+                match *last_node {
+                    NodeKind::Sink => {
+                        state.flow_z_sink += 1;
+                    }
+                    NodeKind::T => {
+                        state.flow_t_z -= 1;
+                    }
+                    NodeKind::Center(j) => {
+                        state.flow_z_center[j] += 1;
+                    }
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                last_node = current_node;
+                current_node = z_node.discovered_by.as_ref().unwrap();
+            }
+            NodeKind::Center(idx) => {
+                println!("Center {}", idx);
+                match *last_node {
+                    NodeKind::Z => {
+                        state.flow_z_center[idx] -= 1;
+                    }
+                    NodeKind::Point(p) => {
+                        state.point_covered_by[p] = Some(idx);
+                    }
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                last_node = current_node;
+                current_node = center_nodes[idx].discovered_by.as_ref().unwrap();
+            }
+            NodeKind::Point(idx) => {
+                println!("Point {}", idx);
+                match *last_node {
+                    NodeKind::Center(_) => {
+                        state.point_covered_by[idx] = None;
+                    }
+                    NodeKind::Color(_) => {}
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                last_node = current_node;
+                current_node = point_nodes[idx].discovered_by.as_ref().unwrap();
+            }
+            NodeKind::Color(idx) => {
+                println!("Color {}", idx);
+                match *last_node {
+                    NodeKind::T => {
+                        state.flow_color_t[idx] += 1;
+                    }
+                    NodeKind::Sink => {
+                        state.flow_color_sink[idx] += 1;
+                    }
+                    NodeKind::Point(_) => {}
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                last_node = current_node;
+                current_node = color_nodes[idx].discovered_by.as_ref().unwrap();
+            }
+            NodeKind::T => {
+                match *last_node {
+                    NodeKind::Color(l) => {
+                        state.flow_color_t[l] -= 1;
+                    }
+                    NodeKind::Z => {
+                        state.flow_t_z += 1;
+                    }
+                    _ => {
+                        panic!("This should never happen");
+                    }
+                }
+                println!("T");
+                last_node = current_node;
+                current_node = t_node.discovered_by.as_ref().unwrap();
+            }
+            NodeKind::Sink => {
+                println!("Sink");
+                last_node = current_node;
+                current_node = sink_discovered_by.as_ref().unwrap();
+            }
+
+
+
+
+        }
+
 
     }
 
