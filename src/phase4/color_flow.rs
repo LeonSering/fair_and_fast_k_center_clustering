@@ -1,7 +1,7 @@
 use crate::types::{ColorCount,PointCount,CenterIdx,PointIdx,ColorIdx, Distance};
 use std::collections::VecDeque;
 
-use super::{ColorEdge,Network,PNodeIdx,CNodeIdx};
+use super::{ColorEdge,Network,PNodeIdx,CNodeIdx,ShiftedCenters};
 
 type FlowValue = usize;
 
@@ -96,7 +96,12 @@ enum Node {
 /// Given a phase4-network it add ColorEdges one by one and computes the max flow,
 /// until all source-leaving arcs are saturated, which corresponds to a feasible flow in the
 /// flow-network with lower flow bounds.
-pub(super) fn compute_flow(network : &Network) {
+///
+/// Returns the partial assignment of points to gonzales center, such that the number of assigned points
+/// of color class l are within [a_l,b_l]; each cluster j has between 1 and eta_j assigned points
+/// and the maximal distance between an assigned point and its cluster center (= gonzales center)
+/// is minimized.
+pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCenters {
     // create a new flow of maximal flow value of min{sum_of_a, i+1} in the network without
     // any color_edges
     let mut state = State::new(network);
@@ -146,9 +151,25 @@ pub(super) fn compute_flow(network : &Network) {
 
     println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
     println!("  Final State: {:?}", state);
+//    println!("  node index of point of last largest edge: {}", network.point_to_node[&state.current_largest_edge.point]); 
 
 
     assert_eq!(state.flow_value, network.sum_of_a + network.i + 1, "All edges added but still not all source leaving arcs saturated.");
+    let mut new_centers: Vec<PNodeIdx> = Vec::with_capacity(state.flow_value - network.i + 1 + state.flow_t_z);
+    let mut origins: Vec<CenterIdx> = Vec::with_capacity(state.flow_value - network.i + 1 + state.flow_t_z);
+    for (p, origin) in state.point_covered_by.iter().enumerate().filter(|(_,o)| o.is_some()) {
+        new_centers.push(p);
+        origins.push(origin.unwrap());
+    }
+//    println!("\npoint_covered_by: {:?}", state.point_covered_by);
+//    println!("new_centers: {:?}", new_centers);
+//    println!("origins: {:?}\n", origins);
+
+    ShiftedCenters{
+        shift_radius : state.current_largest_edge.d,
+        new_centers,
+        origins,
+    }
 
 
 

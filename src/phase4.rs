@@ -7,7 +7,7 @@ mod neighborhood;
 use neighborhood::determine_neighborhood;
 
 mod color_flow;
-use color_flow::compute_flow;
+use color_flow::compute_assignment_by_flow;
 
 /// an edge between a gonzales center and a color class;
 /// lablled with the point and the distance between center and point
@@ -29,6 +29,8 @@ type CNodeIdx = usize; // type for the index of a color node
 pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<Clustering<'a>> {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
+
+    let mut shifted_centers: Vec<Vec<ShiftedCenters>> = (0..prob.k).map(|i| Vec::with_capacity(i+1)).collect();
 
 
     //TEMP: For test reasons we also look at flow problems with ALL edges present:
@@ -142,12 +144,11 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             };
 
             // for each eta vector we solve the flow problem individually:
-            compute_flow(&network);
+            shifted_centers[i].push(compute_assignment_by_flow(&network));
             
-            // Define return value of compute flow. Probably a new Center struct.
-
-            // TODO: Create centers from max flow
         }
+
+        println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.shift_radius).collect::<Vec<_>>());
 
     }
 
@@ -181,5 +182,12 @@ struct Network<'a> {
     edges_by_point_node : &'a Vec<Vec<&'a ColorEdge>>,
 }
 
-
+// return value of a flow problem.
+// Contains the shift_radius and new_centers (with their node index)
+// as well as the origin, i.e., the cluster, of each new center.
+struct ShiftedCenters {
+    shift_radius : Distance, // the shift radius
+    new_centers : Vec<PNodeIdx>,
+    origins : Vec<CenterIdx> // the original gonzales center for each new center
+}
 

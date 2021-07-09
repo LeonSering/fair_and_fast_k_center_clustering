@@ -63,7 +63,7 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-//        println!("** spanning_tree[{}]: {:?}", i, spanning_trees[i].edges);
+        println!("** spanning_tree[{}]: {:?}", i, spanning_trees[i].edges);
         #[cfg(debug_assertions)]
         println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
         let clustering = &clusterings[i];
@@ -76,50 +76,57 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
 //            println!("\tthreshold: {}", threshold);
 
 //            println!("\tForest: {:?}", spanning_tree.get_edges(threshold));
+//
+            let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
+            let mut eta: Vec<Option<PointCount>> = vec!(None;i+1); // starts with the size of each cluster and is then converted to be the muliplier of L
+//            let mut pushed: Vec<bool> = vec!(false;i+1);
 
-            let mut eta: Vec<PointCount> = clustering.get_cluster_sizes().clone(); // starts with the size of each cluster and is then converted to be the muliplier of L
-            let mut pushed: Vec<bool> = vec!(false;i+1);
 
+            let mut stack: Vec<CenterIdx> = Vec::with_capacity(i+1); // elements poped here are treated
 
-
-            // look for leafs:
-            let mut is_leaf= vec!(true; i+1);
+            // look for roots:
+            let mut is_root= vec!(true; i+1);
             for e in spanning_tree.get_edges(threshold).iter() {
-                is_leaf[e.up] = false;
+                is_root[e.down] = false;
             }
 
-//            println!("leafs:{:?}", is_leaf);
-            let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1);
-            for j in (0..i+1).filter(|l| is_leaf[*l]) {
+            println!("roots:{:?}", is_root);
+            let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1); // this queue is only for building the stack
+            for j in (0..i+1).filter(|l| is_root[*l]) {
                 queue.push_back(j);
-                pushed[j] = true;
             }
-//            println!("queue with leafs:{:?}", queue);
 
-            while !queue.is_empty() {
-//                println!("eta:{:?}", eta);
-                let node = queue.pop_front().unwrap();
+            // we now need to do a BFS starting from the roots, and push each discovered node to
+            // the stack. Hence, by emptying the stack we go the BFS in reverse. 
+            //
+            // TODO: Implement some functionality to obtain edges of node
+                
+
+//            println!("queue with leafs:{:?}", queue);
+//
+            //TODO: CARE BUG HERE!
+            // node can pop before all children were poped.
+            // instead of a queue we should use a stack and then push on the stack in bfs manner
+
+            while !stack.is_empty() {
+                let node = stack.pop().unwrap();
+                println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
                 let potential_up_edge = spanning_tree.get_edge(node,threshold);
+                eta[node] = Some(cluster_sizes[node] / prob.privacy_bound);
+                cluster_sizes[node] -= eta[node].unwrap()*prob.privacy_bound;
                 match potential_up_edge {
-                    None => { // node is a root
-                        eta[node] = eta[node] / prob.privacy_bound;
-                    }
+                    None => {} // node is a root
                     Some(up_edge) => {
                         let parent = up_edge.up;
-                        let remainder = eta[node] % prob.privacy_bound;
-                        eta[parent] += remainder;
-                        eta[node] = eta[node] / prob.privacy_bound;
-                        if !pushed[parent] {
-                            queue.push_back(parent);
-                            pushed[parent] = true;
-                        }
+                        cluster_sizes[parent] += cluster_sizes[node];
+                        cluster_sizes[node] = 0;
                     }
                 }
 
             }
-//            println!("final eta:{:?}", eta);
+            println!("final cluster_sizes:{:?}, eta:{:?}", cluster_sizes, eta);
 
-            opening_lists.push(OpeningList{eta});
+            opening_lists.push(OpeningList{eta: eta.into_iter().map(|e| e.unwrap()).collect()});
         }
         all_opening_lists.push(opening_lists);
     }
