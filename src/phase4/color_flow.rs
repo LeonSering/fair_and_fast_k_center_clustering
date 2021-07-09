@@ -1,24 +1,26 @@
-use crate::types::{CenterIdx,PointIdx,ColorIdx, Distance};
-use crate::OpeningList;
+use crate::types::{ColorCount,PointCount,CenterIdx,PointIdx,ColorIdx, Distance};
 use std::collections::VecDeque;
 
-use super::{ColorEdge,Network};
+use super::{ColorEdge,Network,PNodeIdx,CNodeIdx};
 
+type FlowValue = usize;
+
+/// State represents a flow in the network. Throughout the program we keep it to be a max-flow
 #[derive(Debug)]
 struct State {
     // network:
     current_largest_edge: ColorEdge, // is used to indicate which edges are present in the network
 
     // flow:
-    flow_value: usize,
+    flow_value: FlowValue,
     flow_source_center: Vec<bool>, // true <=> the arc from source to center is saturated (flow = 1)
-    flow_source_z: usize, // has capacity sum_of_a
-    flow_z_center: Vec<usize>, // one entry for each center j (0 .. i); these arcs have capacity eta_j - 1
+    flow_source_z: FlowValue, // has capacity sum_of_a
+    flow_z_center: Vec<FlowValue>, // one entry for each center j (0 .. i); these arcs have capacity eta_j - 1
     point_covered_by: Vec<Option<CenterIdx>>, // edge_flow_carrying[p] = Some(j) <=> point with point-node index p is covered by center j <=> edges from j to p and arc from p to l (color of p) is saturated (flow = 1) 
-    flow_color_t: Vec<usize>, // one entry for each color class l (color-node index); each has a capacity of a_l - b_l
-    flow_t_z: usize, // has capacity k- sum_of_a
-    flow_color_sink: Vec<usize>, // one entry for each color class l; each has a capacity of a_l
-    flow_z_sink: usize, // has capacity i
+    flow_color_t: Vec<FlowValue>, // one entry for each color class l (color-node index); each has a capacity of a_l - b_l
+    flow_t_z: FlowValue, // has capacity k- sum_of_a
+    flow_color_sink: Vec<FlowValue>, // one entry for each color class l; each has a capacity of a_l
+    flow_z_sink: FlowValue, // has capacity i
 
 }
 
@@ -50,9 +52,11 @@ impl State {
 }
 
 
-/// For each node the partent node is stored, i.e. the nodes that discovered it during the BFS
+/// For each node (except for the source) the partent node is stored, i.e. the nodes that discovered it during the BFS
 /// starting from the source;
-/// the value is None if it has not been discovered yet.
+/// The value is None if it has not been discovered yet.
+/// In other words: Some means that the node can be reached from source in the residual network
+/// None means there is no path from the source to this node in the residual network.
 struct BFSTree {
     z_node : Option<Node>,
     center_nodes : Vec<Option<Node>>,
@@ -63,7 +67,8 @@ struct BFSTree {
 }
 
 impl BFSTree {
-    fn new(i : CenterIdx, number_of_points : usize, number_of_colors : usize) -> BFSTree {
+    /// creates an empty BFSTree, i.e., no node is discovered yet, so everything is None.
+    fn new(i : CenterIdx, number_of_points : PointCount, number_of_colors : ColorCount) -> BFSTree {
         BFSTree {
             z_node : None,
             center_nodes : vec!(None; i + 1),
@@ -88,8 +93,10 @@ enum Node {
     Sink,
 }
 
-
-pub(super) fn compute_flow(opening: &OpeningList, network : &Network, edges : &Vec<&ColorEdge>) {
+/// Given a phase4-network it add ColorEdges one by one and computes the max flow,
+/// until all source-leaving arcs are saturated, which corresponds to a feasible flow in the
+/// flow-network with lower flow bounds.
+pub(super) fn compute_flow(network : &Network) {
     // create a new flow of maximal flow value of min{sum_of_a, i+1} in the network without
     // any color_edges
     let mut state = State::new(network);
@@ -100,7 +107,7 @@ pub(super) fn compute_flow(opening: &OpeningList, network : &Network, edges : &V
     bfs(&state, &network, &mut bfs_tree, Node::Source);
 
     // now we add one edge after the other in increasing order:
-    for &edge in edges.iter() {
+    for &edge in network.edges.iter() {
 
         // add edge (happens implicitly now)
         state.current_largest_edge = *edge;
@@ -147,6 +154,8 @@ pub(super) fn compute_flow(opening: &OpeningList, network : &Network, edges : &V
 
 }
 
+/// Continues a BFS from the starting node. The BFSTree (tree) is only expanded.
+/// For starting a new BFS start with Node::Source and an new (empty) BFSTree.
 fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
 
     // search for augmenting path:
@@ -207,7 +216,7 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
                         break;
                     }
 
-                    let p:usize = *net.point_to_node.get(&edge.point).unwrap();
+                    let p:PNodeIdx = *net.point_to_node.get(&edge.point).unwrap();
                     if tree.point_nodes[p].is_none() && (state.point_covered_by[p].is_none() || state.point_covered_by[p].unwrap() != idx) {  
                         // point_node has not been visited yet and edge present in res network
                         tree.point_nodes[p] = Some(Node::Center(idx));
@@ -221,7 +230,7 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
             }
 
             Node::Point(idx) => {
-                let l: usize = net.point_idx_to_color_idx[idx];
+                let l: CNodeIdx = net.point_idx_to_color_idx[idx];
                 if state.point_covered_by[idx].is_none() && tree.color_nodes[l].is_none() {
                     tree.color_nodes[l] = Some(Node::Point(idx));
                     queue.push_back(Node::Color(l));
@@ -290,6 +299,11 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
 
 }
 
+/// Augments along a path in the residual network.
+/// Panics if there is no augmenting path from Source to Sink, i.e.,
+/// if tree.sink_node == None
+/// Care: If backwards path starting from the sink leads to a cycles, this function
+/// end in a endless loop.
 fn augment_flow(state: &mut State, tree: &BFSTree) { 
     assert!(tree.sink_node.is_some(), "Cannot augment flow if there is no augmenting path!");
     
