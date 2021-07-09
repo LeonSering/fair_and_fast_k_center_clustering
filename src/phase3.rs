@@ -1,7 +1,7 @@
-use crate::ClusteringProblem;
-use crate::space::{Distance,ColoredMetric};
-use crate::clustering::{CenterIdx,Clustering};
-use super::{OpeningList,PointCount};
+use crate::{ClusteringProblem,OpeningList};
+use crate::types::{Distance,CenterIdx,PointCount};
+use crate::space::ColoredMetric;
+use crate::clustering::Clustering;
 
 /// a pointer from a gonzales center to its parent in a rooted forest 
 #[derive(Debug)]

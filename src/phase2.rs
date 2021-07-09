@@ -1,6 +1,7 @@
 use crate::ClusteringProblem;
-use crate::space::{Point,ColoredMetric,Distance};
-use crate::clustering::{Clustering,Centers,CenterIdx};
+use crate::types::{Distance,CenterIdx};
+use crate::space::{Point,ColoredMetric};
+use crate::clustering::{Clustering,Centers};
 
 mod buckets;
 use buckets::{put_into_buckets,assert_buckets_properties};

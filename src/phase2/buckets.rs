@@ -1,4 +1,4 @@
-use crate::{PointCount,space::Distance};
+use crate::types::{PointCount,Distance};
 use super::Edge;
 use crate::utilities;
 

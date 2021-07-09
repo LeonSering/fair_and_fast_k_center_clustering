@@ -1,4 +1,5 @@
-use crate::{ClusteringProblem,Clustering,Centers,ColoredMetric,clustering::CenterIdx, space::Distance, utilities};
+use crate::{ClusteringProblem,Clustering,Centers,ColoredMetric,utilities};
+use crate::types::{CenterIdx,Distance};
 use super::{Edge,EdgeIdx,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet

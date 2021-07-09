@@ -1,5 +1,6 @@
 use crate::ClusteringProblem;
-use crate::space::{ColoredMetric,Distance};
+use crate::types::Distance;
+use crate::space::ColoredMetric;
 use crate::clustering::{Clustering,Centers};
 
 use std::collections::VecDeque;

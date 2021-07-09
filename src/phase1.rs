@@ -1,5 +1,6 @@
 use crate::clustering::Centers;
-use crate::{PointCount,space::{Point,ColoredMetric,Distance}};
+use crate::space::{Point,ColoredMetric};
+use crate::types::{PointCount,Distance};
 
 pub(crate) fn gonzales_heuristic<M : ColoredMetric>(space : &M, k : PointCount) -> Centers {
 

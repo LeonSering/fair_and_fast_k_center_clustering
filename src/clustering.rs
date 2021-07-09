@@ -8,8 +8,8 @@
 /// centers: a vector of centers
 /// clustering: centers, radius and assignment of points to centers
 ///
-use crate::{PointCount,space::{Point,PointIdx,Distance}};
-pub type CenterIdx = usize;
+use crate::space::Point;
+use crate::types::{PointCount,PointIdx,Distance,CenterIdx};
 
 /// A list of centers.
 pub struct Centers<'a>{

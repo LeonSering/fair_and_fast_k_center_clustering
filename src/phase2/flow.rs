@@ -1,5 +1,6 @@
 use super::Edge;
-use crate::{ClusteringProblem,PointCount,space::Point,clustering::CenterIdx};
+use crate::types::CenterIdx;
+use crate::{ClusteringProblem,PointCount,space::Point};
 use std::collections::VecDeque;
 
 // describes the state of the flow network and of the centers graph.

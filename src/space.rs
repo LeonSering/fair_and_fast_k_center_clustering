@@ -19,11 +19,7 @@
 /// These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
 ///
 
-pub type PointIdx = usize;
-pub type Distance = f32;
-pub type ColorIdx = usize;
-
-use crate::{ColorCount,PointCount};
+use crate::types::{PointIdx,ColorIdx,PointCount,ColorCount,Distance};
 
 /// A point of a metric space. Their only attribute is an index, which can be obtained by idx().
 /// Points are create by metric spaces and can only be accessed via the point_inter() method of the

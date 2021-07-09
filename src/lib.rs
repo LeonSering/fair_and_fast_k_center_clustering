@@ -16,9 +16,6 @@
 //!
 
 
-type PointCount = usize;
-type ColorCount = usize;
-type Interval = (PointCount,PointCount);
 
 /// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
 /// k is the maximal number of centers that can be opened;
@@ -48,6 +45,9 @@ impl fmt::Display for ClusteringProblem {
 
 
 }
+
+mod types;
+pub use types::{PointCount,ColorCount,Interval};
 
 mod space;
 pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
