@@ -61,7 +61,6 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
 
         // there are now max k edges in edges_of_cluster[i]; so we can sort them:
         edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
-        println!("edges of center i: {:?}", edges_of_cluster[i]);
 
     }
     edges_of_cluster

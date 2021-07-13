@@ -195,11 +195,17 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    let mut final_clusterings = finalize(space, &prob, opening_lists, &gonzales); 
+    let final_centers = finalize(space, &prob, opening_lists, &gonzales); 
+
+    // TODO: Assign points to the new center such that the privacy containt is satisfied.
     
 
+    // TEMP: Create empty clustering
+    let mut centers = Centers::with_capacity(prob.k);
+    centers.push(space.point_iter().next().unwrap());
+    let center_of: Vec<Option<usize>> = space.point_iter().map(|_| None).collect();
+    Clustering::new(centers,center_of, space)
 
 
-    // TODO somehwere here we should pick the best clustering
-    final_clusterings.pop().unwrap()
+
 }

@@ -64,6 +64,10 @@ pub trait ColoredMetric{
     /// Provides an iterator of all points of the metric space. This is the only way to access the
     /// points.
     fn point_iter(&self) -> std::slice::Iter<Point>;
+    
+    /// Return a reference (wrapped in Some) to the point with provided index.
+    /// If there is not point with this index, return None.
+    fn get_point(&self, idx: PointIdx) -> Option<&Point>;
 
     /// Returns the number of color classes that are present in the metric space. More precesely it
     /// return the highest color value + 1.
@@ -212,6 +216,13 @@ impl ColoredMetric for SpaceMatrix {
         self.points.len() 
     }
 
+    fn get_point(&self, idx: PointIdx) -> Option<&Point> {
+        if idx >= self.points.len() {
+            return None;
+        }
+        Some(&self.points[idx])
+    }
+
     fn point_iter(&self) -> std::slice::Iter<Point> {
         self.points.iter()
     }
@@ -346,6 +357,13 @@ impl ColoredMetric for Space2D {
 
     fn color(&self, x : &Point) -> ColorIdx {
         self.colors[x.idx()]
+    }
+
+    fn get_point(&self, idx: PointIdx) -> Option<&Point> {
+        if idx >= self.points.len() {
+            return None;
+        }
+        Some(&self.points[idx])
     }
 
     fn point_iter(&self) -> std::slice::Iter<Point> {

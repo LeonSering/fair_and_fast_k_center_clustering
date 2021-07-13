@@ -1,4 +1,4 @@
-use crate::{ClusteringProblem,Centers,Clustering,ColoredMetric};
+use crate::{ClusteringProblem,Centers,ColoredMetric};
 use crate::types::{PointCount,PointIdx,ColorCount,ColorIdx,Distance,CenterIdx};
 use super::OpeningList;
 use std::collections::HashMap;
@@ -24,13 +24,14 @@ type CNodeIdx = usize; // type for the index of a color node
 
 /// Given a metric space and a clustering problem,
 /// finalize takes a vector of clusterings in which each center (except for one) covers a multple of L
-/// points, and returns a vector of clusterings (which potentially more cluster as before) that also satisfy the representative constaints. 
+/// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<Clustering<'a>> {
+pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Centers<'a> {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
 
     let mut shifted_centers: Vec<Vec<ShiftedCenters>> = (0..prob.k).map(|i| Vec::with_capacity(i+1)).collect();
+    let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
 
 
     //TEMP: For test reasons we also look at flow problems with ALL edges present:
@@ -79,6 +80,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         // used in the flow network
        
         let mut point_to_node: HashMap<PointIdx, PNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a point index to the point-node index used in the flow network
+        let mut node_to_point: Vec<PointIdx> = Vec::with_capacity((i+1) * prob.k); // maps a point-node index to the original point index
         let mut point_counter = 0; // number of relevant points (= number of point-nodes)
         
         let mut a: Vec<PointCount> = Vec::with_capacity((i + 1) * prob.k); // lower bound given by the color-node index
@@ -102,10 +104,13 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             }
             if !point_to_node.contains_key(&e.point) {
                 point_to_node.insert(e.point, point_counter);
+                node_to_point.push(e.point);
                 point_idx_to_color_idx.push(*color_to_node.get(&e.color).unwrap());
                 point_counter += 1;
             }
         }
+
+        node_to_point_list.push(node_to_point); // save node_to_point for recreate the point index at the very end of the phase
 
         // edges should also be referrable from their points and their color classes:
         
@@ -121,6 +126,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
       
         // The network is almost done, only the opening-vector is missing.
+        println!("point_to_node: {:?}", point_to_node);
 
 
         for opening in opening_lists[i].iter() {
@@ -137,7 +143,6 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
                 b : &b,
                 edges_of_cluster : &edges_of_cluster,
                 point_to_node : &point_to_node,
-//                color_to_node : &color_to_node,
                 point_idx_to_color_idx : &point_idx_to_color_idx,
                 edges_by_color_node : &edges_by_color_node,
                 edges_by_point_node : &edges_by_point_node,
@@ -150,18 +155,38 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.shift_radius).collect::<Vec<_>>());
 
+
     }
 
+    // determine centers with minimal shift radius:
+    let mut current_best_radius = <Distance>::MAX;
+    let mut best_i = <CenterIdx>::MAX;
+    let mut best_j = <CenterIdx>::MAX;
+    for i in 0 .. prob.k {
+        for j in 0..i+1 {
+            if shifted_centers[i][j].shift_radius < current_best_radius {
+                current_best_radius = shifted_centers[i][j].shift_radius;
+                best_i = i;
+                best_j = j;
+            }
+        }
+    }
 
+    let best_centers = &shifted_centers[best_i][best_j];
+    println!("Best radius: {:?}", best_centers.shift_radius);
+    println!("Best centers: {:?}", best_centers.new_centers);
+    
 
-
-
-    let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     let mut centers = Centers::with_capacity(prob.k);
-    centers.push(space.point_iter().next().unwrap());
-    let center_of: Vec<Option<CenterIdx>> = space.point_iter().map(|_| None).collect();
-    clusterings.push(Clustering::new(centers,center_of, space));
-    clusterings
+    for &idx in best_centers.new_centers.iter() {
+        let p = space.get_point(node_to_point_list[best_i][idx]);
+        centers.push(p.unwrap());
+    }
+
+    println!("Best centers in point form: {}", centers);
+
+
+    centers
 }
 
 

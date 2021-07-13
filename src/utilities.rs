@@ -40,10 +40,9 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<
 pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize) -> Vec<E>{
     if t >= list.len() {
         #[cfg(debug_assertions)]
-        println!("Care: list has only length {}, but is asked to split of the t = {} smallest elements. Everything is split up.", list.len(), t);
-//        let mut split: Vec<E> = Vec::with_capacity(list.len());
-//        split.append(list);
-//        return split;
+        if t > list.len() {
+            println!("Care: list has only length {}, but is asked to split of the t = {} smallest elements. Everything is split up.", list.len(), t);
+        }
         return list.split_off(list.len())
     }
     median_of_medians(list, t);
