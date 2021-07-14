@@ -48,6 +48,7 @@ impl fmt::Display for ClusteringProblem {
 
 mod types;
 pub use types::{PointCount,ColorCount,Interval};
+use types::Distance;
 
 mod space;
 pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
@@ -72,7 +73,8 @@ use phase4::finalize;
 
 #[derive(Debug)]
 struct OpeningList {
-    eta : Vec<PointCount>
+    eta : Vec<PointCount>,
+    forrest_radius : Distance
 }
 
 /// Computes a privacy preserving representative k-clustering.

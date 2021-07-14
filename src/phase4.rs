@@ -26,7 +26,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// finalize takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Centers<'a> {
+pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) ->Vec<Centers<'a>> {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
 
@@ -34,21 +34,21 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
 
 
-    //TEMP: For test reasons we also look at flow problems with ALL edges present:
-    let mut all_edges_of_cluster: Vec<Vec<ColorEdge>> = vec!(Vec::with_capacity(space.n());prob.k);
-    for i in 0..prob.k {
-        for p in space.point_iter() {
-            let color = space.color(p);
-            all_edges_of_cluster[i].push(ColorEdge{
-                d: space.dist(gonzales.get(i), p),
-                center: i,
-                point: p.idx(),
-                color});
+    ////TEMP: For test reasons we also look at flow problems with ALL edges present:
+    //let mut all_edges_of_cluster: Vec<Vec<ColorEdge>> = vec!(Vec::with_capacity(space.n());prob.k);
+    //for i in 0..prob.k {
+    //    for p in space.point_iter() {
+    //        let color = space.color(p);
+    //        all_edges_of_cluster[i].push(ColorEdge{
+    //            d: space.dist(gonzales.get(i), p),
+    //            center: i,
+    //            point: p.idx(),
+    //            color});
             
-        }
-        all_edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
-    }
-    // TEMP END
+    //    }
+    //    all_edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
+    //}
+    //// TEMP END
     
 
 
@@ -131,6 +131,10 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         for opening in opening_lists[i].iter() {
 
+            // TODO: test for dublicated openings and copy centers
+            // TODO: only compute flow up to a shift-radius such that shift-radius + tree-radius
+            // can be minimal
+
             let network = Network {
                 edges : &edges,
                 k : prob.k,
@@ -158,35 +162,41 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
     }
 
-    // determine centers with minimal shift radius:
-    let mut current_best_radius = <Distance>::MAX;
-    let mut best_i = <CenterIdx>::MAX;
-    let mut best_j = <CenterIdx>::MAX;
+    let mut new_centers: Vec<Centers> = Vec::with_capacity(prob.k+1);
+
+    // determine centers with minimal shift radius + tree radius:
     for i in 0 .. prob.k {
+        let mut current_best_radius = <Distance>::MAX;
+        let mut best_i = <CenterIdx>::MAX;
+        let mut best_j = <CenterIdx>::MAX;
         for j in 0..i+1 {
-            if shifted_centers[i][j].shift_radius < current_best_radius {
-                current_best_radius = shifted_centers[i][j].shift_radius;
+            if shifted_centers[i][j].shift_radius + opening_lists[i][j].forrest_radius < current_best_radius {
+                current_best_radius = shifted_centers[i][j].shift_radius + opening_lists[i][j].forrest_radius;
                 best_i = i;
                 best_j = j;
             }
         }
+
+        let best_centers = &shifted_centers[best_i][best_j];
+        println!("\n i = {}", i);
+        println!("Best shift radius: {:?}; best forrest radius: {:?}", best_centers.shift_radius, opening_lists[best_i][best_j].forrest_radius);
+        println!("Best i: {}; j: {}; bet centers: {:?}", best_i, best_j, best_centers.new_centers);
+        
+
+        let mut centers = Centers::with_capacity(prob.k);
+        for &idx in best_centers.new_centers.iter() {
+            let p = space.get_point(node_to_point_list[best_i][idx]);
+            centers.push(p.unwrap());
+        }
+
+        println!("Best centers in point form: {}", centers);
+
+        new_centers.push(centers);
+
     }
 
-    let best_centers = &shifted_centers[best_i][best_j];
-    println!("Best radius: {:?}", best_centers.shift_radius);
-    println!("Best centers: {:?}", best_centers.new_centers);
-    
 
-    let mut centers = Centers::with_capacity(prob.k);
-    for &idx in best_centers.new_centers.iter() {
-        let p = space.get_point(node_to_point_list[best_i][idx]);
-        centers.push(p.unwrap());
-    }
-
-    println!("Best centers in point form: {}", centers);
-
-
-    centers
+    new_centers
 }
 
 

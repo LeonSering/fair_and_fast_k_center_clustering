@@ -69,7 +69,7 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
 
 
         
-        for &threshold in [-1.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
+        for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
             // first threshold is -1.0 so we obtain the forest without edges
 //            println!("\tthreshold: {}", threshold);
 
@@ -138,7 +138,7 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
             }
 //            println!("final cluster_sizes:{:?}, eta:{:?}", cluster_sizes, eta);
 
-            opening_lists.push(OpeningList{eta: eta.into_iter().map(|e| e.unwrap()).collect()});
+            opening_lists.push(OpeningList{eta: eta.into_iter().map(|e| e.unwrap()).collect(), forrest_radius : threshold});
         }
         all_opening_lists.push(opening_lists);
     }
