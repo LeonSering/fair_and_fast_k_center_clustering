@@ -148,29 +148,6 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
 
 ////// Spanning Tree Computation ////////
 
-use priority_queue::PriorityQueue;
-use std::cmp::{Reverse,Ordering};
-
-#[derive(Copy,Clone,PartialEq, PartialOrd)]
-struct Priority {
-    d : Distance,
-}
-
-impl Eq for Priority {}
-
-impl Ord for Priority {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // small d means high priority
-        if self.d < other.d {
-            Ordering::Less
-        } else if self.d > other.d{
-            Ordering::Greater
-        }
-        else {
-            Ordering::Equal
-        }
-    }
-}
 /// Given a set of clusterings (one for each gonzales set), return a minimum spanning tree on the
 /// centers, one for each clustering 
 fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> Vec<RootedSpanningTree> {
@@ -181,38 +158,51 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
         let i = clustering.m() - 1; // the number of centers; i.e. we consider gonzales set S_i (counting from 0 to k-1)
 
         // first lets do the algorithm of prim to compute the minimum spanning tree.
-        let mut priority_queue: PriorityQueue<CenterIdx,Reverse<Priority>> = PriorityQueue::with_capacity(i+1);
+        // takes O(i^2) time
 
         let mut spanning_tree: Vec<UpEdge> = Vec::with_capacity(i+1);
-        let mut closest: Vec<CenterIdx> = Vec::with_capacity(i+1); // denotes the cloest center that is already in the tree
+
+        let mut dist_to_tree: Vec<Option<Distance>> = Vec::with_capacity(i+1); // None means beeing part of the tree
+        let mut closest: Vec<CenterIdx> = Vec::with_capacity(i+1); // denotes the cloeset center that is already in the tree
        
         
         let mut edges_to_children: Vec<Vec<UpEdge>> = vec!(Vec::new(); i+1);
 
         // we start with center 0 as singleton spanning tree
         closest.push(0); // closest to 0 is 0;
+        dist_to_tree.push(None); // 0 is our tree at the beginning
         for c in 1..i+1 {
-            priority_queue.push(c,Reverse(Priority{d : space.dist(clustering.get_center(0), clustering.get_center(c))}));
+            // priority_queue.push(c,Reverse(Priority{d : space.dist(clustering.get_center(0), clustering.get_center(c))}));
+            dist_to_tree.push(Some(space.dist(clustering.get_center(0), clustering.get_center(c))));
             closest.push(0);
         }
 
-        while let Some((c1,Reverse(Priority{d:dist_to_closest}))) = priority_queue.pop() {
-            let edge = UpEdge{down : c1, up : closest[c1], d: dist_to_closest};
+        for _ in 1..i+1 {
+            // let c1 = argmin dist_to_tree[c], i.e., its the center that is closest to the tree
+            // (but not part of it yet)
+            let (c1,_) = dist_to_tree.iter().enumerate().filter(|(_,dist)| dist.is_some()).min_by(|(_,dist1),(_,dist2)| dist1.as_ref().unwrap().partial_cmp(dist2.as_ref().unwrap()).unwrap()).unwrap(); 
+
+            // add c1 to the tree by adding the arc from c1 to the closest center within the tree
+            let edge = UpEdge{down : c1, up : closest[c1], d: dist_to_tree[c1].unwrap()};
             edges_to_children[closest[c1]].push(edge.clone());
             spanning_tree.push(edge);
-            for (&mut c2,Reverse(prio)) in priority_queue.iter_mut() {
 
-
-                let new_d = space.dist(clustering.get_center(c1), clustering.get_center(c2));
-                if new_d < prio.d {
-                    prio.d = new_d;
-                    closest[c2] = c1;
+            // now the distances to the tree (of centers not yet part of it) are outdated and needs
+            // to be updated
+            dist_to_tree[c1] = None;
+            for c2 in 1..i+1 {
+                if dist_to_tree[c2].is_some() { // if it is none it is already part of the tree
+                    let new_d = space.dist(clustering.get_center(c1), clustering.get_center(c2));
+                    if new_d < dist_to_tree[c2].unwrap() {
+                        dist_to_tree[c2] = Some(new_d);
+                        closest[c2] = c1;
+                    }
                 }
-                
+
+
             }
         }
-//        println!("Clustering {}: Spanning tree: {:?}", i, spanning_tree);
-//
+        
         // sort edges such that spanning_tree[5] refers to the edge from node 5 to the parent of 5
         // (node 0 has not parent so the value is 0
         spanning_tree.sort_by(|a,b| a.down.cmp(&b.down));

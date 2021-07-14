@@ -40,7 +40,7 @@ def on_close(event):
     files = [('2D-Spaces', '*.2dspace'),
             ('All Files', '*')]
     file = filedialog.asksaveasfile(filetypes = files, defaultextension = ".2dspace")
-    file_path = file.name;
+    file_path = file.name
     print(file_path)
     with open(file_path, 'a') as writer:
         for i in range(len(x)):
