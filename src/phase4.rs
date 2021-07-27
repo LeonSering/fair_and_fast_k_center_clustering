@@ -157,7 +157,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             
         }
 
-        println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.shift_radius).collect::<Vec<_>>());
+        println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
 
 
     }
@@ -170,8 +170,8 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         let mut best_i = <CenterIdx>::MAX;
         let mut best_j = <CenterIdx>::MAX;
         for j in 0..i+1 {
-            if shifted_centers[i][j].shift_radius + opening_lists[i][j].forrest_radius < current_best_radius {
-                current_best_radius = shifted_centers[i][j].shift_radius + opening_lists[i][j].forrest_radius;
+            if shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius < current_best_radius {
+                current_best_radius = shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius;
                 best_i = i;
                 best_j = j;
             }
@@ -179,7 +179,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         let best_centers = &shifted_centers[best_i][best_j];
         println!("\n i = {}", i);
-        println!("Best shift radius: {:?}; best forrest radius: {:?}", best_centers.shift_radius, opening_lists[best_i][best_j].forrest_radius);
+        println!("Best assignment radius: {:?}; best forrest radius: {:?}", best_centers.assignment_radius, opening_lists[best_i][best_j].forrest_radius);
         println!("Best i: {}; j: {}; bet centers: {:?}", best_i, best_j, best_centers.new_centers);
         
 
@@ -218,10 +218,10 @@ struct Network<'a> {
 }
 
 // return value of a flow problem.
-// Contains the shift_radius and new_centers (with their node index)
+// Contains the assignment_radius and new_centers (with their node index)
 // as well as the origin, i.e., the cluster, of each new center.
 struct ShiftedCenters {
-    shift_radius : Distance, // the shift radius
+    assignment_radius : Distance, // the shift radius
     new_centers : Vec<PNodeIdx>,
     origins : Vec<CenterIdx> // the original gonzales center for each new center
 }

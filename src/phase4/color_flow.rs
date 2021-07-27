@@ -166,7 +166,7 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
 //    println!("origins: {:?}\n", origins);
 
     ShiftedCenters{
-        shift_radius : state.current_largest_edge.d,
+        assignment_radius : state.current_largest_edge.d,
         new_centers,
         origins,
     }

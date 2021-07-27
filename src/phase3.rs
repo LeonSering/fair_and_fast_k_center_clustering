@@ -70,6 +70,9 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &Clustering
 
         
         for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
+
+            // TODO: Do real pushing. i.e. update the assignments
+            // TODO: Push in such a way that etas are monotone.
             // first threshold is -1.0 so we obtain the forest without edges
 //            println!("\tthreshold: {}", threshold);
 

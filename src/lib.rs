@@ -199,7 +199,25 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
 
     let final_centers = finalize(space, &prob, opening_lists, &gonzales); 
 
-    // TODO: Assign points to the new center such that the privacy containt is satisfied.
+    // TODO: Phase 5: Assign points to the new center such that the privacy containt is satisfied.
+    // We do this cluster wise.
+    //
+    // for each clustering (after the shifting from phase 3) do the following:
+    // for each point p of the cluster store dist(p, new_centers_of_cluster), i.e. the minimum distance of p
+    // to one of the new centers of this cluster).
+    // Heuristics: 
+    // 1) Consider a batch of points of size max{L, n/k}, that has the maximal distance and assign
+    // them to the nearest new center of the cluster.
+    // 2) Repeat this, but also consider the number of spare node:
+    // number_of_spare_nodes = number_of_point_in_cluster - number_of_new_centers_in_cluster * L
+    // 3) Whenever we want to assign a point to a cluster that is already private, then decrease
+    //    the number of spare_points by one.
+    // 4) If the number of spare points is 0, then never assign to private new centers anymore but
+    //    instead assign to the nearest non-private center.
+    // 5) As soon as all new centers are private dont do buckets anymore but instead directly
+    //    assign all points to their nearest new center
+
+    //
     
 
     // TEMP: Create empty clustering
