@@ -26,7 +26,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// finalize takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) ->Vec<Centers<'a>> {
+pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<Distance>, Vec<Centers<'a>>) {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
 
@@ -163,40 +163,40 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     }
 
     let mut new_centers: Vec<Centers> = Vec::with_capacity(prob.k+1);
+    let mut best_forrest_radii: Vec<Distance> = Vec::with_capacity(prob.k+1);
 
     // determine centers with minimal shift radius + tree radius:
     for i in 0 .. prob.k {
         let mut current_best_radius = <Distance>::MAX;
-        let mut best_i = <CenterIdx>::MAX;
         let mut best_j = <CenterIdx>::MAX;
         for j in 0..i+1 {
             if shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius < current_best_radius {
                 current_best_radius = shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius;
-                best_i = i;
                 best_j = j;
             }
         }
 
-        let best_centers = &shifted_centers[best_i][best_j];
+        let best_centers = &shifted_centers[i][best_j];
         println!("\n i = {}", i);
-        println!("Best assignment radius: {:?}; best forrest radius: {:?}", best_centers.assignment_radius, opening_lists[best_i][best_j].forrest_radius);
-        println!("Best i: {}; j: {}; bet centers: {:?}", best_i, best_j, best_centers.new_centers);
+        println!("Best assignment radius: {:?}; best forrest radius: {:?}", best_centers.assignment_radius, opening_lists[i][best_j].forrest_radius);
+        println!("i: {}; best j: {}; bet centers: {:?}", i, best_j, best_centers.new_centers);
         
 
         let mut centers = Centers::with_capacity(prob.k);
         for &idx in best_centers.new_centers.iter() {
-            let p = space.get_point(node_to_point_list[best_i][idx]);
+            let p = space.get_point(node_to_point_list[i][idx]);
             centers.push(p.unwrap());
         }
 
         println!("Best centers in point form: {}", centers);
 
         new_centers.push(centers);
+        best_forrest_radii.push(opening_lists[i][best_j].forrest_radius);
 
     }
 
 
-    new_centers
+    (best_forrest_radii, new_centers)
 }
 
 

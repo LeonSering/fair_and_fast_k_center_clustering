@@ -90,9 +90,15 @@ pub struct Clustering<'a>{
     centers : Centers<'a>,
     /// for each point it contains the index of the center it is assigned to. For partial clustering this value can be None
     center_of : Vec<Option<CenterIdx>>, // returns center to which point with index x belongs, if not assigned to center its None
+    /// cluster (list of points) by center idx; might be a super set of the actual points. Entries
+    /// are only valid if it matches the information in center_of.
+    cluster: Vec<Vec<&'a Point>>,
     /// the maximal distance between a client and its center 
     /// (this is not computed but assigned; so there is some redundance)
     radius : Distance,
+    /// By reassigning points the radius might get outdated (its always an upper bound). If this
+    /// could be the case is indicated by the following boolean:
+    radius_valid : bool,
 
     /// the number of points covered by each center
     cluster_sizes : Vec<PointCount>,
@@ -117,14 +123,16 @@ impl<'a> Clustering<'a>{
     ///
     /// Panics if the size of the assignment center_of does not match the number of points
     /// space.n()
-    pub fn new<M : ColoredMetric>(centers: Centers<'a>, center_of: Vec<Option<CenterIdx>>, space: &M) -> Clustering<'a> {
+    pub fn new<M : ColoredMetric>(centers: Centers<'a>, center_of: Vec<Option<CenterIdx>>, space: &'a M) -> Clustering<'a> {
         assert_eq!(center_of.len(),space.n(), "The assignment center_of must have an entry for each point");
 
+        let mut cluster: Vec<Vec<&Point>> = vec!(Vec::new(); centers.m()); 
         let mut cluster_sizes: Vec<PointCount> = vec!(0; centers.m());
         let mut radius = <Distance>::MIN;
         for p in space.point_iter() {
             let covered_by = center_of[p.idx()];
             if let Some(c) = covered_by {
+                cluster[c].push(p);
                 cluster_sizes[c] += 1;
                 let dist = space.dist(p, centers.get(c));
                 if dist > radius {
@@ -134,7 +142,7 @@ impl<'a> Clustering<'a>{
 
         }
 
-        Clustering{centers, center_of, radius, cluster_sizes}
+        Clustering{centers, center_of, cluster, radius, radius_valid: true, cluster_sizes}
 
     }
     
@@ -149,10 +157,35 @@ impl<'a> Clustering<'a>{
         &self.center_of
     }
 
+    /// Return a vector of (cloned) point-refs containing the points of the cluster of the provided center index;
+    pub fn get_cluster_of(&self, center_idx: CenterIdx) -> Vec<&'a Point> {
+        assert!(center_idx < self.cluster.len(), "center_idx must be between 0 and m-1");
+        self.cluster[center_idx].iter().filter(|p| self.center_of[p.idx()] == Some(center_idx)).cloned().collect()
+    }
+
     /// Returns the maximum distance between a client and the center it is assigned to;
     /// As this is pre-computed this takes O(1) time.
     pub fn get_radius(&self) -> Distance {
-        self.radius
+        if !self.radius_valid {
+            println!("Radius is outdated and needs to be computed again! Please call update_radius(space).");
+        }
+        return self.radius
+    }
+
+    /// Updates an outdated radius. If the radius is not outdated nothing happens.
+    pub fn update_radius<M: ColoredMetric>(&mut self, space: &M) {
+        if !self.radius_valid {
+            self.radius = Distance::MIN;
+            for p in space.point_iter() {
+                if self.center_of[p.idx()].is_some() {
+                    let dist = space.dist(p, self.centers.get(self.center_of[p.idx()].unwrap()));
+                    if dist > self.radius {
+                        self.radius = dist;
+                    }
+                }
+            }
+            self.radius_valid = true;
+        }
     }
 
     /// Returns the size of each cluster, i.e., the number of clients that are assigned to each
@@ -171,24 +204,34 @@ impl<'a> Clustering<'a>{
     pub fn get_center(&self, center_idx: CenterIdx) -> &Point {
         self.centers.get(center_idx)
     }
-
-    pub fn assign<M : ColoredMetric>(&mut self, p : &Point, center_idx: CenterIdx, space: &M) {
+    /// Assigns or Reassigns a point to a new cluster given by the center_idx
+    pub fn assign<M : ColoredMetric>(&mut self, p : &'a Point, center_idx: CenterIdx, space: &M) {
         if self.center_of[p.idx()].is_some() {
             let old_center = self.center_of[p.idx()].unwrap();
-            println!("WARNING: Point {} is already assigned to {} and is reassigned to {}; Radius might be wrong now!", p.idx(), old_center, center_idx);
+            if space.dist(p, self.centers.get(old_center)) >= self.radius {
+                println!("WARNING: Point {} is already assigned to {} and is reassigned to {}; Radius is probably wrong (too large) now! Call update_radius()", p.idx(), old_center, center_idx);
+                self.radius_valid = false;
+            }
             self.cluster_sizes[old_center] -= 1;
+            // Note that self.cluster[old_center] does not to be modified as it is checked whenever
+            // it is read
         }
         self.center_of[p.idx()] = Some(center_idx);
+        self.cluster[center_idx].push(p);
         self.cluster_sizes[center_idx] += 1;
         let dist = space.dist(p, self.centers.get(center_idx));
-        if dist > self.radius {
+        if dist >= self.radius {
             self.radius = dist;
+            if !self.radius_valid {
+                println!("Radius is valid again!");
+                self.radius_valid = true;
+            }
         }
     }
 
     /// Assignes non assigned clients to their nearest center;
     /// Takes O(nm) time.
-    pub fn fill_up<M : ColoredMetric>(&mut self, space : &M) {
+    pub fn fill_up<M : ColoredMetric>(&mut self, space : &'a M) {
         for p in space.point_iter() {
             if self.center_of[p.idx()].is_none() {
                 // in this case p is not assigned to a center yet: Assigne it to nearest center
@@ -202,6 +245,7 @@ impl<'a> Clustering<'a>{
                     }
                 }
                 self.center_of[p.idx()] = Some(best_center);
+                self.cluster[best_center].push(p);
                 self.cluster_sizes[best_center] += 1;
                 if current_dist > self.radius {
                     self.radius = current_dist;

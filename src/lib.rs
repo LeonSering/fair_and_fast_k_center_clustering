@@ -71,6 +71,9 @@ use phase3::redistribute;
 mod phase4;
 use phase4::finalize;
 
+mod phase5;
+use phase5::phase5;
+
 #[derive(Debug)]
 struct OpeningList {
     eta : Vec<PointCount>,
@@ -151,7 +154,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
     
-    let clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
+    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
     // TEMP:
     // clusterings is now a vector of partial clustering
@@ -183,7 +186,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     
-    let opening_lists = redistribute(space, prob, clusterings);
+    let (spanning_trees, opening_lists) = redistribute(space, prob, &mut clusterings);
 
     
     println!("\n**** Phase 3 done: Determined the following opening lists:");
@@ -197,8 +200,13 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    let final_centers = finalize(space, &prob, opening_lists, &gonzales); 
+    let (forrest_radii, final_centers) = finalize(space, &prob, opening_lists, &gonzales); 
 
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    // phase 5: assign point to the final point of centers and determine the final clustering //
+    ////////////////////////////////////////////////////////////////////////////////////////////
+    
+    let final_clustering = phase5(space, prob, final_centers, spanning_trees, forrest_radii);
     // TODO: Phase 5: Assign points to the new center such that the privacy containt is satisfied.
     // We do this cluster wise.
     //
@@ -217,14 +225,9 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // 5) As soon as all new centers are private dont do buckets anymore but instead directly
     //    assign all points to their nearest new center
 
-    //
+    final_clustering
     
 
-    // TEMP: Create empty clustering
-    let mut centers = Centers::with_capacity(prob.k);
-    centers.push(space.point_iter().next().unwrap());
-    let center_of: Vec<Option<usize>> = space.point_iter().map(|_| None).collect();
-    Clustering::new(centers,center_of, space)
 
 
 

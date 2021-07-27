@@ -3,15 +3,17 @@ use crate::types::{Distance,CenterIdx,PointCount};
 use crate::space::ColoredMetric;
 use crate::clustering::Clustering;
 
+
+
 /// a pointer from a gonzales center to its parent in a rooted forest 
 #[derive(Debug,Clone)]
-struct UpEdge {
-    d : Distance,
-    up : CenterIdx, // the parent of down in the rooted forest
-    down : CenterIdx, // the child of up in the rooted forest
+pub(crate) struct UpEdge {
+    pub d : Distance,
+    pub up : CenterIdx, // the parent of down in the rooted forest
+    pub down : CenterIdx, // the child of up in the rooted forest
 }
 
-struct RootedSpanningTree {
+pub(crate) struct RootedSpanningTree {
     edges: Vec<Option<UpEdge>>, // vector of size i; for each node s_j \in S_i it either points to the parent node or is None for the root 
     edges_to_children: Vec<Vec<UpEdge>>, // for each node we have a list of edges pointing to the children
 //    sorted_distances: Option<Vec<Distance>>, // a list of all distances in edges in increasing order
@@ -21,7 +23,7 @@ struct RootedSpanningTree {
 impl RootedSpanningTree{
 
     /// returns a reference to the TreeEdge, if its distance is not greater than the threshold
-    fn get_edge(&self, node: CenterIdx, threshold : Distance) -> Option<&UpEdge> {
+    pub fn get_edge(&self, node: CenterIdx, threshold : Distance) -> Option<&UpEdge> {
         if let Some(ref edge) = self.edges[node] {
             // node has an up-going edge
             if edge.d  <= threshold {Some(edge)} else {None}
@@ -31,15 +33,15 @@ impl RootedSpanningTree{
         }
     }
 
-    fn get_edges(&self, threshold: Distance) -> Vec<&UpEdge> {
+    pub fn get_edges(&self, threshold: Distance) -> Vec<&UpEdge> {
         self.edges.iter().filter_map(|e| e.as_ref()).filter(|e| e.d <= threshold).collect()
     }
 
-    fn get_edges_to_children(&self, node: CenterIdx, threshold: Distance) -> Vec<&UpEdge> {
+    pub fn get_edges_to_children(&self, node: CenterIdx, threshold: Distance) -> Vec<&UpEdge> {
         self.edges_to_children[node].iter().filter(|e| e.d <= threshold).collect()
     }
 
-    fn get_sorted_dist(&self) -> Vec<Distance> {
+    pub fn get_sorted_dist(&self) -> Vec<Distance> {
         let mut distances : Vec<Distance> = self.edges.iter().filter_map(|o| o.as_ref()).map(|e| e.d).collect();
         distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
         distances
@@ -52,100 +54,99 @@ use std::collections::VecDeque;
 /// redistribute takes a vector of (full) clusterings, each satisfying the privacy constrait
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center. 
-pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : Vec<Clustering<'a>>) -> Vec<Vec<OpeningList>> {
+/// It also updates the clusterings (shifting points around) to match this eta.
+pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &mut Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
     println!("\n  ** Phase 3a: Computing spanning trees");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
+
 
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-        println!("** spanning_tree[{}]: {:?}", i, spanning_trees[i].edges);
+        println!("\n** spanning_tree[{}]: {:?}", i, spanning_tree.edges);
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] edges_to_children: {:?}", i, spanning_trees[i].edges_to_children.iter().collect::<Vec<_>>());
-        let clustering = &clusterings[i];
         let mut opening_lists: Vec<OpeningList> = Vec::with_capacity(i+1);
-
-
-        
         for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
-
-            // TODO: Do real pushing. i.e. update the assignments
-            // TODO: Push in such a way that etas are monotone.
-            // first threshold is -1.0 so we obtain the forest without edges
-//            println!("\tthreshold: {}", threshold);
-
-//            println!("\tForest: {:?}", spanning_tree.get_edges(threshold));
-//
-            let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
-            let mut eta: Vec<Option<PointCount>> = vec!(None;i+1); // starts with the size of each cluster and is then converted to be the muliplier of L
-//            let mut pushed: Vec<bool> = vec!(false;i+1);
-
-
-            let mut stack: Vec<CenterIdx> = Vec::with_capacity(i+1); // elements poped here are treated
-
-            // look for roots:
-            let mut is_root= vec!(true; i+1);
-            for e in spanning_tree.get_edges(threshold).iter() {
-                is_root[e.down] = false;
-            }
-
-//            println!("roots:{:?}", is_root);
-            let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1); // this queue is only for building the stack
-            let mut pushed = vec!(false; i+1); // true if node has been pushed to the BFS queue 
-            for j in (0..i+1).filter(|l| is_root[*l]) {
-                queue.push_back(j);
-                pushed[j] = true;
-            }
-
-            // we now need to do a BFS starting from the roots, and push each discovered node to
-            // the stack. Hence, by emptying the stack we go the BFS in reverse. 
-            while !queue.is_empty() {
-                let node = queue.pop_front().unwrap();
-
-                // we push the node to the stack
-                stack.push(node);
-
-
-                for &edge in spanning_tree.get_edges_to_children(node, threshold).iter() {
-                    let next = edge.down;
-                    if pushed[next] == false { 
-                        pushed[next] = true; 
-                        queue.push_back(next);
-                    }
-                }
-
-
-
-
-            }
-                
-
-
-            while !stack.is_empty() {
-                let node = stack.pop().unwrap();
-//                println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
-                let potential_up_edge = spanning_tree.get_edge(node,threshold);
-                eta[node] = Some(cluster_sizes[node] / prob.privacy_bound);
-                cluster_sizes[node] -= eta[node].unwrap()*prob.privacy_bound;
-                match potential_up_edge {
-                    None => {} // node is a root
-                    Some(up_edge) => {
-                        let parent = up_edge.up;
-                        cluster_sizes[parent] += cluster_sizes[node];
-                        cluster_sizes[node] = 0;
-                    }
-                }
-
-            }
-//            println!("final cluster_sizes:{:?}, eta:{:?}", cluster_sizes, eta);
-
-            opening_lists.push(OpeningList{eta: eta.into_iter().map(|e| e.unwrap()).collect(), forrest_radius : threshold});
+            // first threshold is 0.0 so we obtain the forest without edges
+            opening_lists.push(algebraic_shifting(prob.privacy_bound, &mut clusterings[i], i, &spanning_tree, threshold));
         }
         all_opening_lists.push(opening_lists);
     }
-    all_opening_lists
+    (spanning_trees, all_opening_lists)
+}
+
+
+fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : CenterIdx, spanning_tree: &RootedSpanningTree, threshold: Distance) -> OpeningList {
+
+
+    let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
+    let mut eta: Vec<Option<PointCount>> = vec!(None;i+1); // starts with the size of each cluster and is then converted to be the muliplier of L
+
+    // this stacks contains all nodes in the order discovered by an BFS starting from the root;
+    // we push point in the reverse ordering (therefore a stack)
+    let mut stack = build_bfs_stack(i, spanning_tree, threshold);
+    
+    while !stack.is_empty() {
+        let node = stack.pop().unwrap();
+        println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
+        let potential_up_edge = spanning_tree.get_edge(node,threshold);
+        eta[node] = Some(cluster_sizes[node] / privacy_bound);
+        let surplus = cluster_sizes[node] - eta[node].unwrap()*privacy_bound;
+        if surplus > 0 {
+            match potential_up_edge {
+                None => {} // node is a root
+                Some(up_edge) => {
+                    let parent = up_edge.up;
+                    cluster_sizes[parent] += surplus;
+                    cluster_sizes[node] -= surplus;
+                }
+            }
+        }
+
+    }
+
+    OpeningList{eta: eta.into_iter().map(|e| e.unwrap()).collect(), forrest_radius : threshold}
+}
+
+
+
+pub(crate) fn build_bfs_stack(i: CenterIdx, spanning_tree: &RootedSpanningTree, threshold: Distance) -> Vec<CenterIdx> {
+    
+    let mut stack: Vec<CenterIdx> = Vec::with_capacity(i+1); // elements poped here are treated
+    // look for roots:
+    let mut is_root= vec!(true; i+1);
+    for e in spanning_tree.get_edges(threshold).iter() {
+        is_root[e.down] = false;
+    }
+
+    let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1); // this queue is only for building the stack
+    let mut pushed = vec!(false; i+1); // true if node has been pushed to the BFS queue 
+    for j in (0..i+1).filter(|l| is_root[*l]) {
+        queue.push_back(j);
+        pushed[j] = true;
+    }
+
+    // we now need to do a BFS starting from the roots, and push each discovered node to
+    // the stack. Hence, by emptying the stack we go the BFS in reverse. 
+    while !queue.is_empty() {
+        let node = queue.pop_front().unwrap();
+
+        // we push the node to the stack
+        stack.push(node);
+
+
+        for &edge in spanning_tree.get_edges_to_children(node, threshold).iter() {
+            let next = edge.down;
+            if pushed[next] == false { 
+                pushed[next] = true; 
+                queue.push_back(next);
+            }
+        }
+    }
+    stack
 }
 
 
