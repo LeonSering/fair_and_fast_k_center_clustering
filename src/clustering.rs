@@ -12,6 +12,7 @@ use crate::space::Point;
 use crate::types::{PointCount,PointIdx,Distance,CenterIdx};
 
 /// A list of centers.
+#[derive(Debug,Clone)]
 pub struct Centers<'a>{
     centers : Vec<&'a Point>,
 }

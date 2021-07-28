@@ -1,61 +1,21 @@
-use crate::{ClusteringProblem,OpeningList};
+use crate::ClusteringProblem;
+use crate::datastructures::{OpeningList,RootedSpanningTree,UpEdge};
 use crate::types::{Distance,CenterIdx,PointCount};
 use crate::space::ColoredMetric;
 use crate::clustering::Clustering;
 
 
 
-/// a pointer from a gonzales center to its parent in a rooted forest 
-#[derive(Debug,Clone)]
-pub(crate) struct UpEdge {
-    pub d : Distance,
-    pub up : CenterIdx, // the parent of down in the rooted forest
-    pub down : CenterIdx, // the child of up in the rooted forest
-}
-
-pub(crate) struct RootedSpanningTree {
-    edges: Vec<Option<UpEdge>>, // vector of size i; for each node s_j \in S_i it either points to the parent node or is None for the root 
-    edges_to_children: Vec<Vec<UpEdge>>, // for each node we have a list of edges pointing to the children
-//    sorted_distances: Option<Vec<Distance>>, // a list of all distances in edges in increasing order
-}
 
 
-impl RootedSpanningTree{
 
-    /// returns a reference to the TreeEdge, if its distance is not greater than the threshold
-    pub fn get_edge(&self, node: CenterIdx, threshold : Distance) -> Option<&UpEdge> {
-        if let Some(ref edge) = self.edges[node] {
-            // node has an up-going edge
-            if edge.d  <= threshold {Some(edge)} else {None}
-        } else {
-            // node has no up-going edge
-            None 
-        }
-    }
-
-    pub fn get_edges(&self, threshold: Distance) -> Vec<&UpEdge> {
-        self.edges.iter().filter_map(|e| e.as_ref()).filter(|e| e.d <= threshold).collect()
-    }
-
-    pub fn get_edges_to_children(&self, node: CenterIdx, threshold: Distance) -> Vec<&UpEdge> {
-        self.edges_to_children[node].iter().filter(|e| e.d <= threshold).collect()
-    }
-
-    pub fn get_sorted_dist(&self) -> Vec<Distance> {
-        let mut distances : Vec<Distance> = self.edges.iter().filter_map(|o| o.as_ref()).map(|e| e.d).collect();
-        distances.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        distances
-    }
-}
-
-use std::collections::VecDeque;
 
 /// Given a metric space and a clusting problem,
 /// redistribute takes a vector of (full) clusterings, each satisfying the privacy constrait
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center. 
 /// It also updates the clusterings (shifting points around) to match this eta.
-pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &mut Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
+pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
     println!("\n  ** Phase 3a: Computing spanning trees");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
 
@@ -63,15 +23,17 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &Cluster
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-        println!("\n** spanning_tree[{}]: {:?}", i, spanning_tree.edges);
+        println!("\n** spanning_tree[{}]: {:?}", i, spanning_tree);
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] edges_to_children: {:?}", i, spanning_trees[i].edges_to_children.iter().collect::<Vec<_>>());
         let mut opening_lists: Vec<OpeningList> = Vec::with_capacity(i+1);
         for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
+            println!("* forrest: {:?}", spanning_tree.get_edges(threshold));
             // first threshold is 0.0 so we obtain the forest without edges
-            opening_lists.push(algebraic_shifting(prob.privacy_bound, &mut clusterings[i], i, &spanning_tree, threshold));
+            opening_lists.push(algebraic_shifting(prob.privacy_bound, &clusterings[i], i, &spanning_tree, threshold));
+            println!("\t final eta: {:?}", opening_lists[opening_lists.len()-1]);
         }
         all_opening_lists.push(opening_lists);
     }
@@ -87,7 +49,7 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
 
     // this stacks contains all nodes in the order discovered by an BFS starting from the root;
     // we push point in the reverse ordering (therefore a stack)
-    let mut stack = build_bfs_stack(i, spanning_tree, threshold);
+    let mut stack = spanning_tree.build_bfs_stack(threshold);
     
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
@@ -113,41 +75,6 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
 
 
 
-pub(crate) fn build_bfs_stack(i: CenterIdx, spanning_tree: &RootedSpanningTree, threshold: Distance) -> Vec<CenterIdx> {
-    
-    let mut stack: Vec<CenterIdx> = Vec::with_capacity(i+1); // elements poped here are treated
-    // look for roots:
-    let mut is_root= vec!(true; i+1);
-    for e in spanning_tree.get_edges(threshold).iter() {
-        is_root[e.down] = false;
-    }
-
-    let mut queue: VecDeque<CenterIdx> = VecDeque::with_capacity(i+1); // this queue is only for building the stack
-    let mut pushed = vec!(false; i+1); // true if node has been pushed to the BFS queue 
-    for j in (0..i+1).filter(|l| is_root[*l]) {
-        queue.push_back(j);
-        pushed[j] = true;
-    }
-
-    // we now need to do a BFS starting from the roots, and push each discovered node to
-    // the stack. Hence, by emptying the stack we go the BFS in reverse. 
-    while !queue.is_empty() {
-        let node = queue.pop_front().unwrap();
-
-        // we push the node to the stack
-        stack.push(node);
-
-
-        for &edge in spanning_tree.get_edges_to_children(node, threshold).iter() {
-            let next = edge.down;
-            if pushed[next] == false { 
-                pushed[next] = true; 
-                queue.push_back(next);
-            }
-        }
-    }
-    stack
-}
 
 
 ////// Spanning Tree Computation ////////
@@ -216,7 +143,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
 
         
 
-        spanning_trees.push(RootedSpanningTree{edges : spanning_tree_edges, edges_to_children});
+        spanning_trees.push(RootedSpanningTree::new(spanning_tree_edges, edges_to_children));
 
 
     }

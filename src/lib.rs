@@ -48,7 +48,6 @@ impl fmt::Display for ClusteringProblem {
 
 mod types;
 pub use types::{PointCount,ColorCount,Interval};
-use types::Distance;
 
 mod space;
 pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
@@ -57,6 +56,8 @@ mod clustering;
 pub use clustering::{Clustering,Centers};
 
 mod utilities;
+
+mod datastructures;
 
 mod phase1;
 use phase1::gonzales_heuristic;
@@ -74,11 +75,7 @@ use phase4::finalize;
 mod phase5;
 use phase5::phase5;
 
-#[derive(Debug)]
-struct OpeningList {
-    eta : Vec<PointCount>,
-    forrest_radius : Distance
-}
+
 
 /// Computes a privacy preserving representative k-clustering.
 /// Input: A metric space implementing the [ColoredMetric] trait and a [ClusteringProblem].
@@ -143,7 +140,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
 
-    let gonzales = gonzales_heuristic(space, prob.k);
+    let gonzales: Centers = gonzales_heuristic(space, prob.k);
 
     print!("\n**** Phase 1 done: Determined k = {} centers by the Gonzales heuristic: {}.\n", prob.k, gonzales);
 //    println!("index of center {}: {}", gonzales.centers[2], gonzales_index_by_center.get(&gonzales.centers[2]).expect(""));
@@ -158,22 +155,22 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     
     // TEMP:
     // clusterings is now a vector of partial clustering
-    #[cfg(debug_assertions)]
-    {
-        let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
-        for (c, clustering) in clusterings.iter().enumerate() {
-            let mut dist = 0.0f32;
-            for p in space.point_iter() {
-                if clustering.get_assignment()[p.idx()].is_some() {
-                    let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
-                    if current_d > dist {
-                        dist = current_d;
-                    }
-                }
-            }
-            println!("\tClustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
-        }
-    }
+    // #[cfg(debug_assertions)]
+    // {
+        // let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
+        // for (c, clustering) in clusterings.iter().enumerate() {
+            // let mut dist = 0.0f32;
+            // for p in space.point_iter() {
+                // if clustering.get_assignment()[p.idx()].is_some() {
+                    // let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
+                    // if current_d > dist {
+                        // dist = current_d;
+                    // }
+                // }
+            // }
+            // println!("\tClustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
+        // }
+    // }
 
     println!("\n**** Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
@@ -186,7 +183,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     
-    let (spanning_trees, opening_lists) = redistribute(space, prob, &mut clusterings);
+    let (spanning_trees, opening_lists) = redistribute(space, prob, &clusterings);
 
     
     println!("\n**** Phase 3 done: Determined the following opening lists:");
@@ -200,13 +197,17 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    let (forrest_radii, final_centers) = finalize(space, &prob, opening_lists, &gonzales); 
+    let new_centers = finalize(space, &prob, opening_lists, &gonzales); 
+    println!("\n**** Phase 4 done: Determined the following new centers:");
+    for (i,centers) in new_centers.iter().enumerate() {
+        println!(" i = {}: \t{:?}", i, centers.new_centers_of);
+    }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     // phase 5: assign point to the final point of centers and determine the final clustering //
     ////////////////////////////////////////////////////////////////////////////////////////////
     
-    let final_clustering = phase5(space, prob, final_centers, spanning_trees, forrest_radii);
+    let final_clustering = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
     // TODO: Phase 5: Assign points to the new center such that the privacy containt is satisfied.
     // We do this cluster wise.
     //

@@ -46,16 +46,29 @@ pub trait ColoredMetric{
     fn color(&self, x : &Point) -> ColorIdx;
 
     /// Returns the distance between a point x and a set of points.
-    fn dist_set(&self, x : &Point, point_set: &Vec<Point>) -> Distance {
+    fn dist_set(&self, x : &Point, point_set: Vec<&Point>) -> Distance {
         let mut current_distance = Distance::MAX;
-        let mut d: Distance;
         for p in point_set {
-            d = self.dist(x,p);
+            let d = self.dist(x,p);
             if d < current_distance {
                 current_distance = d;
             }
         }
         current_distance
+    }
+
+    fn get_closest<'a>(&self, x : &Point, point_set: &Vec<&'a Point>) -> (Distance, &'a Point) {
+        assert!(point_set.len() > 0, "there has to be at least one point in the point set.");
+        let mut current_distance = Distance::MAX;
+        let mut current_closest: &Point = point_set[0];
+        for p in point_set {
+            let d = self.dist(x,p);
+            if d < current_distance {
+                current_distance = d;
+                current_closest = p;
+            }
+        }
+        (current_distance, current_closest)
     }
     
     /// Return the number of points in the metric space.

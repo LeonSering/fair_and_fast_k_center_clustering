@@ -1,6 +1,6 @@
 use crate::{ClusteringProblem,Centers,ColoredMetric};
 use crate::types::{PointCount,PointIdx,ColorCount,ColorIdx,Distance,CenterIdx};
-use super::OpeningList;
+use super::datastructures::{OpeningList,NewCenters};
 use std::collections::HashMap;
 
 mod neighborhood;
@@ -26,7 +26,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// finalize takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<Distance>, Vec<Centers<'a>>) {
+pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters<'a>> {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
 
@@ -131,6 +131,11 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         for opening in opening_lists[i].iter() {
 
+            if sum_of_a > opening.eta.iter().sum() {
+                println!("Cannot open enough new centers as sum_of_a = {} > eta = {}", sum_of_a, opening.eta.iter().sum::<PointCount>());
+                continue;
+            }
+
             // TODO: test for dublicated openings and copy centers
             // TODO: only compute flow up to a shift-radius such that shift-radius + tree-radius
             // can be minimal
@@ -162,41 +167,40 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
     }
 
-    let mut new_centers: Vec<Centers> = Vec::with_capacity(prob.k+1);
-    let mut best_forrest_radii: Vec<Distance> = Vec::with_capacity(prob.k+1);
+
+    let mut new_centers: Vec<NewCenters> = Vec::with_capacity(prob.k+1); // return vector
 
     // determine centers with minimal shift radius + tree radius:
     for i in 0 .. prob.k {
         let mut current_best_radius = <Distance>::MAX;
         let mut best_j = <CenterIdx>::MAX;
-        for j in 0..i+1 {
-            if shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius < current_best_radius {
-                current_best_radius = shifted_centers[i][j].assignment_radius + opening_lists[i][j].forrest_radius;
+        for j in 0..shifted_centers[i].len() {
+            if shifted_centers[i][j].assignment_radius + shifted_centers[i][j].forrest_radius < current_best_radius {
+                current_best_radius = shifted_centers[i][j].assignment_radius + shifted_centers[i][j].forrest_radius;
                 best_j = j;
             }
         }
 
         let best_centers = &shifted_centers[i][best_j];
         println!("\n i = {}", i);
-        println!("Best assignment radius: {:?}; best forrest radius: {:?}", best_centers.assignment_radius, opening_lists[i][best_j].forrest_radius);
-        println!("i: {}; best j: {}; bet centers: {:?}", i, best_j, best_centers.new_centers);
-        
-
-        let mut centers = Centers::with_capacity(prob.k);
-        for &idx in best_centers.new_centers.iter() {
-            let p = space.get_point(node_to_point_list[i][idx]);
-            centers.push(p.unwrap());
+        println!("best j: {}; best centers: {:?}", best_j, best_centers);
+       
+        let mut centers : Centers = Centers::with_capacity(best_centers.new_centers.len());
+        let mut new_center_idx_of_cluster = vec!(Vec::new(); i+1);
+        for (l,&idx) in best_centers.new_centers.iter().enumerate() {
+            let point = space.get_point(node_to_point_list[i][idx]).unwrap();
+            centers.push(point);
+            new_center_idx_of_cluster[best_centers.origins[l]].push(centers.m()-1);
         }
 
-        println!("Best centers in point form: {}", centers);
+        println!("Best centers: {:?} and in idx form grouped by cluster: {:?}", new_centers, new_center_idx_of_cluster);
 
-        new_centers.push(centers);
-        best_forrest_radii.push(opening_lists[i][best_j].forrest_radius);
+        new_centers.push(NewCenters{centers, forrest_radius: best_centers.forrest_radius, assignment_radius: best_centers.assignment_radius, new_centers_of: new_center_idx_of_cluster});
 
     }
 
 
-    (best_forrest_radii, new_centers)
+    new_centers
 }
 
 
@@ -220,8 +224,11 @@ struct Network<'a> {
 // return value of a flow problem.
 // Contains the assignment_radius and new_centers (with their node index)
 // as well as the origin, i.e., the cluster, of each new center.
+#[derive(Debug)]
 struct ShiftedCenters {
+    forrest_radius : Distance, // the underlying forrest_radius from phase 3
     assignment_radius : Distance, // the shift radius
+
     new_centers : Vec<PNodeIdx>,
     origins : Vec<CenterIdx> // the original gonzales center for each new center
 }
