@@ -1,4 +1,4 @@
-use crate::types::{PointCount,Distance};
+use crate::types::PointCount;
 use super::Edge;
 use crate::utilities;
 
@@ -35,10 +35,13 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
 }
 
 
+
 // asserts that there are at most k^5 buckets, each of size at most ceil(4n/k^4); the distance of
 // each element of a bucket j is bigger than all elements in bucket < j and smaller than all
 // elements in buckets > j.
+#[cfg(debug_assertions)]
 pub(super) fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: PointCount, k: PointCount, power_of_k: u32) -> bool {
+    use crate::types::Distance;
 
     assert!(buckets.len() <= k.pow(power_of_k+1));
 
@@ -64,6 +67,7 @@ mod tests {
     use rand::Rng;
     use super::*;
     use crate::space::{Point,Space2D,ColoredMetric};
+    use crate::types::Distance;
 
     #[test]
     fn bucket_test() {

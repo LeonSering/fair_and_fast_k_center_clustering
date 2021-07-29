@@ -28,10 +28,10 @@ pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mu
         edges_present = false;
     }
 
-    let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
+    let _radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
 
     #[cfg(debug_assertions)]
-    println!("\tRadius of partial assignment for C_{} found:\t{};\t(max_flow: {})", i, radius, state.max_flow);
+    println!("\tRadius of partial assignment for C_{} found:\t{};\t(max_flow: {})", i, _radius, state.max_flow);
 //    println!("center_of: {:?}", state.center_of);
 //    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 
@@ -42,7 +42,7 @@ pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mu
 
     let clustering = Clustering::new(centers,state.center_of.clone(),space);
     #[cfg(debug_assertions)]
-    assert_eq!(radius,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
+    assert_eq!(_radius,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
 
 //    println!("  Bucket after settling: {:?}\n", bucket.iter().map(|x| x.d).collect::<Vec<Distance>>());
 

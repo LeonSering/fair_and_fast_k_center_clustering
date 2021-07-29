@@ -2,9 +2,7 @@ use crate::ClusteringProblem;
 use crate::types::Distance;
 use crate::space::ColoredMetric;
 use crate::clustering::{Clustering,Centers};
-
 use std::collections::VecDeque;
-
 use super::{Edge,flow::{initialize_state,add_edge}};
 
 pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering

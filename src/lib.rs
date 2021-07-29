@@ -67,7 +67,6 @@ use phase1::gonzales_heuristic;
 
 mod phase2;
 use phase2::make_private;
-//use phase2::with_sorting::make_private_with_sorting; // TEMP
 
 mod phase3;
 use phase3::redistribute;
@@ -126,29 +125,23 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     println!("\n**** Phase 2 ****");
     let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
-    // TEMP:
-    // clusterings is now a vector of partial clustering
-    // #[cfg(debug_assertions)]
-    // {
-        // let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
-        // for (c, clustering) in clusterings.iter().enumerate() {
-            // let mut dist = 0.0f32;
-            // for p in space.point_iter() {
-                // if clustering.get_assignment()[p.idx()].is_some() {
-                    // let current_d = space.dist(p,clustering.get_center(clustering.get_assignment()[p.idx()].unwrap())); 
-                    // if current_d > dist {
-                        // dist = current_d;
-                    // }
-                // }
-            // }
-            // println!("\tClustering {}: measured radius: {}. written radius: {}, radius_with_sorting: {}", c, dist, clustering.get_radius(), clusterings_with_sorting[c].get_radius());
-        // }
-    // }
 
     let time_after_phase2 = Instant::now();
     println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
     for (i,clustering) in clusterings.iter().enumerate() {
         print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+    }
+    
+    // TEMP:
+    #[cfg(debug_assertions)]
+    {
+        let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
+
+        let time_after_phase2_sorting = Instant::now();
+        println!("\n  - Phase 2 (with sorting) done (time: {:?}): Determined k = {} clusterings:", time_after_phase2_sorting.duration_since(time_after_phase2), prob.k);
+        for (i,clustering) in clusterings_with_sorting.iter().enumerate() {
+            print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+        }
     }
     
     #[cfg(debug_assertions)]
@@ -162,6 +155,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
+    let time_before_phase3 = Instant::now();
     
     #[cfg(debug_assertions)]
     println!("\n**** Phase 3 ****");
@@ -170,7 +164,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
 
     
     let time_after_phase3 = Instant::now();
-    println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_after_phase2));
+    println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
     for (i,openings) in opening_lists.iter().enumerate() {
         println!("\tC_{}:", i);
         for o in openings.iter() {

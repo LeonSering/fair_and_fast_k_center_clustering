@@ -4,7 +4,7 @@ use crate::space::{Point,ColoredMetric};
 use crate::clustering::{Clustering,Centers};
 
 mod buckets;
-use buckets::{put_into_buckets,assert_buckets_properties};
+use buckets::put_into_buckets;
 
 mod flow;
 use flow::{initialize_state,add_edge};
@@ -12,7 +12,7 @@ use flow::{initialize_state,add_edge};
 mod settle;
 use settle::settle;
 
-//TEMP:
+#[cfg(debug_assertions)]
 pub(crate) mod with_sorting;
 
 use std::collections::VecDeque;
@@ -62,7 +62,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &'a M, prob : &'a Clus
     println!("\n  - Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k.pow(power_of_k)+1);
 
     #[cfg(debug_assertions)]
-    assert!(assert_buckets_properties(&buckets, space.n(), prob.k, power_of_k));
+    assert!(buckets::assert_buckets_properties(&buckets, space.n(), prob.k, power_of_k));
 
     #[cfg(debug_assertions)]
     for (i, bucket) in buckets.iter().enumerate() {
