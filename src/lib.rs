@@ -198,9 +198,9 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
     let time_after_phase5 = Instant::now();
-    println!("\n  - Phase 5 done (time: {:?}): Created assignments and choose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
+    println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
 
-    println!("\n**** Algorithm done (total time: {:?}): Privacy preserving representative k-center computed.", time_after_phase5.duration_since(time_start));
+    println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed.", time_after_phase5.duration_since(time_start));
     final_clustering
 
 }
