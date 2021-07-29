@@ -175,7 +175,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     println!("\n**** Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
     for i in 0..prob.k {
-        let save_path = format!("output/after_phase_2_with_i_{}.clustering", i);
+        let save_path = format!("output/temp/after_phase_2_for_i_{}.clustering", i);
         clusterings[i].save_to_file(save_path.as_str());
     }
 

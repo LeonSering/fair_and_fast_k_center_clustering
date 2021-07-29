@@ -49,7 +49,7 @@ if len(sys.argv) > 2: # if there is a third parameters, plot centers
                 center = int(content[0])
                 centers.append(center)
                 points = content[1].split(',')
-                points.remove(''); # remove empty elements (could appear because either there are no points, or last char is ',')
+                points.remove('') # remove empty elements (could appear because either there are no points, or last char is ',')
                 print("center", center, "covers:", points)
                 cluster[center] = [int(x) for x in points]
         for i in centers:

@@ -32,6 +32,7 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
 
         // first realize the shifting of phase 3 but this time really shift the points:
         point_shifting(space, prob.privacy_bound, &mut clusterings[i], &spanning_trees[i], threshold);
+        println!("Cluster sizes after point_shifting: {:?}", clusterings[i].get_cluster_sizes());
 
         // now the clusters are given, now we really open the new centers and assign the points to
         // them:
@@ -89,11 +90,11 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
             while link_to_nearest.len() > 0 {
                 let split_pos = if link_to_nearest.len() >= batch_size {link_to_nearest.len()-batch_size} else {0};
                 let batch = utilities::split_off_at(&mut link_to_nearest, split_pos);
-                println!("\tbatch_size: {}, batch.len(): {}, batch: {:?}", batch_size, batch.len(), batch.iter().map(|x| x.dist).collect::<Vec<_>>());
+                // println!("\tbatch_size: {}, batch.len(): {}, batch: {:?}", batch_size, batch.len(), batch.iter().map(|x| x.dist).collect::<Vec<_>>());
 
-                let mut chosen_center = center_idx[0]; // we first set it to the closest center
-                let mut dist_to_chosen_center = <Distance>::MAX;
                 for entry in batch {
+                    let mut chosen_center = center_idx[0]; // we first set it to the closest center
+                    let mut dist_to_chosen_center = <Distance>::MAX;
                     if *num_points_assigned_to.get(&entry.center_idx).unwrap() < prob.privacy_bound || to_spare > 0{
                         chosen_center = entry.center_idx;
                         dist_to_chosen_center = entry.dist;
@@ -129,8 +130,8 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
                         let idx = non_private_centers.iter().position(|c| *c == chosen_center).unwrap();
                         non_private_centers.remove(idx);
                     }
-                    println!("\n\tspare: {}, chosen center (idx): {}, non_private_centers, {:?}", to_spare, chosen_center, non_private_centers);
-                    println!("\tnum_points_assigned_to: {:?}", num_points_assigned_to);
+                    // println!("\n\tspare: {}, chosen center (idx): {}, non_private_centers, {:?}", to_spare, chosen_center, non_private_centers);
+                    // println!("\tnum_points_assigned_to: {:?}", num_points_assigned_to);
                     
 
 
@@ -138,8 +139,14 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
 
             } // end of batch
 
-        } // and of gonzales set
+        } // and of cluster 
         println!("\n\tnew_radius: {}", new_radius);
+
+        //TEMP:
+        let clustering = Clustering::new(new_centers.centers.clone(), new_clustering.clone(), space);
+        let save_path = format!("output/temp/after_phase_5_for_i_{}.clustering", i);
+        clustering.save_to_file(save_path.as_str());
+
 
 
         // now only save the best clustering (over all k+1 gonzales sets) depending on the minimum radius
@@ -150,7 +157,7 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
         }
 
 
-    }
+    } // end of gonzales set
 
 
 
@@ -175,6 +182,8 @@ fn point_shifting<'a, M : ColoredMetric>(space : &'a M, privacy_bound: PointCoun
                 None => {} // node is a root
                 Some(up_edge) => {
                     let parent = up_edge.up;
+                    // TODO: We could be more conservative and only hand_over as many points as
+                    // needed.
                     hand_over(space, clustering, node, parent, surplus);
                     cluster_sizes[parent] += surplus;
                     cluster_sizes[node] -= surplus;
