@@ -19,18 +19,31 @@ struct ColorEdge {
     color: ColorIdx, // the color of the point
 }
 
+// return value of a flow problem.
+// Contains the assignment_radius and new_centers (with their node index)
+// as well as the origin, i.e., the cluster, of each new center.
+#[derive(Debug)]
+struct ShiftedCenters {
+    forrest_radius : Distance, // the underlying forrest_radius from phase 3
+    assignment_radius : Distance, // the shift radius
+
+    new_centers : Vec<PNodeIdx>,
+    origins : Vec<CenterIdx> // the original gonzales center for each new center
+}
+
+
 type PNodeIdx = usize; // type for the index of a point node (nodes in the flow network are reindexed)
 type CNodeIdx = usize; // type for the index of a color node
 
 /// Given a metric space and a clustering problem,
-/// finalize takes a vector of clusterings in which each center (except for one) covers a multple of L
+/// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters<'a>> {
+pub(crate) fn phase4<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters<'a>> {
 
     let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
 
-    let mut shifted_centers: Vec<Vec<ShiftedCenters>> = (0..prob.k).map(|i| Vec::with_capacity(i+1)).collect();
+    let mut shifted_centers: Vec<Option<ShiftedCenters>> = (0..prob.k).map(|_| None).collect();
     let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
 
 
@@ -128,13 +141,45 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         // The network is almost done, only the opening-vector is missing.
         // println!("point_to_node: {:?}", point_to_node);
 
+        let mut current_best_radius = <Distance>::MAX;
+        for (j, opening) in opening_lists[i].iter().enumerate() {
 
-        for opening in opening_lists[i].iter() {
-
+            // first test if eta-vector makes sense at all:
             if sum_of_a > opening.eta.iter().sum() {
                 println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
                 continue;
             }
+
+            // we can skip the flow computation if the forrest_radius alone is to be for the
+            // previously best sum of forrest_radius + assignment_radius
+            if current_best_radius <= opening.forrest_radius {
+                #[cfg(debug_assertions)]
+                println!("  - Flow-network for i = {} and open_list = {} is obsolet as the forrest_radius is bigger than forrest_radius + assignment_radius of earlier open list (= {}).", i, opening, current_best_radius);
+                continue;
+
+            }
+
+            // now test if the exact (or less restrictive) flow problem has been solved already:
+            let mut has_been_solved = false;
+            for old in 0..j {
+                let old_eta = &opening_lists[i][old].eta;
+                let mut old_equal_or_bigger = true;
+                for l in 0..old_eta.len() {
+                    if opening.eta[l] > old_eta[l] {
+                        old_equal_or_bigger = false;
+                    }
+                }
+                if old_equal_or_bigger {
+                    has_been_solved = true;
+                }
+            }
+            if has_been_solved {
+                #[cfg(debug_assertions)]
+                println!("  - Flow-network for i = {} and opening_list = {} has been solved before (or less restricted version). Skipping this flow computation.", i, opening);
+                continue;
+            }
+
+
 
             // TODO: test for dublicated openings and copy centers
             // TODO: only compute flow up to a shift-radius such that shift-radius + tree-radius
@@ -158,7 +203,12 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             };
 
             // for each eta vector we solve the flow problem individually:
-            shifted_centers[i].push(compute_assignment_by_flow(&network));
+            let new = compute_assignment_by_flow(&network);
+
+            if current_best_radius > new.forrest_radius + new.assignment_radius {
+                current_best_radius = new.forrest_radius + new.assignment_radius;
+                shifted_centers[i] = Some(new);
+            }
             
         }
 
@@ -171,20 +221,8 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
     let mut new_centers: Vec<NewCenters> = Vec::with_capacity(prob.k+1); // return vector
 
     // determine centers with minimal shift radius + tree radius:
-    for i in 0 .. prob.k {
-        let mut current_best_radius = <Distance>::MAX;
-        let mut best_j = <CenterIdx>::MAX;
-        for j in 0..shifted_centers[i].len() {
-            if shifted_centers[i][j].assignment_radius + shifted_centers[i][j].forrest_radius < current_best_radius {
-                current_best_radius = shifted_centers[i][j].assignment_radius + shifted_centers[i][j].forrest_radius;
-                best_j = j;
-            }
-        }
-
-        let best_centers = &shifted_centers[i][best_j];
-        // println!("\n i = {}", i);
-        // println!("best j: {}; best centers: {:?}", best_j, best_centers);
-       
+    for (i,c) in shifted_centers.into_iter().enumerate() {
+        let best_centers = c.unwrap();
         let mut centers : Centers = Centers::with_capacity(best_centers.new_centers.len());
         let mut new_center_idx_of_cluster = vec!(Vec::new(); i+1);
         for (l,&idx) in best_centers.new_centers.iter().enumerate() {
@@ -195,7 +233,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
         // println!("Best centers: {:?} and in idx form grouped by cluster: {:?}", new_centers, new_center_idx_of_cluster);
 
-        new_centers.push(NewCenters{centers, forrest_radius: best_centers.forrest_radius, assignment_radius: best_centers.assignment_radius, new_centers_of: new_center_idx_of_cluster});
+        new_centers.push(NewCenters{as_points: centers, forrest_radius: best_centers.forrest_radius, assignment_radius: best_centers.assignment_radius, new_centers_of_cluster: new_center_idx_of_cluster});
 
     }
 
@@ -219,17 +257,5 @@ struct Network<'a> {
     point_idx_to_color_idx : &'a Vec<CNodeIdx>,
     edges_by_color_node : &'a Vec<Vec<&'a ColorEdge>>,
     edges_by_point_node : &'a Vec<Vec<&'a ColorEdge>>,
-}
-
-// return value of a flow problem.
-// Contains the assignment_radius and new_centers (with their node index)
-// as well as the origin, i.e., the cluster, of each new center.
-#[derive(Debug)]
-struct ShiftedCenters {
-    forrest_radius : Distance, // the underlying forrest_radius from phase 3
-    assignment_radius : Distance, // the shift radius
-
-    new_centers : Vec<PNodeIdx>,
-    origins : Vec<CenterIdx> // the original gonzales center for each new center
 }
 

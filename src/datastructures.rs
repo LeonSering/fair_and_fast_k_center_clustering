@@ -34,10 +34,10 @@ impl fmt::Display for OpeningList {
 /// for each gonzales cluster it contains the new centers that needs to be open within this cluster
 #[derive(Debug)]
 pub(crate) struct NewCenters<'a> {
-    pub centers : Centers<'a>,
+    pub as_points : Centers<'a>,
     pub forrest_radius : Distance,
     pub assignment_radius : Distance,
-    pub new_centers_of : Vec<Vec<CenterIdx>>,
+    pub new_centers_of_cluster : Vec<Vec<CenterIdx>>,
 }
 
 /// Phase 3 return a vector (one for each gonzales set) of this type.

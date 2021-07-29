@@ -16,6 +16,8 @@ use crate::clustering::Clustering;
 /// centers that can be opened in the neighborhood of each center. 
 /// It also updates the clusterings (shifting points around) to match this eta.
 pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
+
+    #[cfg(debug_assertions)]
     println!("\n  - Phase 3a: Computing spanning trees.");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
 
@@ -23,6 +25,7 @@ pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &Cluster
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
+        #[cfg(debug_assertions)]
         println!("\tspanning_tree for C_{}: {}", i, spanning_tree);
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());

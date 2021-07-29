@@ -33,7 +33,7 @@ fn main() {
         privacy_bound : 7, // number of points to represent;
         rep_interval : vec!((1,4),(0,0),(3,4)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
-
+    
     let clustering = compute_privacy_preserving_representative_k_center(&space, &prob);
     clustering.save_to_file(format!("output/{}.clustering", space_name).as_str());
 

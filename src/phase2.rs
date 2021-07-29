@@ -58,6 +58,7 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &'a M, prob : &'a Clus
     let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
+    #[cfg(debug_assertions)]
     println!("\n  - Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", prob.k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/prob.k.pow(power_of_k)+1);
 
     #[cfg(debug_assertions)]
@@ -73,7 +74,8 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &'a M, prob : &'a Clus
 
 
     // step 2: solve flow problem
-    println!("\n  - Phase 2b: Determine smallest radii and assignment that satisfy privacy. Privacy constant privacy_bound = {}.", prob.privacy_bound);
+    #[cfg(debug_assertions)]
+    println!("\n  - Phase 2b: Determine smallest radii and partial assignments that satisfy privacy-condition (privacy_bound = {}).", prob.privacy_bound);
     
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
     
@@ -163,7 +165,8 @@ pub(crate) fn make_private<'a, M : ColoredMetric>(space : &'a M, prob : &'a Clus
 
     // assigne all unassigned points to its nearest neighbor:
     // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
-    println!("\n  - Assign unassigned points to nearest center.");
+    #[cfg(debug_assertions)]
+    println!("\n  - For each partial assignment, assign unassigned points to their nearest center to obtain (full) assignments (= private-preserving clustering).");
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }

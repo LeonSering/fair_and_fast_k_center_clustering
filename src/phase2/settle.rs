@@ -31,7 +31,7 @@ pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mu
     let radius = search_for_radius(edges_present, bucket, &mut cursor, i, prob, state);
 
     #[cfg(debug_assertions)]
-    println!("\tRadius for center {} found: {};\tmax_flow: {}", i, radius, state.max_flow);
+    println!("\tRadius of partial assignment for C_{} found:\t{};\t(max_flow: {})", i, radius, state.max_flow);
 //    println!("center_of: {:?}", state.center_of);
 //    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 

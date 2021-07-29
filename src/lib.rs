@@ -59,6 +59,9 @@ mod utilities;
 
 mod datastructures;
 
+mod assertions;
+pub use assertions::assert_clustering_problem;
+
 mod phase1;
 use phase1::gonzales_heuristic;
 
@@ -70,20 +73,27 @@ mod phase3;
 use phase3::redistribute;
 
 mod phase4;
-use phase4::finalize;
+use phase4::phase4;
 
 mod phase5;
 use phase5::phase5;
 
 
+use std::time::Instant;
 
 /// Computes a privacy preserving representative k-clustering.
-/// Input: A metric space implementing the [ColoredMetric] trait and a [ClusteringProblem].
-/// Output: A clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
-/// each client to a center.
 /// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>). 
+///
+/// # Inputs
+/// * a metric space implementing the [ColoredMetric] trait;
+/// * a [ClusteringProblem];
+/// 
+/// # Output 
+/// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
+/// each client to a center.
 /// TODO: Update this doc-comment
 pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
+    let time_start = Instant::now();
 
     println!("\n**** Solving: {}", prob);
 
@@ -91,64 +101,28 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     ////////////////////////// Assertions on the ClusteringProblem //////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center
-    assert!(space.n() >= prob.k, "we have n < k ({} < {})! We need more points than centers", space.n(), prob.k); // the number of points should not be less than the number of centers
-    assert!(space.n() >= prob.k * prob.privacy_bound, "We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound);
-
-    for (c, interval) in prob.rep_interval.iter().enumerate() {
-        assert!(interval.0 <= interval.1, "The interval of color {} is ({}, {}). Lower bound cannot be bigger than the upper bound.", c, interval.0, interval.1);
-    }
-
-    let mut sum_of_a = 0;
-
-    // check whether the sum of the lower bounds is not bigger than k
-    for (a,_) in prob.rep_interval.iter() {
-        sum_of_a += a;
-    }
-    assert!(sum_of_a <= prob.k, "The sum of the lower bounds of the representative intervals is {}, which is larger than k = {}.", sum_of_a, prob.k);
-
-    let mut number_of_points_of_color: Vec<PointCount> = vec!(0; space.gamma());
-    for p in space.point_iter() {
-        number_of_points_of_color[space.color(p)] += 1;
-    }
-
-    let restricted_colors = if space.gamma() < prob.rep_interval.len() {space.gamma()} else {prob.rep_interval.len()}; // min{gamma, rep_interval.len()}
-
-    // check if lower bound can be satisfied
-    for c in 0..restricted_colors {
-        assert!(number_of_points_of_color[c] >= prob.rep_interval[c].0, "There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_interval[c].0);
-    }
-    for c in restricted_colors..prob.rep_interval.len() {
-        assert_eq!(prob.rep_interval[c].0, 0, "We want {} centers of color {}, but there is not a single point of that color. We have gamma = {}.", prob.rep_interval[c].0, c, space.gamma());
-    }
-
-    // check sum of the upper bounds (min{ left side of interval, number of points }) is not
-    // smaller than k 
-    let mut sum_of_b = 0;
-    for c in 0..restricted_colors {
-        let upper_bound = if prob.rep_interval[c].1 < number_of_points_of_color[c] {prob.rep_interval[c].1} else {number_of_points_of_color[c]};
-        sum_of_b += upper_bound;
-    }
-    for c in restricted_colors..space.gamma() {
-        sum_of_b += number_of_points_of_color[c];
-    }
-    assert!(sum_of_b >= prob.k, "The sum of the upper bounds of the representative intervals (or the number of points of that color) is {}, which is smaller than k = {}.", sum_of_b, prob.k);
-
+    assert_clustering_problem(space, prob);
+    let time_after_assertions = Instant::now();
+    println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
 
     
     /////////////////////////////////////////////////////////////////////////////////////
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
 
+    #[cfg(debug_assertions)]
     println!("\n**** Phase 1 ****");
+
     let gonzales: Centers = gonzales_heuristic(space, prob.k);
 
-    print!("\n  - Phase 1 done: Determined k = {} centers by the Gonzales heuristic: {}.\n", prob.k, gonzales);
+    let time_after_phase1 = Instant::now();
+    println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzales);
 
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
     
+    #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
     let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
@@ -171,7 +145,11 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
         // }
     // }
 
-    println!("\n  - Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
+    let time_after_phase2 = Instant::now();
+    println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
+    for (i,clustering) in clusterings.iter().enumerate() {
+        print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+    }
     
     #[cfg(debug_assertions)]
     {
@@ -185,17 +163,18 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     
+    #[cfg(debug_assertions)]
     println!("\n**** Phase 3 ****");
     
     let (spanning_trees, opening_lists) = redistribute(space, prob, &clusterings);
 
     
-    println!("\n  - Phase 3 done: Determined the following opening lists:");
-    #[cfg(debug_assertions)]
+    let time_after_phase3 = Instant::now();
+    println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_after_phase2));
     for (i,openings) in opening_lists.iter().enumerate() {
         println!("\tC_{}:", i);
         for o in openings.iter() {
-            println!("\t\t{}; ",o);
+            println!("\t\t{};",o);
         }
     }
 
@@ -203,24 +182,31 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
-
+    
+    #[cfg(debug_assertions)]
     println!("\n**** Phase 4 ****");
 
-    let new_centers = finalize(space, &prob, opening_lists, &gonzales); 
-    println!("\n  - Phase 4 done: Determined the following new centers:");
+    let new_centers = phase4(space, &prob, opening_lists, &gonzales); 
+
+    let time_after_phase4 = Instant::now();
+    println!("\n  - Phase 4 done (time: {:?}): Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3));
     for (i,centers) in new_centers.iter().enumerate() {
-        println!("\tC_{}: ({}) \tassignment_radius: {};\tforrest_radius: {}", i, centers.centers, centers.assignment_radius, centers.forrest_radius);
+        println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {};", i, centers.as_points, centers.assignment_radius, centers.forrest_radius);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     // phase 5: assign point to the final point of centers and determine the final clustering //
     ////////////////////////////////////////////////////////////////////////////////////////////
     
+    #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
     
     let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
-    println!("\n  - Phase 5 done: Choose the final clustering (based on C_{}) with centers: ({}) and radius: {}", best_i, final_clustering.get_centers(), final_clustering.get_radius());
+    let time_after_phase5 = Instant::now();
+    println!("\n  - Phase 5 done (time: {:?}): Created assignments and choose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
+
+    println!("\n**** Algorithm done (total time: {:?}): Privacy preserving representative k-center computed.", time_after_phase5.duration_since(time_start));
     final_clustering
 
 }
