@@ -16,24 +16,24 @@ use crate::clustering::Clustering;
 /// centers that can be opened in the neighborhood of each center. 
 /// It also updates the clusterings (shifting points around) to match this eta.
 pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
-    println!("\n  ** Phase 3a: Computing spanning trees");
+    println!("\n  - Phase 3a: Computing spanning trees.");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
 
 
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-        println!("\n** spanning_tree[{}]: {:?}", i, spanning_tree);
+        println!("\tspanning_tree for C_{}: {}", i, spanning_tree);
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
 //        #[cfg(debug_assertions)]
 //        println!("\tspanning_tree[{}] edges_to_children: {:?}", i, spanning_trees[i].edges_to_children.iter().collect::<Vec<_>>());
         let mut opening_lists: Vec<OpeningList> = Vec::with_capacity(i+1);
         for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
-            println!("* forrest: {:?}", spanning_tree.get_edges(threshold));
+            // println!("* forrest: {:?}", spanning_tree.get_edges(threshold));
             // first threshold is 0.0 so we obtain the forest without edges
             opening_lists.push(algebraic_shifting(prob.privacy_bound, &clusterings[i], i, &spanning_tree, threshold));
-            println!("\t final eta: {:?}", opening_lists[opening_lists.len()-1]);
+            // println!("\t final eta: {:?}", opening_lists[opening_lists.len()-1]);
         }
         all_opening_lists.push(opening_lists);
     }
@@ -53,7 +53,7 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
     
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
-        println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
+        // println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
         eta[node] = Some(cluster_sizes[node] / privacy_bound);
         let surplus = cluster_sizes[node] - eta[node].unwrap()*privacy_bound;

@@ -140,17 +140,16 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
 
+    println!("\n**** Phase 1 ****");
     let gonzales: Centers = gonzales_heuristic(space, prob.k);
 
-    print!("\n**** Phase 1 done: Determined k = {} centers by the Gonzales heuristic: {}.\n", prob.k, gonzales);
-//    println!("index of center {}: {}", gonzales.centers[2], gonzales_index_by_center.get(&gonzales.centers[2]).expect(""));
-    gonzales.save_to_file("test.centers");
-
+    print!("\n  - Phase 1 done: Determined k = {} centers by the Gonzales heuristic: {}.\n", prob.k, gonzales);
 
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
     
+    println!("\n**** Phase 2 ****");
     let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
     
     // TEMP:
@@ -172,24 +171,32 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
         // }
     // }
 
-    println!("\n**** Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
+    println!("\n  - Phase 2 done: Determined k = {} radii: {:?}", prob.k, clusterings.iter().map(|clustering| clustering.get_radius()).collect::<Vec<f32>>());
     
-    for i in 0..prob.k {
-        let save_path = format!("output/temp/after_phase_2_for_i_{}.clustering", i);
-        clusterings[i].save_to_file(save_path.as_str());
+    #[cfg(debug_assertions)]
+    {
+        for i in 0..prob.k {
+            let save_path = format!("output/temp/after_phase_2_for_i_{}.clustering", i);
+            clusterings[i].save_to_file(save_path.as_str());
+        }
     }
 
     ////////////////////////////////////////////////////////////////////
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     
+    println!("\n**** Phase 3 ****");
+    
     let (spanning_trees, opening_lists) = redistribute(space, prob, &clusterings);
 
     
-    println!("\n**** Phase 3 done: Determined the following opening lists:");
+    println!("\n  - Phase 3 done: Determined the following opening lists:");
     #[cfg(debug_assertions)]
     for (i,openings) in opening_lists.iter().enumerate() {
-        println!("  C_{}:\t{:?}", i, openings.iter().map(|open| &open.eta).collect::<Vec<_>>());
+        println!("\tC_{}:", i);
+        for o in openings.iter() {
+            println!("\t\t{}; ",o);
+        }
     }
 
 
@@ -197,39 +204,23 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
+    println!("\n**** Phase 4 ****");
+
     let new_centers = finalize(space, &prob, opening_lists, &gonzales); 
-    println!("\n**** Phase 4 done: Determined the following new centers:");
+    println!("\n  - Phase 4 done: Determined the following new centers:");
     for (i,centers) in new_centers.iter().enumerate() {
-        println!(" i = {}: \t{:?}", i, centers.new_centers_of);
+        println!("\tC_{}: ({}) \tassignment_radius: {};\tforrest_radius: {}", i, centers.centers, centers.assignment_radius, centers.forrest_radius);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
     // phase 5: assign point to the final point of centers and determine the final clustering //
     ////////////////////////////////////////////////////////////////////////////////////////////
     
-    let final_clustering = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
-    // TODO: Phase 5: Assign points to the new center such that the privacy containt is satisfied.
-    // We do this cluster wise.
-    //
-    // for each clustering (after the shifting from phase 3) do the following:
-    // for each point p of the cluster store dist(p, new_centers_of_cluster), i.e. the minimum distance of p
-    // to one of the new centers of this cluster).
-    // Heuristics: 
-    // 1) Consider a batch of points of size max{L, n/k}, that has the maximal distance and assign
-    // them to the nearest new center of the cluster.
-    // 2) Repeat this, but also consider the number of spare node:
-    // number_of_spare_nodes = number_of_point_in_cluster - number_of_new_centers_in_cluster * L
-    // 3) Whenever we want to assign a point to a cluster that is already private, then decrease
-    //    the number of spare_points by one.
-    // 4) If the number of spare points is 0, then never assign to private new centers anymore but
-    //    instead assign to the nearest non-private center.
-    // 5) As soon as all new centers are private dont do buckets anymore but instead directly
-    //    assign all points to their nearest new center
-
-    final_clustering
+    println!("\n**** Phase 5 ****\n");
     
+    let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
-
-
+    println!("\n  - Phase 5 done: Choose the final clustering (based on C_{}) with centers: ({}) and radius: {}", best_i, final_clustering.get_centers(), final_clustering.get_radius());
+    final_clustering
 
 }

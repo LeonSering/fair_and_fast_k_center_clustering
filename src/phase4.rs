@@ -60,7 +60,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
     // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
     for i in 0..prob.k {
-        println!("\n\n************** i = {} ******************", i);
+        // println!("\n\n************** i = {} ******************", i);
 
         // except for the opening vector the network can be defined now:
 
@@ -126,13 +126,13 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
 
       
         // The network is almost done, only the opening-vector is missing.
-        println!("point_to_node: {:?}", point_to_node);
+        // println!("point_to_node: {:?}", point_to_node);
 
 
         for opening in opening_lists[i].iter() {
 
             if sum_of_a > opening.eta.iter().sum() {
-                println!("Cannot open enough new centers as sum_of_a = {} > eta = {}", sum_of_a, opening.eta.iter().sum::<PointCount>());
+                println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
                 continue;
             }
 
@@ -162,7 +162,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             
         }
 
-        println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
+        // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
 
 
     }
@@ -182,8 +182,8 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
         }
 
         let best_centers = &shifted_centers[i][best_j];
-        println!("\n i = {}", i);
-        println!("best j: {}; best centers: {:?}", best_j, best_centers);
+        // println!("\n i = {}", i);
+        // println!("best j: {}; best centers: {:?}", best_j, best_centers);
        
         let mut centers : Centers = Centers::with_capacity(best_centers.new_centers.len());
         let mut new_center_idx_of_cluster = vec!(Vec::new(); i+1);
@@ -193,7 +193,7 @@ pub(crate) fn finalize<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringP
             new_center_idx_of_cluster[best_centers.origins[l]].push(centers.m()-1);
         }
 
-        println!("Best centers: {:?} and in idx form grouped by cluster: {:?}", new_centers, new_center_idx_of_cluster);
+        // println!("Best centers: {:?} and in idx form grouped by cluster: {:?}", new_centers, new_center_idx_of_cluster);
 
         new_centers.push(NewCenters{centers, forrest_radius: best_centers.forrest_radius, assignment_radius: best_centers.assignment_radius, new_centers_of: new_center_idx_of_cluster});
 

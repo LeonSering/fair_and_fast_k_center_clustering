@@ -149,8 +149,8 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
 //                println!("\n\tState: {:?}", state);
     }
 
-    println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
-    println!("  Final State: {:?}", state);
+    // println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
+    // println!("  Final State: {:?}", state);
 //    println!("  node index of point of last largest edge: {}", network.point_to_node[&state.current_largest_edge.point]); 
 
 

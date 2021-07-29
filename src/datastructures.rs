@@ -1,6 +1,7 @@
 use crate::types::{PointCount,Distance,CenterIdx};
 use crate::clustering::Centers;
 use std::collections::VecDeque;
+use std::fmt;
 
 /// Phase 3 return a vector (one for each gonzales set) of this type (together with the computed
 /// MSTs -> input of Phase 5).
@@ -11,6 +12,20 @@ use std::collections::VecDeque;
 pub(crate) struct OpeningList {
     pub eta : Vec<PointCount>,
     pub forrest_radius : Distance
+}
+impl fmt::Display for OpeningList {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        let mut iter = self.eta.iter();
+        if let Some(c) = iter.next() {
+            write!(f, "{}", c)?;
+        }
+        for c in iter {
+            write!(f, ", {}", c)?;
+        }
+        write!(f, ") for forrest_radius = {}", self.forrest_radius)?;
+        Ok(())
+    }
 }
 
 /// Phase 4 returns a vector (one for each gonzales set) of this type.
@@ -102,6 +117,26 @@ impl RootedSpanningTree{
             }
         }
         stack
+    }
+
+}
+impl fmt::Display for RootedSpanningTree {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "(")?;
+        let mut iter = self.edges.iter();
+        while let Some(c) = iter.next() {
+            if let Some(edge) = c {
+                write!(f, "{} -> {}", edge.down, edge.up)?;
+                break;
+            }
+        }
+        for c in iter {
+            if let Some(edge) = c {
+                write!(f, ", {} -> {}", edge.down, edge.up)?;
+            }
+        }
+        write!(f, ")")?;
+        Ok(())
     }
 }
 

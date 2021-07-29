@@ -28,7 +28,11 @@ pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos:
 pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize){
     if t >= list.len() {
         #[cfg(debug_assertions)]
-        println!("Care: list has only length {}, but is asked to be truncated to a length of t = {}. Nothing will happen.", list.len(), t);
+        {
+            if t > list.len() {
+                println!("Care: list has only length {}, but is asked to be truncated to a length of t = {}. Nothing will happen.", list.len(), t);
+            }
+        }
         return;
     }
     median_of_medians(list, t);

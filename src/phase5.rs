@@ -17,22 +17,23 @@ struct PointCenterLink<'a> {
     center_idx : CenterIdx,
 }
 
-pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, final_centers: Vec<NewCenters<'a>>, clusterings: &mut Vec<Clustering<'a>>, spanning_trees: &Vec<RootedSpanningTree>) -> Clustering<'a> {
+pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, final_centers: Vec<NewCenters<'a>>, clusterings: &mut Vec<Clustering<'a>>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Clustering<'a>) {
 
 
     let mut current_best_clustering: Vec<Option<CenterIdx>> = Vec::new();
     let mut current_best_centers: Centers = Centers::with_capacity(0);
     let mut current_best_radius = <Distance>::MAX;
+    let mut current_best_i = 0;
 
     for (i, new_centers) in final_centers.iter().enumerate() {
         let threshold = new_centers.forrest_radius;
 
-        println!("\n*** i = {} *** \t spanning_tree: {:?}", i, spanning_trees[i].get_edges(threshold));
-        println!("  new_centers:{:?}", new_centers);
+        // println!("\n*** i = {} *** \t spanning_tree: {:?}", i, spanning_trees[i].get_edges(threshold));
+        // println!("  new_centers:{:?}", new_centers);
 
         // first realize the shifting of phase 3 but this time really shift the points:
         point_shifting(space, prob.privacy_bound, &mut clusterings[i], &spanning_trees[i], threshold);
-        println!("Cluster sizes after point_shifting: {:?}", clusterings[i].get_cluster_sizes());
+        // println!("Cluster sizes after point_shifting: {:?}", clusterings[i].get_cluster_sizes());
 
         // now the clusters are given, now we really open the new centers and assign the points to
         // them:
@@ -43,7 +44,7 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
             let points = clusterings[i].get_cluster_of(cluster);
             let center_idx = new_centers.new_centers_of[cluster].clone();
             // let center_pt = center_idx.iter().map(|idx| new_centers.centers.get(*idx)).collect();
-            println!("\n  ** Cluster: {} with {} center and {} points", cluster, center_idx.len(), points.len());
+            // println!("\n  ** Cluster: {} with {} center and {} points", cluster, center_idx.len(), points.len());
 
             let mut link_to_nearest: Vec<PointCenterLink> = Vec::with_capacity(points.len());
             for point in points.iter() {
@@ -140,20 +141,24 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
             } // end of batch
 
         } // and of cluster 
-        println!("\n\tnew_radius: {}", new_radius);
+        // println!("\n\tnew_radius: {}", new_radius);
 
         //TEMP:
-        let clustering = Clustering::new(new_centers.centers.clone(), new_clustering.clone(), space);
-        let save_path = format!("output/temp/after_phase_5_for_i_{}.clustering", i);
-        clustering.save_to_file(save_path.as_str());
+        #[cfg(debug_assertions)]
+        {
+            let clustering = Clustering::new(new_centers.centers.clone(), new_clustering.clone(), space);
+            let save_path = format!("output/temp/after_phase_5_for_i_{}.clustering", i);
+            clustering.save_to_file(save_path.as_str());
+        }
 
-
+        println!("  - C_{}: radius: {}", i, new_radius);
 
         // now only save the best clustering (over all k+1 gonzales sets) depending on the minimum radius
         if new_radius < current_best_radius {
             current_best_centers = new_centers.centers.clone();
             current_best_clustering = new_clustering;
             current_best_radius = new_radius;
+            current_best_i = i;
         }
 
 
@@ -161,7 +166,7 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
 
 
 
-    Clustering::new(current_best_centers, current_best_clustering, space)
+    (current_best_i, Clustering::new(current_best_centers, current_best_clustering, space))
 }
 
 fn point_shifting<'a, M : ColoredMetric>(space : &'a M, privacy_bound: PointCount, clustering : &mut Clustering<'a>, spanning_tree: &RootedSpanningTree, threshold: Distance){
@@ -176,7 +181,7 @@ fn point_shifting<'a, M : ColoredMetric>(space : &'a M, privacy_bound: PointCoun
         let node = stack.pop().unwrap();
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
         let surplus = cluster_sizes[node] % privacy_bound;
-        println!("cluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
+        // println!("\tcluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
         if surplus > 0 {
             match potential_up_edge {
                 None => {} // node is a root
@@ -202,7 +207,7 @@ fn hand_over<'a, M: ColoredMetric>(space: &'a M, clustering: &mut Clustering<'a>
                               point: p,
                               center_idx: consumer }).collect();
     utilities::truncate_to_smallest(&mut point_center_pairs, number);
-    println!("Point_center_pairs after truncate:{:?}", point_center_pairs);
+    // println!("Point_center_pairs after truncate:{:?}", point_center_pairs);
     for PointCenterLink{dist:_, point: p, center_idx:_} in point_center_pairs {
         clustering.assign(p, consumer, space);
     }

@@ -349,9 +349,18 @@ impl Space2D {
         println!("\n**** Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
         
         #[cfg(debug_assertions)]
-        println!("    positions: {:?}", positions);
-        #[cfg(debug_assertions)]
-        println!("    colors: {:?}", colors);
+        {
+            print!("    positions:");
+            let mut counter = 0;
+            for p in positions.iter() {
+                if counter % 10 == 0 {
+                    print!("\n\t{}-{}:\t",counter, <usize>::min(counter+9,positions.len()));
+                }
+                print!("{:?} ", p);
+                counter += 1;
+            }
+            println!("\n    colors: {:?}", colors);
+        }
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
         Space2D {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
