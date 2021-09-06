@@ -27,19 +27,19 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         }
 
 
-        let restricted_colors = if space.gamma() < prob.rep_interval.len() {space.gamma()} else {prob.rep_interval.len()}; // min{gamma, rep_interval.len()}
+        let restricted_colors = if space.gamma() < prob.rep_intervals.len() {space.gamma()} else {prob.rep_intervals.len()}; // min{gamma, rep_intervals.len()}
         let mut remaining_edges: Vec<ColorEdge> = Vec::new();
         let mut num_edges_to_fill = prob.k;
 
 
         for c in 0..restricted_colors {
             // take only the b smallest in each class; all others cannot play any role.
-            utilities::truncate_to_smallest(&mut edges_by_color[c], prob.rep_interval[c].1);
+            utilities::truncate_to_smallest(&mut edges_by_color[c], prob.rep_intervals[c].1);
             // the a smallest have to be present for sure, so each center can satisfy this
             // condition by itself;
             // the remaining b-a edges are collected in remaining_edges
-            remaining_edges.append(&mut utilities::split_off_at(&mut edges_by_color[c], prob.rep_interval[c].0));
-            num_edges_to_fill -= prob.rep_interval[c].0;
+            remaining_edges.append(&mut utilities::split_off_at(&mut edges_by_color[c], prob.rep_intervals[c].0));
+            num_edges_to_fill -= prob.rep_intervals[c].0;
         }
 
         // for all colors without restriction fill them into the remaining edges:

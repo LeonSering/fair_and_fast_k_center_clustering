@@ -1,8 +1,8 @@
-extern crate ff_k_center_lib;
+extern crate ff_k_center;
 use std::fs::create_dir_all;
 
-use ff_k_center_lib::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
-use ff_k_center_lib::Space2D;
+use ff_k_center::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
+use ff_k_center::Space2D;
 
 fn main() {
 
@@ -23,7 +23,7 @@ fn main() {
     // let prob = ClusteringProblem{
         // k : 9, // number of center;
         // privacy_bound : 3, // number of points to represent;
-        // rep_interval : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        // rep_intervals : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     // };
     
     let space_name = "shifting3";
@@ -31,7 +31,7 @@ fn main() {
     let prob = ClusteringProblem{
         k : 4, // number of center;
         privacy_bound : 7, // number of points to represent;
-        rep_interval : vec!((1,4),(0,0),(3,4)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        rep_intervals : vec!((1,4),(0,0),(3,4)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
     
     let clustering = compute_privacy_preserving_representative_k_center(&space, &prob);

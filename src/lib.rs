@@ -22,18 +22,20 @@
 /// privacy_bound specifies a lower bound on the number of clients that needs to be assigned to each center;
 /// rep_interval contains an interval [a,b] for each color class, the number of centers of that
 /// color must be within the interval.
+
+use std::fmt;
+use std::time::Instant;
+
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
     pub privacy_bound : PointCount, // lower bound of representation L
-    pub rep_interval : Vec<Interval>, // one integer interval for each color class
+    pub rep_intervals : Vec<Interval>, // one integer interval for each color class
 
-    // method: test if valid: color classes is metric space are 0, ..., gamma-1; sum of a_j <= k.
 }
-use std::fmt;
 impl fmt::Display for ClusteringProblem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Clustering-Problem with k = {}, privacy_bound = {} and representative_intervals: ",self.k,self.privacy_bound)?;
-        let mut iter = self.rep_interval.iter();
+        let mut iter = self.rep_intervals.iter();
         if let Some(first_interval) = iter.next() {
             write!(f, "({},{})", first_interval.0, first_interval.1)?;
             for interval in iter {
@@ -78,7 +80,25 @@ mod phase5;
 use phase5::phase5;
 
 
-use std::time::Instant;
+mod numpy_interface;
+use numpy_interface::FFKCenter;
+
+
+use pyo3::prelude::*;
+// use pyo3::prelude::{Python,PyModule,PyResult};
+// use pyo3::proc_macro::pymodule;
+// use pyo3::wrap_pyfunction;
+
+
+#[pymodule]
+#[pyo3(name = "ff_k_center")]
+fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
+    // m.add_class::<FFKCenterModel>()?;
+    m.add_class::<FFKCenter>()?;
+
+    Ok(())
+}
+
 
 /// Computes a privacy preserving representative k-clustering.
 /// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>). 

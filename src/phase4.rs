@@ -41,7 +41,7 @@ type CNodeIdx = usize; // type for the index of a color node
 ///
 pub(crate) fn phase4<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters<'a>> {
 
-    let sum_of_a: PointCount = prob.rep_interval.iter().map(|interval| interval.0).sum();
+    let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 
     let mut shifted_centers: Vec<Option<ShiftedCenters>> = (0..prob.k).map(|_| None).collect();
     let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
@@ -106,12 +106,12 @@ pub(crate) fn phase4<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
         for e in edges.iter() { // there are k^2 edges
             if !color_to_node.contains_key(&e.color) {
                 color_to_node.insert(e.color, color_counter);
-                if e.color >= prob.rep_interval.len() {
+                if e.color >= prob.rep_intervals.len() {
                     a.push(0);
                     b.push(<PointCount>::MAX);
                 } else {
-                    a.push(prob.rep_interval[e.color].0);
-                    b.push(prob.rep_interval[e.color].1);
+                    a.push(prob.rep_intervals[e.color].0);
+                    b.push(prob.rep_intervals[e.color].1);
                 }
                 color_counter += 1;
             }

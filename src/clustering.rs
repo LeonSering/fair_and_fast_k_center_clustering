@@ -144,7 +144,18 @@ impl<'a> Clustering<'a>{
         }
 
         Clustering{centers, center_of, cluster, radius, radius_valid: true, cluster_sizes}
-
+    }
+    
+    /// Creates a new empty clustering without any centers.
+    pub fn new_empty() -> Clustering<'static> {
+        Clustering {
+            centers: Centers::with_capacity(1), 
+            center_of: Vec::new(), 
+            cluster: Vec::new(), 
+            radius: <Distance>::MAX, 
+            radius_valid: false, 
+            cluster_sizes: Vec::new()
+        }
     }
     
     /// Returns the list of centers

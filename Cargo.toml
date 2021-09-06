@@ -5,8 +5,15 @@ edition = "2018"
 authors = ["Leon Sering <sering@math.ethz.ch>"]
 
 [lib]
-name = "ff_k_center_lib"
+name = "ff_k_center"
 path = "src/lib.rs"
+
+# "cdylib" is necessary to produce a shared library for Python to import from.
+#
+# Downstream Rust code (including code in `bin/`, `examples/`, and `tests/`) will not be able
+# to `use string_sum;` unless the "rlib" or "lib" crate type is also included, e.g.:
+# crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib","rlib"]
 
 [[bin]]
 name = "ff_k_center_bin"
@@ -17,3 +24,6 @@ path = "src/main.rs"
 [dependencies]
 rand = "0.8.3"
 
+[dependencies.pyo3]
+version = "0.14.4"
+features = ["extension-module"]
