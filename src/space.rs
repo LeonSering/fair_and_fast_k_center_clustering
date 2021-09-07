@@ -389,6 +389,14 @@ impl SpaceND {
             gamma,
         }
     }
+
+    pub(crate) fn get_positions(&self) -> Vec<Position> {
+        self.positions.clone()
+    }
+    
+    pub(crate) fn get_colors(&self) -> Vec<ColorIdx> {
+        self.colors.clone()
+    }
 }
 
 impl ColoredMetric for SpaceND {
