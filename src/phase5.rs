@@ -17,7 +17,7 @@ struct PointCenterLink<'a> {
     center_idx : CenterIdx,
 }
 
-pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, centers_list: Vec<NewCenters<'a>>, clustering_list: &mut Vec<Clustering<'a>>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Clustering<'a>) {
+pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Clustering) {
 
 
     let mut best_assignment: Vec<Option<CenterIdx>> = Vec::new();
@@ -56,7 +56,7 @@ pub(crate) fn phase5<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringPro
     (best_i, Clustering::new(centers_list[best_i].as_points.clone(), best_assignment, space))
 }
 
-fn point_shifting<'a, M : ColoredMetric>(space : &'a M, privacy_bound: PointCount, clustering : &mut Clustering<'a>, spanning_tree: &RootedSpanningTree, threshold: Distance){
+fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clustering : &mut Clustering, spanning_tree: &RootedSpanningTree, threshold: Distance){
 
     let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
 
@@ -86,9 +86,9 @@ fn point_shifting<'a, M : ColoredMetric>(space : &'a M, privacy_bound: PointCoun
 }
 
 
-fn hand_over<'a, M: ColoredMetric>(space: &'a M, clustering: &mut Clustering<'a>, supplier: CenterIdx, consumer: CenterIdx, number: PointCount) {
-    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier).iter().cloned().map(|p| 
-            PointCenterLink { dist: space.dist(p, clustering.get_centers().get(consumer)),
+fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier: CenterIdx, consumer: CenterIdx, number: PointCount) {
+    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier,space).iter().cloned().map(|p| 
+            PointCenterLink { dist: space.dist(p, clustering.get_centers().get(consumer,space)),
                               point: p,
                               center_idx: consumer }).collect();
     utilities::truncate_to_smallest(&mut point_center_pairs, number);
@@ -106,7 +106,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
     let mut new_assignment: Vec<Option<CenterIdx>> = vec!(None; space.n());
     let mut radius = <Distance>::MIN;
     for cluster in 0..i+1 {
-        let points = old_clustering.get_cluster_of(cluster);
+        let points = old_clustering.get_cluster_of(cluster,space);
         let center_idx = centers.new_centers_of_cluster[cluster].clone();
         // let center_pt = center_idx.iter().map(|idx| new_centers.centers.get(*idx)).collect();
         // println!("\n  ** Cluster: {} with {} center and {} points", cluster, center_idx.len(), points.len());
@@ -117,7 +117,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
             let mut current_closest = center_idx[0];
             let mut current_dist = <Distance>::MAX;
             for &idx in center_idx.iter() {
-                let dist = space.dist(point, centers.as_points.get(idx));
+                let dist = space.dist(point, centers.as_points.get(idx,space));
                 if dist <= current_dist {
                     current_closest = idx;
                     current_dist = dist;
@@ -170,7 +170,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
                     // instead assign it to the closest non-private center.
 
                     for &c in non_private_centers.iter() {
-                        let dist = space.dist(entry.point, centers.as_points.get(c));
+                        let dist = space.dist(entry.point, centers.as_points.get(c,space));
                         if dist < dist_to_chosen_center {
                             chosen_center = c;
                             dist_to_chosen_center = dist;

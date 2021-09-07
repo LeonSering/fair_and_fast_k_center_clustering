@@ -21,7 +21,7 @@ pub(crate) fn gonzales_heuristic<M : ColoredMetric>(space : &M, k : PointCount) 
         let mut current_distance = <Distance>::MIN; // maximal distance to set of centers
         let mut current_point : Option<&Point> = None; // corresponing point with this max distance.
         for (j, p) in space.point_iter().enumerate(){
-            let dist_to_newest_center = space.dist(p, gonzales.get(i-1)); // as distance of j to gonzales 0..i-2 is known, we only need to measure distance to newest center i-1.
+            let dist_to_newest_center = space.dist(p, gonzales.get(i-1,space)); // as distance of j to gonzales 0..i-2 is known, we only need to measure distance to newest center i-1.
             
             // update dist_x_S to now include the newest center:
             if dist_to_newest_center < dist_x_center[j] {

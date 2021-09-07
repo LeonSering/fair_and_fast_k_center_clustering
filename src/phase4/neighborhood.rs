@@ -19,7 +19,7 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         for p in space.point_iter() {
             let color = space.color(p);
             edges_by_color[space.color(p)].push(ColorEdge{
-                d: space.dist(gonzales.get(i), p),
+                d: space.dist(gonzales.get(i,space), p),
                 center: i,
                 point: p.idx(),
                 color});

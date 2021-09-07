@@ -111,7 +111,7 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
 /// TODO: Update this doc-comment
-pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem) -> Clustering<'a> {
+pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(space : &M, prob : &ClusteringProblem) -> Clustering {
     let time_start = Instant::now();
 
     println!("\n**** Solving: {}", prob);
@@ -143,7 +143,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
-    let mut clusterings : Vec<Clustering<'a>> = make_private(space, prob, &gonzales);
+    let mut clusterings : Vec<Clustering> = make_private(space, prob, &gonzales);
     
 
     let time_after_phase2 = Instant::now();
@@ -155,7 +155,7 @@ pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>
     // TEMP:
     #[cfg(debug_assertions)]
     {
-        let clusterings_with_sorting : Vec<Clustering<'a>> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
+        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
 
         let time_after_phase2_sorting = Instant::now();
         println!("\n  - Phase 2 (with sorting) done (time: {:?}): Determined k = {} clusterings:", time_after_phase2_sorting.duration_since(time_after_phase2), prob.k);

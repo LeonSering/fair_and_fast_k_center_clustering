@@ -19,7 +19,13 @@ pub(crate) struct FFKCenter {
     space: Option<SpaceND>,
 
     // attributes
-    clustering: Option<Clustering<'static>>,
+    clustering: Option<Clustering>,
+}
+
+impl FFKCenter{
+    fn get_space(&self) -> &SpaceND {
+        self.space.as_ref().expect("No space defined yet.")
+    }
 }
 
 #[pymethods]
@@ -45,7 +51,7 @@ impl FFKCenter{
     #[getter]
     fn get_centers(&self) -> PyResult<Vec<PointIdx>> {
         match &self.clustering {
-            Some(clust) => Ok(clust.get_centers().iter().map(|c| c.idx()).collect()),
+            Some(clust) => Ok(clust.get_centers().get_all(self.get_space()).iter().map(|c| c.idx()).collect()),
             None => Err(PyAttributeError::new_err("No centers computed yet!")) //TODO: Check whether correct Error Type
         }
     }
@@ -79,10 +85,10 @@ impl FFKCenter{
     fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> () {
         println!("Algorithm will be executed.");
         // First create a metric space from the data
-        let space = SpaceND::by_ndpoints(data,colors);
+        self.space = Some(SpaceND::by_ndpoints(data,colors));
 
         // Then execute the algorithm and save the output clustering into self.clustering
-        let clustering = Some(compute_privacy_preserving_representative_k_center(&space, &self.clustering_problem));
+        let clustering = Some(compute_privacy_preserving_representative_k_center(self.get_space(), &self.clustering_problem));
 
     }
 

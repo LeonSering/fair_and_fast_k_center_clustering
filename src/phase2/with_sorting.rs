@@ -5,11 +5,11 @@ use crate::clustering::{Clustering,Centers};
 use std::collections::VecDeque;
 use super::{Edge,flow::{initialize_state,add_edge}};
 
-pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, gonzales : &Centers<'a>) -> Vec<Clustering<'a>> { //Return value should be partialClustering
+pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, gonzales : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
-    for (j, c) in gonzales.iter().enumerate() {
+    for (j, c) in gonzales.get_all(space).iter().enumerate() {
         for p in space.point_iter() {
             edges.push(Edge{
                 d : space.dist(c, p),
@@ -77,7 +77,7 @@ pub(crate) fn make_private_with_sorting<'a, M : ColoredMetric>(space : &'a M, pr
 
         // create new clustering:
         let mut centers = Centers::with_capacity(i+1);
-        for c in gonzales.iter().take(i+1) {
+        for c in gonzales.get_all(space).iter().take(i+1) {
             centers.push(c);
         }
 

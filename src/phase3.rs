@@ -15,7 +15,7 @@ use crate::clustering::Clustering;
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center. 
 /// It also updates the clusterings (shifting points around) to match this eta.
-pub(crate) fn redistribute<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, clusterings : &Vec<Clustering<'a>>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
+pub(crate) fn redistribute<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
 
     #[cfg(debug_assertions)]
     println!("\n  - Phase 3a: Computing spanning trees.");
@@ -107,7 +107,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
         dist_to_tree.push(None); // 0 is our tree at the beginning
         for c in 1..i+1 {
             // priority_queue.push(c,Reverse(Priority{d : space.dist(clustering.get_center(0), clustering.get_center(c))}));
-            dist_to_tree.push(Some(space.dist(clustering.get_center(0), clustering.get_center(c))));
+            dist_to_tree.push(Some(space.dist(clustering.get_center(0,space), clustering.get_center(c,space))));
             closest.push(0);
         }
 
@@ -126,7 +126,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
             dist_to_tree[c1] = None;
             for c2 in 1..i+1 {
                 if dist_to_tree[c2].is_some() { // if it is none it is already part of the tree
-                    let new_d = space.dist(clustering.get_center(c1), clustering.get_center(c2));
+                    let new_d = space.dist(clustering.get_center(c1,space), clustering.get_center(c2,space));
                     if new_d < dist_to_tree[c2].unwrap() {
                         dist_to_tree[c2] = Some(new_d);
                         closest[c2] = c1;

@@ -4,7 +4,7 @@ use super::{Edge,EdgeIdx,flow::{State,add_edge,remove_edge}};
 
 // note that edge_cursor points at the edge that has not been added yet
 // (the edge at edge_curser-1 has been added already)
-pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers<'b>, space: &'b M) -> Clustering<'b>{
+pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>, gonzales: &Centers, space: &M) -> Clustering{
     let mut cursor = edge_cursor;
 
 //    println!("  Edge_cursor: {}", edge_cursor);
@@ -36,7 +36,7 @@ pub(super) fn settle<'a, 'b, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mu
 //    println!("number_of_points_covered: {:?}", state.number_of_covered_points);
 
     let mut centers = Centers::with_capacity(i+1);
-    for c in gonzales.iter().take(i+1) {
+    for c in gonzales.get_all(space).iter().take(i+1) {
         centers.push(c);
     }
 

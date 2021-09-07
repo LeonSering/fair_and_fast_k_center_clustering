@@ -39,7 +39,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn phase4<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters<'a>> {
+pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters> {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 

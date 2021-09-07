@@ -33,8 +33,8 @@ impl fmt::Display for OpeningList {
 /// It contains the forrest and the assignment radius (which was minimized in the sum)
 /// for each gonzales cluster it contains the new centers that needs to be open within this cluster
 #[derive(Debug)]
-pub(crate) struct NewCenters<'a> {
-    pub as_points : Centers<'a>,
+pub(crate) struct NewCenters {
+    pub as_points : Centers,
     pub forrest_radius : Distance,
     pub assignment_radius : Distance,
     pub new_centers_of_cluster : Vec<Vec<CenterIdx>>,
