@@ -106,23 +106,29 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
+/// * a boolean indicating the length of the output. true: verbose; false: only final message
 /// 
 /// # Output 
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
 /// TODO: Update this doc-comment
-pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(space : &M, prob : &ClusteringProblem) -> Clustering {
+pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, verbose : bool) -> Clustering {
     let time_start = Instant::now();
 
-    println!("\n**** Solving: {}", prob);
+    if verbose {
+        println!("\n**** Solving: {}", prob);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     ////////////////////////// Assertions on the ClusteringProblem //////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
     assert_clustering_problem(space, prob);
+
     let time_after_assertions = Instant::now();
-    println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
+    if verbose {
+        println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
+    }
 
     
     /////////////////////////////////////////////////////////////////////////////////////
@@ -135,7 +141,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let gonzales: Centers = gonzales_heuristic(space, prob.k);
 
     let time_after_phase1 = Instant::now();
-    println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzales);
+    if verbose {
+        println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzales);
+    }
 
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
@@ -147,9 +155,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     
 
     let time_after_phase2 = Instant::now();
-    println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
-    for (i,clustering) in clusterings.iter().enumerate() {
-        print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+    if verbose {
+        println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
+        for (i,clustering) in clusterings.iter().enumerate() {
+            print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+        }
     }
     
     // TEMP:
@@ -184,11 +194,13 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
     
     let time_after_phase3 = Instant::now();
-    println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
-    for (i,openings) in opening_lists.iter().enumerate() {
-        println!("\tC_{}:", i);
-        for o in openings.iter() {
-            println!("\t\t{};",o);
+    if verbose {
+        println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
+        for (i,openings) in opening_lists.iter().enumerate() {
+            println!("\tC_{}:", i);
+            for o in openings.iter() {
+                println!("\t\t{};",o);
+            }
         }
     }
 
@@ -203,9 +215,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let new_centers = phase4(space, &prob, opening_lists, &gonzales); 
 
     let time_after_phase4 = Instant::now();
-    println!("\n  - Phase 4 done (time: {:?}): Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3));
-    for (i,centers) in new_centers.iter().enumerate() {
-        println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {};", i, centers.as_points, centers.assignment_radius, centers.forrest_radius);
+    if verbose {
+        println!("\n  - Phase 4 done (time: {:?}): Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3));
+        for (i,centers) in new_centers.iter().enumerate() {
+            println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {};", i, centers.as_points, centers.assignment_radius, centers.forrest_radius);
+        }
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -218,7 +232,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
     let time_after_phase5 = Instant::now();
-    println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
+    if verbose {
+        println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
+    }
 
     println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed.", time_after_phase5.duration_since(time_start));
     final_clustering

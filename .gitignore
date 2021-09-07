@@ -5,3 +5,4 @@
 *.clustering
 *.swp
 .env
+.ipynb*
