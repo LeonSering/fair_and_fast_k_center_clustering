@@ -2,7 +2,7 @@ extern crate ff_k_center;
 use std::fs::create_dir_all;
 
 use ff_k_center::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
-use ff_k_center::Space2D;
+use ff_k_center::SpaceND;
 
 fn main() {
 
@@ -27,7 +27,7 @@ fn main() {
     // };
     
     let space_name = "shifting3";
-    let space = Space2D::by_file(format!("{}.2dspace",space_name).as_str(),15);
+    let space = SpaceND::by_file(format!("{}.2dspace",space_name).as_str(),15);
     let prob = ClusteringProblem{
         k : 4, // number of center;
         privacy_bound : 7, // number of points to represent;

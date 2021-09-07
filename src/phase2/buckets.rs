@@ -66,7 +66,7 @@ pub(super) fn assert_buckets_properties(buckets: &Vec<Vec<Edge>>, n: PointCount,
 mod tests {
     use rand::Rng;
     use super::*;
-    use crate::space::{Point,Space2D,ColoredMetric};
+    use crate::space::{Point,SpaceND,ColoredMetric};
     use crate::types::Distance;
 
     #[test]
@@ -76,7 +76,7 @@ mod tests {
         // create n*k edges with dublicates:
         let mut rng = rand::thread_rng();
         let vals: Vec<Distance> = (0..(n*k/2)).map(|_| 100.0*rng.gen::<Distance>()).collect();
-        let space = Space2D::new_random(n*k);
+        let space = SpaceND::new_random(n*k);
         let points : Vec<&Point> = space.point_iter().collect();
         let list: Vec<Edge> = (0..(n*k)).map(|i| Edge{
             left: i,

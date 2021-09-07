@@ -184,7 +184,7 @@ impl SpaceMatrix {
     ///
     /// # Example
     /// ```rust
-    /// use ff_k_center_lib::{Point,SpaceMatrix,ColoredMetric};
+    /// use ff_k_center::{Point,SpaceMatrix,ColoredMetric};
     /// let space = SpaceMatrix::new_by_array(
     ///                 [[0.0, 2.0, 1.5],
     ///                  [2.0, 0.0, 0.6],
@@ -250,15 +250,15 @@ impl ColoredMetric for SpaceMatrix {
 
 
 ///////////////////////// Space2D /////////////////////////
-type Position = (f32, f32);
+type Position = Vec<f32>;
 // the euclidean metric space in 2D.
 
 // TODO: expand this to k-dim space by using "const generic"
 
-/// A metric space in the euklidean plane. Implements the [ColoredMetric] trait.
-/// Beside the color it also stores the position of type (f32,f32) of each point.
+/// A metric space in the euklidean space of some dim N. Implements the [ColoredMetric] trait.
+/// Beside the color it also stores the position of type Vec<f32> of each point.
 /// The distance is computed by the Eucleadean metric.
-pub struct Space2D{
+pub struct SpaceND{
     points : Vec<Point>,
     positions : Vec<Position>,
     colors : Vec<ColorIdx>,
@@ -268,19 +268,21 @@ use rand::Rng;
 use std::fs::File;
 use std::io::{BufReader,BufRead};
 
-impl Space2D {
-    /// Creates a new metric space of type [Space2D].
-    /// Input: An vector of positions (f32,f32) and a vector of colors (u16).
+impl SpaceND {
+    /// Creates a new metric space of type [SpaceND].
+    /// Input: An vector of positions of type Vec<f32> and a vector of colors of type u16.
     ///
     /// # Panics
     ///
+    /// Panics if positions is an empty vector.
     /// Panics if the two vectors have different size.
+    /// Panics if there are positions of different lengths.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use ff_k_center_lib::{Point,Space2D,ColoredMetric};
-    /// let space_by_points = Space2D::by_2dpoints(vec!((0.0,0.0), (1.5,1.1), (1.0,0.5)), vec!(0,0,1));
+    /// use ff_k_center::{Point,SpaceND,ColoredMetric};
+    /// let space_by_points = SpaceND::by_ndpoints(vec!(vec![0.0,0.0], vec![1.5,1.1], vec![1.0,0.5]), vec!(0,0,1));
     /// 
     /// assert!(space_by_points.is_metric());
     /// 
@@ -292,10 +294,20 @@ impl Space2D {
     /// println!("dist between 1 and 2: {}", space_by_points.dist(points[1],points[2]));
     /// ```
     ///
-    pub fn by_2dpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> Space2D {
+    pub fn by_ndpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> SpaceND {
+        assert!(positions.len() > 0, "There need to be at least one position given.");
+
         assert_eq!(positions.len(),colors.len(),"The number of points in position must equal the number of colors!");
+
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
-        Space2D {
+
+        let dimension = positions[0].len();
+
+        for i in 1..positions.len() {
+            assert_eq!(positions[i].len(), dimension, "Dimension is {}, but positions[{}] has only {} entries", dimension, i, positions[i].len());
+        }
+
+        SpaceND {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
@@ -303,20 +315,20 @@ impl Space2D {
         }
     }
 
-    /// Crates a new metric space of type [Space2D].
+    /// Crates a new metric space of type [SpaceND] of dimension 2.
     /// It containt n random points in the [-100,100]x[-100,100] box with random colors from [1..10]
-    pub fn new_random(n : PointCount) -> Space2D {
+    pub fn new_random(n : PointCount) -> SpaceND {
         let mut rng = rand::thread_rng();
-        let positions = (0..n).map(|_| (rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32))).collect();
+        let positions = (0..n).map(|_| vec![rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32)]).collect();
         let colors = (0..n).map(|_| rng.gen_range(0..10)).collect();
-        Space2D::by_2dpoints(positions, colors)
+        SpaceND::by_ndpoints(positions, colors)
     }
 
-    /// Loads a new metric space of type [Space2D] from a file.
+    /// Loads a new metric space of type [SpaceND] from a file.
     /// The expected_number_of_points is used to allocate enough storage.
-    /// File_path must point into a text-file that stores a triplet in each line, separated by a comma.
-    /// The first two entries of each line must be of type f32 specifying the position (in 2d);
-    /// the third entry must be a non-negative integer specifying the color (of type u16).
+    /// File_path must point into a text-file that stores a tuple in each line, separated by a comma.
+    /// The first entries of each line must be of type f32 specifying the position;
+    /// the last entry must be a non-negative integer specifying the color (of type u16).
     /// 
     /// Example:
     /// ```txt
@@ -329,9 +341,9 @@ impl Space2D {
     /// # Panics
     ///
     /// Panics if the file cannot be open of if it cannot parse the triplets.
-    pub fn by_file(file_path : &str, expected_number_of_points : PointCount) -> Space2D {
+    pub fn by_file(file_path : &str, expected_number_of_points : PointCount) -> SpaceND {
 
-        let f = File::open(file_path).expect("Cannot open file to read 2dpoints.");
+        let f = File::open(file_path).expect("Cannot open file to read ndpoints.");
         let f = BufReader::new(f);
 
 
@@ -339,14 +351,22 @@ impl Space2D {
         let mut positions : Vec<Position> = Vec::with_capacity(expected_number_of_points);
         let mut colors : Vec<ColorIdx> = Vec::with_capacity(expected_number_of_points);
 
+        let mut dim = 0;
+
         for line in f.lines() {
             let content = line.unwrap();
             let content: Vec<&str> = content.split(',').collect();
-            positions.push((content[0].parse::<Distance>().expect(format!("Cannot parse x-entry to f32  on line {}.",positions.len()).as_str()), content[1].parse::<Distance>().expect(format!("Cannot parse y-entry to f32 on line {}.", positions.len()).as_str())));
-            colors.push(content[2].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
+            if dim == 0 {
+                dim = content.len() - 1;
+            } else {
+                assert_eq!(dim, content.len() - 1, "Line {} has the wrong number of entries.", positions.len());
+            }
+
+            positions.push((0..dim).map(|i| content[i].parse::<Distance>().expect(format!("Cannot parse entry {} to f32  on line {}.", i, positions.len()).as_str())).collect());
+            colors.push(content[dim].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
 
         }
-        println!("\n**** Successfully loaded {} points/colors from '{}'", positions.len(), file_path);
+        println!("\n**** Successfully loaded {} points/colors (dimension: {}) from '{}'", positions.len(), dim, file_path);
         
         #[cfg(debug_assertions)]
         {
@@ -362,7 +382,7 @@ impl Space2D {
             println!("\n    colors: {:?}", colors);
         }
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
-        Space2D {
+        SpaceND {
             points : (0..positions.len()).map(|i| Point{index : i}).collect(),
             positions,
             colors,
@@ -371,9 +391,10 @@ impl Space2D {
     }
 }
 
-impl ColoredMetric for Space2D {
+impl ColoredMetric for SpaceND {
     fn dist(&self, x1: &Point, x2: &Point) -> Distance { // euclidean norm
-        let d_squared : Distance = (self.positions[x1.idx()].0 - self.positions[x2.idx()].0) * (self.positions[x1.idx()].0 - self.positions[x2.idx()].0) + (self.positions[x1.idx()].1 - self.positions[x2.idx()].1) *(self.positions[x1.idx()].1 - self.positions[x2.idx()].1);
+        let dim = self.positions[x1.idx()].len();
+        let d_squared : Distance = (0..dim).map(|i| (self.positions[x1.idx()][i] - self.positions[x2.idx()][i]) * (self.positions[x1.idx()][i] - self.positions[x2.idx()][i])).sum();
         d_squared.sqrt()
     }
 

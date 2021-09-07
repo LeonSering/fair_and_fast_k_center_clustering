@@ -4,3 +4,4 @@
 *.centers
 *.clustering
 *.swp
+.env

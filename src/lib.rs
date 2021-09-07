@@ -52,7 +52,7 @@ mod types;
 pub use types::{PointCount,ColorCount,Interval};
 
 mod space;
-pub use space::{Space2D,SpaceMatrix,ColoredMetric,Point};
+pub use space::{SpaceND,SpaceMatrix,ColoredMetric,Point};
 
 mod clustering;
 pub use clustering::{Clustering,Centers};
