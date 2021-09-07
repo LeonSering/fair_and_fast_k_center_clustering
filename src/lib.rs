@@ -111,7 +111,7 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
 /// TODO: Update this doc-comment
-pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &'a ClusteringProblem) -> Clustering<'a> {
+pub fn compute_privacy_preserving_representative_k_center<'a, M : ColoredMetric>(space : &'a M, prob : &ClusteringProblem) -> Clustering<'a> {
     let time_start = Instant::now();
 
     println!("\n**** Solving: {}", prob);

@@ -250,7 +250,7 @@ impl ColoredMetric for SpaceMatrix {
 
 
 ///////////////////////// Space2D /////////////////////////
-type Position = Vec<f32>;
+type Position = Vec<Distance>;
 // the euclidean metric space in 2D.
 
 // TODO: expand this to k-dim space by using "const generic"
