@@ -123,7 +123,12 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     ////////////////////////// Assertions on the ClusteringProblem //////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    assert_clustering_problem(space, prob);
+    match assert_clustering_problem(space, prob) {
+        Err(msg) => {
+            println!("\n\x1b[0;31mInvalidProblemFormulation:\x1b[0m {}", msg);
+            panic!("Invalid problem. Abort!")}
+        _ => {}
+    }
 
     let time_after_assertions = Instant::now();
     if verbose {

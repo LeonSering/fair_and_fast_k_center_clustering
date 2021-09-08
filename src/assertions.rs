@@ -19,12 +19,13 @@ use crate::types::PointCount;
 /// * the number of points of a specific color must be greater or equal to the lower limit of that
 /// color.
 /// * k must be smaller or equal to the sum of the upper limits of the representative intervals.
-pub fn assert_clustering_problem<M : ColoredMetric>(space: &M, prob: &ClusteringProblem) {
+pub fn assert_clustering_problem<M : ColoredMetric>(space: &M, prob: &ClusteringProblem) -> Result<(),String> {
 
-    assert_problem_parameters(prob); // first check, whether prob-parameter are consistent within itself (without the space)
+    assert_problem_parameters(prob)?; // first check, whether prob-parameter are consistent within itself (without the space)
 
-    assert!(space.n() >= prob.k, "we have n < k ({} < {})! We need more points than centers", space.n(), prob.k); // the number of points should not be less than the number of centers
-    assert!(space.n() >= prob.k * prob.privacy_bound, "We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound);
+    if !(space.n() >= prob.k) {return Err(format!("We have n < k ({} < {})! We need more points than centers.", space.n(), prob.k))}; // the number of points should not be less than the number of centers
+
+    if !(space.n() >= prob.k * prob.privacy_bound) {return Err(format!("We have n < k * L ({} < {} * {})! We need enough points so that k center can satisfy the privacy condition.", space.n(), prob.k, prob.privacy_bound))};
 
 
 
@@ -37,10 +38,10 @@ pub fn assert_clustering_problem<M : ColoredMetric>(space: &M, prob: &Clustering
 
     // check if lower bound can be satisfied
     for c in 0..restricted_colors {
-        assert!(number_of_points_of_color[c] >= prob.rep_intervals[c].0, "There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_intervals[c].0);
+        if !(number_of_points_of_color[c] >= prob.rep_intervals[c].0) {return Err(format!("There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_intervals[c].0))};
     }
     for c in restricted_colors..prob.rep_intervals.len() {
-        assert_eq!(prob.rep_intervals[c].0, 0, "We want {} centers of color {}, but there is not a single point of that color. We have gamma = {}.", prob.rep_intervals[c].0, c, space.gamma());
+        if !(prob.rep_intervals[c].0 == 0) {return Err(format!("We want {} centers of color {}, but there is not a single point of that color. We have gamma = {}.", prob.rep_intervals[c].0, c, space.gamma()))};
     }
 
     // check sum of the upper bounds (min{ left side of interval, number of points }) is not
@@ -53,16 +54,18 @@ pub fn assert_clustering_problem<M : ColoredMetric>(space: &M, prob: &Clustering
     for c in restricted_colors..space.gamma() {
         sum_of_b += number_of_points_of_color[c];
     }
-    assert!(sum_of_b >= prob.k, "The sum of the upper bounds of the representative intervals (or the number of points of that color) is {}, which is smaller than k = {}.", sum_of_b, prob.k);
+    if !(sum_of_b >= prob.k) {return Err(format!("The sum of the upper bounds of the representative intervals (or the number of points of that color) is {}, which is smaller than k = {}.", sum_of_b, prob.k))};
+
+    Ok(())
 }
 
 /// Assertions that does not need the metric space.
-pub(crate) fn assert_problem_parameters(prob: &ClusteringProblem) {
+pub(crate) fn assert_problem_parameters(prob: &ClusteringProblem) -> Result<(),String> {
 
-    assert!(prob.k >= 1, "We have k = {}! There should be at least one center.", prob.k); // we want to allow at least 1 center
+    if !(prob.k >= 1) {return Err(format!("We have k = {}! There should be at least one center.", prob.k))}; // we want to allow at least 1 center
 
     for (c, interval) in prob.rep_intervals.iter().enumerate() {
-        assert!(interval.0 <= interval.1, "The interval of color {} is ({}, {}). Lower bound cannot be bigger than the upper bound.", c, interval.0, interval.1);
+        if !(interval.0 <= interval.1) {return Err(format!("The interval of color {} is ({}, {}). Lower bound cannot be bigger than the upper bound.", c, interval.0, interval.1))};
     }
 
     let mut sum_of_a = 0;
@@ -71,5 +74,7 @@ pub(crate) fn assert_problem_parameters(prob: &ClusteringProblem) {
     for (a,_) in prob.rep_intervals.iter() {
         sum_of_a += a;
     }
-    assert!(sum_of_a <= prob.k, "The sum of the lower bounds of the representative intervals is {}, which is larger than k = {}.", sum_of_a, prob.k);
+    if !(sum_of_a <= prob.k) {return Err(format!("The sum of the lower bounds of the representative intervals is {}, which is larger than k = {}.", sum_of_a, prob.k))};
+
+    Ok(())
 }

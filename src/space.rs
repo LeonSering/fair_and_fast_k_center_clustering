@@ -249,11 +249,9 @@ impl ColoredMetric for SpaceMatrix {
 
 
 
-///////////////////////// Space2D /////////////////////////
+///////////////////////// SpaceND /////////////////////////
 type Position = Vec<Distance>;
-// the euclidean metric space in 2D.
-
-// TODO: expand this to k-dim space by using "const generic"
+// the euclidean metric space of dim N.
 
 /// A metric space in the euklidean space of some dim N. Implements the [ColoredMetric] trait.
 /// Beside the color it also stores the position of type Vec<f32> of each point.

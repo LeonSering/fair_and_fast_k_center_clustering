@@ -127,8 +127,6 @@ mod tests {
         let middle = (list.len() - 1)/2;
         let median = median_of_medians(&mut list, middle);
 
-        // TODO Create two lists to compare
-
         clone.sort();
         assert_eq!(median, clone[(clone.len()-1)/2]);
         println!("our median: {}; median by sorting: {}", median, list[(list.len()-1)/2]);
@@ -141,8 +139,6 @@ mod tests {
 
         let t = 200;
         truncate_to_smallest(&mut list, t);
-
-        // TODO Create two lists to compare
 
         clone.sort();
         clone.truncate(t);

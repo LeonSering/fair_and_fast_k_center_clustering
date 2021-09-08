@@ -27,7 +27,7 @@ impl Centers{
 
     /// Return the center of index i (from 0 to m-1)
     pub fn get<'a, M: ColoredMetric>(&self, i: CenterIdx, space: &'a M) -> &'a Point {
-       space.get_point(self.centers[i]).expect("Error: Center is not a point of the current space.")  // TODO: Maybe cloning?
+       space.get_point(self.centers[i]).expect("Error: Center is not a point of the current space.")
     }
 
     /// Adds a new center to the list.

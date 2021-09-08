@@ -9,7 +9,7 @@ use crate::space::SpaceND;
 use crate::assertions::assert_problem_parameters;
 use pyo3::create_exception;
 
-// create_exception!(m, InvalidClusteringProblemError, pyo3::exceptions::PyException);
+create_exception!(m, InvalidClusteringProblemError, pyo3::exceptions::PyException);
 // create_exception!(m, ClusteringProblemMissingError, pyo3::exceptions::PyException);
 // create_exception!(m, DataMissingError, pyo3::exceptions::PyException);
 create_exception!(m, ClusteringMissingError, pyo3::exceptions::PyException);
@@ -52,12 +52,12 @@ impl FFKCenter{
                 rep_intervals,
             };
 
-        assert_problem_parameters(&problem);
-
-        //TODO: Return python error if assertion fails
-
-        // Python::with_gil(|py| Py::new(py,FFKCenter{clustering_problem: problem, space: None, clustering: None}).unwrap())
-        Ok(FFKCenter{prob: Some(problem), space: None, clustering: None})
+        match assert_problem_parameters(&problem) {
+            Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
+            _ => {
+                Ok(FFKCenter{prob: Some(problem), space: None, clustering: None})
+            }
+        }
     }
 
     #[getter]
@@ -75,15 +75,20 @@ impl FFKCenter{
         self.prob.as_ref().expect(NOPROB).rep_intervals.clone()
     }
 
-    fn set_problem_parameters(&mut self, k: PointCount, privacy_bound: PointCount, rep_intervals: Vec<Interval>) {
+    fn set_problem_parameters(&mut self, k: PointCount, privacy_bound: PointCount, rep_intervals: Vec<Interval>) -> PyResult<()>{
         let problem = ClusteringProblem{
                 k,
                 privacy_bound,
                 rep_intervals,
             };
-        assert_problem_parameters(&problem);
-        self.clustering = None;
-        self.prob = Some(problem);
+        match assert_problem_parameters(&problem) {
+            Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
+            _ => {
+                self.clustering = None;
+                self.prob = Some(problem);
+                Ok(())
+            }
+        }
     }
 
     #[setter]
@@ -227,7 +232,7 @@ impl FFKCenter{
     #[args("*", x_dim = "0", y_dim = "1")]
     fn plot2d(&self, x_dim: usize, y_dim: usize) -> PyResult<()> {
         if self.clustering.is_none() {
-            return Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            return Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
         let dim = self.get_data().unwrap()[0].len();
         if x_dim > dim || y_dim > dim {

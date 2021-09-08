@@ -150,7 +150,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
                 continue;
             }
 
-            // we can skip the flow computation if the forrest_radius alone is to be for the
+            // we can skip the flow computation if the forrest_radius alone is bigger than the
             // previously best sum of forrest_radius + assignment_radius
             if current_best_radius <= opening.forrest_radius {
                 #[cfg(debug_assertions)]
@@ -178,12 +178,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
                 println!("  - Flow-network for i = {} and opening_list = {} has been solved before (or less restricted version). Skipping this flow computation.", i, opening);
                 continue;
             }
-
-
-
-            // TODO: test for dublicated openings and copy centers
-            // TODO: only compute flow up to a shift-radius such that shift-radius + tree-radius
-            // can be minimal
 
             let network = Network {
                 edges : &edges,
