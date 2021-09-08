@@ -223,6 +223,7 @@ impl FFKCenter{
     #[args(file_path, "*", expected = "1000")]
     fn load_space_from_file(&mut self, file_path: &str, expected: PointCount) -> PyResult<()> {
         self.space = Some(SpaceND::by_file(file_path, expected));
+        self.clustering = None;
         Ok(())
     }
 
