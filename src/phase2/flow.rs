@@ -11,12 +11,12 @@ pub(super) struct State<'a>{
     reassign: Vec<Vec<VecDeque<&'a Point>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
     unassigned: Vec<VecDeque<&'a Point>>, // unassigned[c] contains all points that are unassigned but could be assigned to c
     // reassign and unassigned might not be correctly updated at all times. E.g., a point in
-    // reassign might not be assigned to c anymore, or not be assignable to t; 
-    // or a point in unassigned might be assigned to some point or not assignable to c. 
+    // reassign might not be assigned to c anymore, or not be assignable to t;
+    // or a point in unassigned might be assigned to some point or not assignable to c.
     // So whenever an element is poped (or we check for is_empty()) it needs to be checked if it still makes sense.
     pub next_to_non_private: Vec<Option<CenterIdx>>, // indicates whether a center is non-private or has a path in centers_graph to a non-private center
     pub number_of_covered_points: Vec<PointCount>, // the number of points covered by center c; if this equals privacy_bound this center is "private"; if it is smaller than it is "non-private".; if the has more than that it is "overfull"
-    pub edge_present: Vec<Vec<bool>>, // edge_present[c][p] denotes whether the arc from center c to point p is currently present in the flow network 
+    pub edge_present: Vec<Vec<bool>>, // edge_present[c][p] denotes whether the arc from center c to point p is currently present in the flow network
 //    pub target_edge: Edge, // TODO determines which edges are in the flow networks and which are not. All edges e with e < target_edge are present; all others are not.
 }
 impl<'a> State<'a> {
@@ -60,7 +60,7 @@ impl<'a> State<'a> {
         self.clean_unassigned(c);
         self.unassigned[c].is_empty()
     }
-    
+
     fn clean_unassigned(&mut self, c: CenterIdx) { // removes invalid entries at the front
         while !self.unassigned[c].is_empty() {
             let p = self.unassigned[c].front().unwrap().idx();
@@ -158,7 +158,7 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProble
                 // also x cannot be part of unassigned[t] at this point, because the moment it was
                 // assigned to t it was poped from unassigned[t] (and it can only enter this queue
                 // again, when edge e is added to the network)
-                rebuild_reachability(prob, state); 
+                rebuild_reachability(prob, state);
                 augment_flow(prob, i, state); // see if we can add a flow unit along other paths
             } else {
 //                println!{"\tarc was not flow carrying!"};

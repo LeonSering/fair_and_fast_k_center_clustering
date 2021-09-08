@@ -57,12 +57,12 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
     //            center: i,
     //            point: p.idx(),
     //            color});
-            
+
     //    }
     //    all_edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
     //}
     //// TEMP END
-    
+
 
 
     // define the neighborhood of each gonzales center
@@ -85,17 +85,17 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
         // we want to consider them in increasing order
         edges.sort_by(|a,b| a.partial_cmp(b).unwrap());
 
-        
+
 
 
         // Note that we only have k^2 edges so at most k^2 point and color classes can occur.
         // We reindex the relevant points and colors. The new indices are called point-node and color-node index and they are
         // used in the flow network
-       
+
         let mut point_to_node: HashMap<PointIdx, PNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a point index to the point-node index used in the flow network
         let mut node_to_point: Vec<PointIdx> = Vec::with_capacity((i+1) * prob.k); // maps a point-node index to the original point index
         let mut point_counter = 0; // number of relevant points (= number of point-nodes)
-        
+
         let mut a: Vec<PointCount> = Vec::with_capacity((i + 1) * prob.k); // lower bound given by the color-node index
         let mut b: Vec<PointCount> = Vec::with_capacity((i +1) * prob.k); // upper bound given by the color-node index
         let mut color_to_node: HashMap<ColorIdx, CNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a color index to the color-node index used in the flow network
@@ -126,7 +126,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
         node_to_point_list.push(node_to_point); // save node_to_point for recreate the point index at the very end of the phase
 
         // edges should also be referrable from their points and their color classes:
-        
+
         let mut edges_by_color_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); color_counter);
         let mut edges_by_point_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); point_counter);
 
@@ -137,7 +137,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
         edges_by_color_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
         edges_by_point_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
 
-      
+
         // The network is almost done, only the opening-vector is missing.
         // println!("point_to_node: {:?}", point_to_node);
 
@@ -209,7 +209,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
                 current_best_radius = new.forrest_radius + new.assignment_radius;
                 shifted_centers[i] = Some(new);
             }
-            
+
         }
 
         // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());

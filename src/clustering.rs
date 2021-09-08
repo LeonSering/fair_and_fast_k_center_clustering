@@ -4,7 +4,7 @@
 
 
 /// Contains two structs (both are only valid together with a space
-/// 
+///
 /// centers: a vector of centers
 /// clustering: centers, radius and assignment of points to centers
 ///
@@ -27,14 +27,14 @@ impl Centers{
 
     /// Return the center of index i (from 0 to m-1)
     pub fn get<'a, M: ColoredMetric>(&self, i: CenterIdx, space: &'a M) -> &'a Point {
-       space.get_point(self.centers[i]).expect("Error: Center is not a point of the current space.")  // TODO: Maybe cloning? 
+       space.get_point(self.centers[i]).expect("Error: Center is not a point of the current space.")  // TODO: Maybe cloning?
     }
-    
+
     /// Adds a new center to the list.
     pub fn push(&mut self, c: &Point) {
         self.centers.push(c.idx());
     }
-    
+
     /// Provides an iterator of the centers.
     pub fn get_all<'a, M: ColoredMetric>(&self, space: &'a M) -> Vec<&'a Point>{
         self.centers.iter().map(|&c| space.get_point(c).expect("Error: Some center is not a point of the current space.")).collect()
@@ -51,10 +51,10 @@ impl Centers{
     /// comma.
     ///
     /// Example:
-    /// 
-    /// ```txt 
+    ///
+    /// ```txt
     /// 0,19,38,29,8,17
-    /// ``` 
+    /// ```
     pub fn save_to_file(&self, file_path : &str){
         let mut f = File::create(file_path).expect("Cannot open file for writing centers");
         let mut text = String::new();
@@ -65,7 +65,7 @@ impl Centers{
         f.write_all(text.as_bytes()).expect("Could not write into centers-file");
 
     }
-    
+
     /// Creates a new empty list of centers. The capacity is used to allocate enough storage on the
     /// heap.
     pub fn with_capacity(capacity : PointCount) -> Centers{
@@ -84,7 +84,7 @@ impl<'a> fmt::Display for Centers {
         }
         Ok(())
     }
-    
+
 }
 
 
@@ -98,7 +98,7 @@ pub struct Clustering{
     /// cluster (list of points) by center idx; might be a super set of the actual points. Entries
     /// are only valid if it matches the information in center_of.
     cluster: Vec<Vec<PointIdx>>,
-    /// the maximal distance between a client and its center 
+    /// the maximal distance between a client and its center
     /// (this is not computed but assigned; so there is some redundance)
     radius : Distance,
     /// By reassigning points the radius might get outdated (its always an upper bound). If this
@@ -120,7 +120,7 @@ use crate::ColoredMetric;
 impl Clustering{
 
     /// Creates a new (partial) clustering for a given list of centers and an assignment of clients
-    /// to center indices; 
+    /// to center indices;
     /// Computes the minimum cover radius, hence, it needs a reference to the metric space;
     /// Computation takes O(n) time.
     ///
@@ -131,7 +131,7 @@ impl Clustering{
     pub fn new<M : ColoredMetric>(centers: Centers, center_of: Vec<Option<CenterIdx>>, space: &M) -> Clustering {
         assert_eq!(center_of.len(),space.n(), "The assignment center_of must have an entry for each point");
 
-        let mut cluster: Vec<Vec<PointIdx>> = vec!(Vec::new(); centers.m()); 
+        let mut cluster: Vec<Vec<PointIdx>> = vec!(Vec::new(); centers.m());
         let mut cluster_sizes: Vec<PointCount> = vec!(0; centers.m());
         let mut radius = <Distance>::MIN;
         for p in space.point_iter() {
@@ -149,19 +149,19 @@ impl Clustering{
 
         Clustering{centers, center_of, cluster, radius, radius_valid: true, cluster_sizes}
     }
-    
+
     // Creates a new empty clustering without any centers.
     // pub fn new_empty() -> Clustering {
         // Clustering {
-            // centers: Centers::with_capacity(1), 
-            // center_of: Vec::new(), 
-            // cluster: Vec::new(), 
-            // radius: <Distance>::MAX, 
-            // radius_valid: false, 
+            // centers: Centers::with_capacity(1),
+            // center_of: Vec::new(),
+            // cluster: Vec::new(),
+            // radius: <Distance>::MAX,
+            // radius_valid: false,
             // cluster_sizes: Vec::new()
         // }
     // }
-    
+
     /// Returns the list of centers
     pub fn get_centers(&self) -> &Centers {
         &self.centers
@@ -207,7 +207,7 @@ impl Clustering{
     }
 
     /// Returns the size of each cluster, i.e., the number of clients that are assigned to each
-    /// center; 
+    /// center;
     /// As this is pre-computed this takes O(1) time.
     pub fn get_cluster_sizes(&self) -> &Vec<PointCount> {
         &self.cluster_sizes

@@ -16,7 +16,7 @@ struct State {
     flow_source_center: Vec<bool>, // true <=> the arc from source to center is saturated (flow = 1)
     flow_source_z: FlowValue, // has capacity sum_of_a
     flow_z_center: Vec<FlowValue>, // one entry for each center j (0 .. i); these arcs have capacity eta_j - 1
-    point_covered_by: Vec<Option<CenterIdx>>, // edge_flow_carrying[p] = Some(j) <=> point with point-node index p is covered by center j <=> edges from j to p and arc from p to l (color of p) is saturated (flow = 1) 
+    point_covered_by: Vec<Option<CenterIdx>>, // edge_flow_carrying[p] = Some(j) <=> point with point-node index p is covered by center j <=> edges from j to p and arc from p to l (color of p) is saturated (flow = 1)
     flow_color_t: Vec<FlowValue>, // one entry for each color class l (color-node index); each has a capacity of a_l - b_l
     flow_t_z: FlowValue, // has capacity k- sum_of_a
     flow_color_sink: Vec<FlowValue>, // one entry for each color class l; each has a capacity of a_l
@@ -34,7 +34,7 @@ impl State {
             current_largest_edge: ColorEdge{ d: <Distance>::MIN, center: 0, point: 0, color: 0},
             flow_value: initial_flow_value, // max flow value
             flow_source_center: vec!(false; net.i+1),
-            flow_source_z: initial_flow_value, 
+            flow_source_z: initial_flow_value,
             flow_z_center: vec!(0; net.i+1),
             point_covered_by: vec!(None;net.number_of_points),
             flow_color_t: vec!(0;net.number_of_colors),
@@ -74,7 +74,7 @@ impl BFSTree {
             center_nodes : vec!(None; i + 1),
             point_nodes : vec!(None; number_of_points),
             color_nodes : vec!(None; number_of_colors),
-            t_node : None, 
+            t_node : None,
             sink_node : None,
         }
 
@@ -84,7 +84,7 @@ impl BFSTree {
 
 #[derive(Debug,Clone)]
 enum Node {
-    Source, 
+    Source,
     Z,
     Center(CenterIdx),
     Point(PointIdx),
@@ -105,7 +105,7 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
     // create a new flow of maximal flow value of min{sum_of_a, i+1} in the network without
     // any color_edges
     let mut state = State::new(network);
-    
+
     // start with an empty bfs_tree
     let mut bfs_tree = BFSTree::new(network.i,network.number_of_points, network.number_of_colors);
     // then start a bfs from the source
@@ -116,7 +116,7 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
 
         // add edge (happens implicitly now)
         state.current_largest_edge = *edge;
-        
+
         let p = network.point_to_node[&edge.point]; // node idx of the point of the edge
         let j = edge.center; // center idx of edge
 
@@ -145,13 +145,13 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
             bfs(&state, &network, &mut bfs_tree, Node::Source);
         }
 
-        
+
 //                println!("\n\tState: {:?}", state);
     }
 
     // println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
     // println!("  Final State: {:?}", state);
-//    println!("  node index of point of last largest edge: {}", network.point_to_node[&state.current_largest_edge.point]); 
+//    println!("  node index of point of last largest edge: {}", network.point_to_node[&state.current_largest_edge.point]);
 
 
     assert_eq!(state.flow_value, network.sum_of_a + network.i + 1, "All edges added but still not all source leaving arcs saturated.");
@@ -239,7 +239,7 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
                     }
 
                     let p:PNodeIdx = *net.point_to_node.get(&edge.point).unwrap();
-                    if tree.point_nodes[p].is_none() && (state.point_covered_by[p].is_none() || state.point_covered_by[p].unwrap() != idx) {  
+                    if tree.point_nodes[p].is_none() && (state.point_covered_by[p].is_none() || state.point_covered_by[p].unwrap() != idx) {
                         // point_node has not been visited yet and edge present in res network
                         tree.point_nodes[p] = Some(Node::Center(idx));
                         queue.push_back(Node::Point(p));
@@ -266,7 +266,7 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
                         tree.center_nodes[j] = Some(Node::Point(idx));
                         queue.push_back(Node::Center(j));
                     }
-                     
+
 
                 }
 
@@ -326,14 +326,14 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
 /// if tree.sink_node == None
 /// Care: If backwards path starting from the sink leads to a cycles, this function
 /// end in a endless loop.
-fn augment_flow(state: &mut State, tree: &BFSTree) { 
+fn augment_flow(state: &mut State, tree: &BFSTree) {
     assert!(tree.sink_node.is_some(), "Cannot augment flow if there is no augmenting path!");
-    
+
     // Augmenting path found!
     state.flow_value += 1;
 
     // Now augment flow along this path:
-    let mut current_node = &Node::Sink; 
+    let mut current_node = &Node::Sink;
     let mut last_node = &Node::Sink;
     loop {
 //        println!("{:?}", current_node);

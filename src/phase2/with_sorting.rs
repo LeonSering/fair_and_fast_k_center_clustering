@@ -27,12 +27,12 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
     let mut edge_iter = edges.iter();
 
     // step 2: solve flow problem
-    
+
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
-    
+
 
     let mut state = initialize_state(space.n(), prob.k);
-    
+
     let mut pending: Vec<VecDeque<Edge>> = (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect();
 
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
@@ -41,7 +41,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
     while i < prob.k { // extend set of gonzales centers one by one
 //        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
-        
+
         while !pending[i].is_empty() {
             let e = pending[i].pop_front().unwrap();
             assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
@@ -51,7 +51,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
 
         while state.max_flow < (i + 1) * prob.privacy_bound {
 
-          
+
             let e = *edge_iter.next().expect("no edges remaining");
 
             let t = e.left; // t is the index of the center on the left of e
@@ -65,7 +65,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
 //                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
             }
             current_d = e.d;
-            
+
         }
 
 
@@ -85,7 +85,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
         #[cfg(debug_assertions)]
         assert_eq!(current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
         clusterings.push(clustering);
-        
+
         i += 1;
     }
     for clustering in clusterings.iter_mut() {

@@ -4,7 +4,7 @@ use crate::types::PointCount;
 /// Asserts a clustering problem.
 /// Checks whether the clustering problem is feasible. If this assertions runs through the main
 /// algorithm will return a feasible clustering.
-/// 
+///
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
@@ -44,7 +44,7 @@ pub fn assert_clustering_problem<M : ColoredMetric>(space: &M, prob: &Clustering
     }
 
     // check sum of the upper bounds (min{ left side of interval, number of points }) is not
-    // smaller than k 
+    // smaller than k
     let mut sum_of_b = 0;
     for c in 0..restricted_colors {
         let upper_bound = if prob.rep_intervals[c].1 < number_of_points_of_color[c] {prob.rep_intervals[c].1} else {number_of_points_of_color[c]};

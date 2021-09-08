@@ -71,7 +71,7 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
         median = sublist[(sublist.len()-1) / 2];
     } else {
         let middle = (sublist.len()-1)/2;
-        median = median_of_medians(&mut sublist, middle); 
+        median = median_of_medians(&mut sublist, middle);
     }
 
 
@@ -103,7 +103,7 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
     list.append(&mut left);
     list.push(median);
     list.append(&mut right);
-    pivot 
+    pivot
 }
 
 

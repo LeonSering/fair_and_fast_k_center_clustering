@@ -23,7 +23,7 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
                 center: i,
                 point: p.idx(),
                 color});
-            
+
         }
 
 
@@ -46,9 +46,9 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         for c in restricted_colors..space.gamma() {
             remaining_edges.append(&mut edges_by_color[c]);
         }
-        
+
         // so far sum(a) edges where chosen, so we fill up with the nearest k - sum(a) edges,
-        // independent of the color 
+        // independent of the color
         utilities::truncate_to_smallest(&mut remaining_edges,num_edges_to_fill);
 
 

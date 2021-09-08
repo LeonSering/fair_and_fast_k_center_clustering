@@ -35,7 +35,7 @@ impl FFKCenter{
     fn get_space(&self) -> &SpaceND {
         self.space.as_ref().expect(NOSPACE)
     }
-    
+
     fn get_prob(&self) -> &ClusteringProblem {
         self.prob.as_ref().expect(NOCLUSTERING)
     }
@@ -55,7 +55,7 @@ impl FFKCenter{
         assert_problem_parameters(&problem);
 
         //TODO: Return python error if assertion fails
-        
+
         // Python::with_gil(|py| Py::new(py,FFKCenter{clustering_problem: problem, space: None, clustering: None}).unwrap())
         Ok(FFKCenter{prob: Some(problem), space: None, clustering: None})
     }
@@ -97,7 +97,7 @@ impl FFKCenter{
         self.prob.as_mut().expect(NOPROB).privacy_bound = privacy_bound;
         self.clustering = None;
     }
-    
+
     #[setter]
     fn set_rep_intervals(&mut self, rep_intervals: Vec<Interval>) {
         self.prob.as_mut().expect(NOPROB).rep_intervals = rep_intervals;
@@ -114,10 +114,10 @@ impl FFKCenter{
     fn get_colors(&self) -> PyResult<Vec<ColorIdx>> {
         Ok(self.space.as_ref().expect(NOSPACE).get_colors())
     }
-   
+
     /// Input:
     /// Input: 2d-Array. An array of Datapoints, which are an array of dimension-many floats
-    /// (Value). TODO: Use 2d-Numpy Array here.
+    /// (Value).
     /// A 1d-Array containing a color-label for each datapoint.
     ///
     /// Creates a MetricSpace with colors.
@@ -129,7 +129,7 @@ impl FFKCenter{
 
     /// Executes the algorithm.
     /// Input: 2d-Array. An array of Datapoints, which are an array of dimension-many floats
-    /// (Value). TODO: Use 2d-Numpy Array here.
+    /// (Value).
     /// A 1d-Array containing a color-label for each datapoint.
     /// Optional: keyword-argument: verbose = false
     ///
@@ -157,7 +157,7 @@ impl FFKCenter{
     fn get_centers(&self) -> PyResult<Vec<PointIdx>> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_centers().get_all(self.get_space()).iter().map(|c| c.idx()).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
 
@@ -167,7 +167,7 @@ impl FFKCenter{
     fn get_cluster_labels(&self) -> PyResult<Vec<Option<CenterIdx>>> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_assignment().iter().map(|x| *x).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
 
@@ -177,7 +177,7 @@ impl FFKCenter{
         match &self.clustering {
             Some(clust) => Ok(clust.get_assignment().iter()
                               .map(|x| if x.is_none() {None} else {Some(self.get_centers().unwrap()[x.unwrap()])}).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
 
@@ -186,7 +186,7 @@ impl FFKCenter{
     fn get_number_of_centers(&self) -> PyResult<PointCount> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_centers().m()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
 
@@ -195,19 +195,32 @@ impl FFKCenter{
     fn get_radius(&self) -> PyResult<Distance> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_radius()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
 
-    fn save_to_file(&self, file_path: &str) -> PyResult<()>{
+    /// Saves clusterig in txt-file. One line for each cluster.
+    fn save_clustering_to_file(&self, file_path: &str) -> PyResult<()>{
         match &self.clustering {
             Some(clust) => { clust.save_to_file(file_path);
                 Ok(())
             }
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)) //TODO: Check whether correct Error Type
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
         }
     }
-    
+
+    /// Load points and colours from txt-file.
+    /// Input: file_path to txt-file in which each line represents one point: first the position as
+    /// float, last entry is the color label as int. Values are separated by ',' (no comma at the
+    /// end)
+    /// Optional: expected can be set to the expected number of points to speed up the process.
+    /// (Default: 1000).
+    #[args(file_path, "*", expected = "1000")]
+    fn load_space_from_file(&mut self, file_path: &str, expected: PointCount) -> PyResult<()> {
+        self.space = Some(SpaceND::by_file(file_path, expected));
+        Ok(())
+    }
+
     /// Plot the clustering into the 2d-plane. Matplotlib must be installed.
     /// Optional: Specify the dimension for the x- and y-axes via x_dim and y_dim.
     /// Default is x_dim = 0, y_dim = 1.

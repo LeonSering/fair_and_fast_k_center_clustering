@@ -37,7 +37,7 @@ pub (crate) struct Edge<'a> { // Care: The ordering of attributes is important f
 
 /// Given a metric space and a ClusteringProblem, make_private takes a set of ordered centers
 /// 0,...,k-1, and determines for each prefix of centers (0,...,i) a partial clustering with minimal radius that satisfy the
-/// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points. 
+/// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points.
 pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, gonzales : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
@@ -76,9 +76,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
     // step 2: solve flow problem
     #[cfg(debug_assertions)]
     println!("\n  - Phase 2b: Determine smallest radii and partial assignments that satisfy privacy-condition (privacy_bound = {}).", prob.privacy_bound);
-    
+
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
-    
+
 
     let b = buckets.len(); // number of buckets
 
@@ -120,12 +120,12 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
         while state.max_flow < (i + 1) * prob.privacy_bound {
             assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*prob.privacy_bound);
 
-          
+
             if edge_cursor >= buckets[j].len() { //the current bucket has been completed
                 j += 1;
 //                println!("\n\n************************ Bucket {} ***********************", j);
                 assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
-                edge_cursor = 0; 
+                edge_cursor = 0;
                 continue; //continue the while loop
             }
             let e = buckets[j][edge_cursor];
@@ -142,19 +142,19 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
             }
             edge_cursor += 1;
 
-            
+
         }
 
 
         // at this point, we have identified the bucket that settles the set S_i
         #[cfg(debug_assertions)]
-        
-        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); 
+
+        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed");
         // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-        
+
 //        println!("\n+++ Center {} settles in bucket {}:\n", i, j);
         clusterings.push(settle(edge_cursor, &mut buckets[j], i, prob, &mut state, &gonzales, space));
-        
+
         // start bucket from beginning, hence clear all pendings
         edge_cursor = 0;
         for t in i..prob.k {
@@ -170,7 +170,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }
-    
+
     clusterings
 }
 

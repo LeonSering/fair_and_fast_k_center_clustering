@@ -13,7 +13,7 @@ use crate::clustering::Clustering;
 /// Given a metric space and a clusting problem,
 /// redistribute takes a vector of (full) clusterings, each satisfying the privacy constrait
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
-/// centers that can be opened in the neighborhood of each center. 
+/// centers that can be opened in the neighborhood of each center.
 /// It also updates the clusterings (shifting points around) to match this eta.
 pub(crate) fn redistribute<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
 
@@ -53,7 +53,7 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
     // this stacks contains all nodes in the order discovered by an BFS starting from the root;
     // we push point in the reverse ordering (therefore a stack)
     let mut stack = spanning_tree.build_bfs_stack(threshold);
-    
+
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
         // println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
@@ -83,7 +83,7 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
 ////// Spanning Tree Computation ////////
 
 /// Given a set of clusterings (one for each gonzales set), return a minimum spanning tree on the
-/// centers, one for each clustering 
+/// centers, one for each clustering
 fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> Vec<RootedSpanningTree> {
 
     let mut spanning_trees : Vec<RootedSpanningTree> = Vec::with_capacity(prob.k);
@@ -98,8 +98,8 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
 
         let mut dist_to_tree: Vec<Option<Distance>> = Vec::with_capacity(i+1); // None means beeing part of the tree
         let mut closest: Vec<CenterIdx> = Vec::with_capacity(i+1); // denotes the cloeset center that is already in the tree
-       
-        
+
+
         let mut edges_to_children: Vec<Vec<UpEdge>> = vec!(Vec::new(); i+1);
 
         // we start with center 0 as singleton spanning tree
@@ -114,7 +114,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
         for _ in 1..i+1 {
             // let c1 = argmin dist_to_tree[c], i.e., its the center that is closest to the tree
             // (but not part of it yet)
-            let (c1,_) = dist_to_tree.iter().enumerate().filter(|(_,dist)| dist.is_some()).min_by(|(_,dist1),(_,dist2)| dist1.as_ref().unwrap().partial_cmp(dist2.as_ref().unwrap()).unwrap()).unwrap(); 
+            let (c1,_) = dist_to_tree.iter().enumerate().filter(|(_,dist)| dist.is_some()).min_by(|(_,dist1),(_,dist2)| dist1.as_ref().unwrap().partial_cmp(dist2.as_ref().unwrap()).unwrap()).unwrap();
 
             // add c1 to the tree by adding the arc from c1 to the closest center within the tree
             let edge = UpEdge{down : c1, up : closest[c1], d: dist_to_tree[c1].unwrap()};
@@ -136,7 +136,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
 
             }
         }
-        
+
         // sort edges such that spanning_tree[5] refers to the edge from node 5 to the parent of 5
         // (node 0 has not parent so the value is 0
         spanning_tree.sort_by(|a,b| a.down.cmp(&b.down));
@@ -144,7 +144,7 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
         spanning_tree_edges.push(None); // The Root (Center 0) has no UpEdge
         spanning_tree_edges.extend(spanning_tree.into_iter().map(|e| Some(e)));
 
-        
+
 
         spanning_trees.push(RootedSpanningTree::new(spanning_tree_edges, edges_to_children));
 

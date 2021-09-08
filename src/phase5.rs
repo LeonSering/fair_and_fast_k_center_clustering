@@ -30,7 +30,7 @@ pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, c
         // first realize the shifting of phase 3 but this time really shift the points:
         point_shifting(space, prob.privacy_bound, &mut clustering_list[i], &spanning_trees[i], threshold);
 
-        
+
         // now assign the points of each cluster the new centers and compute the radius:
         let (radius, new_assignment) = assign_points_to_new_centers(space, prob, i, &clustering_list[i], new_centers);
 
@@ -63,7 +63,7 @@ fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clus
     // this stacks contains all nodes in the order discovered by an BFS starting from the root;
     // we push point in the reverse ordering (therefore a stack)
     let mut stack = spanning_tree.build_bfs_stack(threshold);
-    
+
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
@@ -87,7 +87,7 @@ fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clus
 
 
 fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier: CenterIdx, consumer: CenterIdx, number: PointCount) {
-    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier,space).iter().cloned().map(|p| 
+    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier,space).iter().cloned().map(|p|
             PointCenterLink { dist: space.dist(p, clustering.get_centers().get(consumer,space)),
                               point: p,
                               center_idx: consumer }).collect();
@@ -177,7 +177,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
                         }
 
                     }
-                    
+
                 }
                 new_assignment[entry.point.idx()] = Some(chosen_center);
                 if dist_to_chosen_center > radius {
@@ -196,7 +196,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
 
         } // end of batch
 
-    } // and of cluster 
+    } // and of cluster
     (radius, new_assignment)
 
 }

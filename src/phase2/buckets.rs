@@ -16,7 +16,7 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
 
 //    println!("\nList before: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
     let (smaller, bigger) = utilities::split_at_median(&mut list);
-    
+
 //    println!("smaller: {:?}", smaller.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("bigger: {:?}", bigger.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("List after: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());

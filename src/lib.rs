@@ -80,8 +80,8 @@ mod phase5;
 use phase5::phase5;
 
 
-mod numpy_interface;
-use numpy_interface::FFKCenter;
+mod python_interface;
+use python_interface::FFKCenter;
 
 
 use pyo3::prelude::*;
@@ -101,14 +101,14 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 
 
 /// Computes a privacy preserving representative k-clustering.
-/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>). 
+/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>).
 ///
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
 /// * a boolean indicating the length of the output. true: verbose; false: only final message
-/// 
-/// # Output 
+///
+/// # Output
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
 /// TODO: Update this doc-comment
@@ -130,7 +130,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
         println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
     }
 
-    
+
     /////////////////////////////////////////////////////////////////////////////////////
     // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
@@ -148,11 +148,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
-    
+
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
     let mut clusterings : Vec<Clustering> = make_private(space, prob, &gonzales);
-    
+
 
     let time_after_phase2 = Instant::now();
     if verbose {
@@ -161,7 +161,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
     }
-    
+
     // TEMP:
     #[cfg(debug_assertions)]
     {
@@ -173,7 +173,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
     }
-    
+
     #[cfg(debug_assertions)]
     {
         for i in 0..prob.k {
@@ -186,13 +186,13 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     // phase 3: redistribute assignment, s.t. sizes are multiple of L //
     ////////////////////////////////////////////////////////////////////
     let time_before_phase3 = Instant::now();
-    
+
     #[cfg(debug_assertions)]
     println!("\n**** Phase 3 ****");
-    
+
     let (spanning_trees, opening_lists) = redistribute(space, prob, &clusterings);
 
-    
+
     let time_after_phase3 = Instant::now();
     if verbose {
         println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
@@ -208,11 +208,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     //////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and  determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
-    
+
     #[cfg(debug_assertions)]
     println!("\n**** Phase 4 ****");
 
-    let new_centers = phase4(space, &prob, opening_lists, &gonzales); 
+    let new_centers = phase4(space, &prob, opening_lists, &gonzales);
 
     let time_after_phase4 = Instant::now();
     if verbose {
@@ -225,10 +225,10 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     ////////////////////////////////////////////////////////////////////////////////////////////
     // phase 5: assign point to the final point of centers and determine the final clustering //
     ////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
-    
+
     let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
     let time_after_phase5 = Instant::now();
