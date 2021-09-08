@@ -5,7 +5,7 @@
 //! First create a metric space with color classes by either loading them through a file or by
 //! manually entering the distance matrix and colors.
 //! The metric space must implement the [ColoredMetric]-trait.
-//! For details on how to create or load metric spaces see: [SpaceMatrix] and [Space2D].
+//! For details on how to create or load metric spaces see: [SpaceMatrix] and [SpaceND].
 //!
 //! Then create a [ClusteringProblem] by specifying the maximal number of clusters k, the lower bound
 //! for privacy condition privacy_bound, and a list intervals (one for each color class) for the representaive conditon.
