@@ -5,7 +5,7 @@ use pyo3::types::PyDict;
 use crate::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
 use crate::clustering::Clustering;
 use crate::types::{PointCount,Interval,CenterIdx,PointIdx,ColorIdx,Distance};
-use crate::space::SpaceND;
+use crate::space::{ColoredMetric,SpaceND};
 use crate::assertions::assert_problem_parameters;
 use pyo3::create_exception;
 
@@ -18,6 +18,10 @@ create_exception!(m, DimensionMismatchError, pyo3::exceptions::PyException);
 const NOPROB: &str = "No clustering problem defined yet. Run set_problem_parameters(k,privacy_bound,rep_intervals)";
 const NOCLUSTERING: &str = "No clustering computed yet. Run fit(data,colors) or compute_clustering()";
 const NOSPACE: &str = "No space defined yet. Run insert(data,colors) or fit(data,colors).";
+
+
+use crate::phase2;
+use crate::clustering::Centers;
 
 #[pyclass]
 pub(crate) struct FFKCenter {
@@ -264,7 +268,6 @@ impl FFKCenter{
             locals.set_item("colors_centers", colors_centers).unwrap();
 
             locals.set_item("cluster_labels", cluster_labels).unwrap();
-            // py_run!(py,list, r#"print("hi")"#);
             py.run(
 r#"import matplotlib.pyplot as plt
 fig = plt.figure(figsize=(12,8))
@@ -275,6 +278,31 @@ for p in range(0, len(cluster_labels)):
 plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zorder = 1.0)"#,
                 None,Some(locals)).unwrap();
             });
+        Ok(())
+    }
+
+    /// Computes a private assignment for the given list of centers (by point idx).
+    /// Needs data to be assigned to the model and a clustering problem.
+    /// Ignores the color data, as well as, k and rep_intervals and only uses data and
+    /// privacy_bound.
+    /// The assignment can be accessed by model.assignment and the radius via model.radius. 
+    /// Note that this does not compute a ff_k_center clustering.
+    fn private_assignment_by_centers(&mut self, centers: Vec<PointIdx>) -> PyResult<()> {
+        let k = centers.len();
+        self.set_k(k);
+
+        let space = self.get_space();
+        let n = space.n();
+
+        let prob = self.get_prob();
+        if n < k * prob.privacy_bound {
+            return Err(InvalidClusteringProblemError::new_err(
+                    format!("Not enough points (n = {}) to satisfy the privacy_bound of {} for k = {} centers.", n, prob.privacy_bound, k)));
+        }
+
+        let centers = Centers::new(centers);
+
+        self.clustering = Some(phase2::make_private(space, &prob, &centers).pop().unwrap());
         Ok(())
     }
 

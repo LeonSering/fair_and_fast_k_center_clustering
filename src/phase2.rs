@@ -36,8 +36,9 @@ pub (crate) struct Edge<'a> { // Care: The ordering of attributes is important f
 
 
 /// Given a metric space and a ClusteringProblem, make_private takes a set of ordered centers
-/// 0,...,k-1, and determines for each prefix of centers (0,...,i) a partial clustering with minimal radius that satisfy the
-/// privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points.
+/// 0,...,k-1, and, in a first step, determines for each prefix of centers (0,...,i) a partial clustering
+/// with minimal radius that satisfy the privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points.
+/// Afterwards it assigns the remaining points to the nearest center to provide a full clustering.
 pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, gonzales : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).

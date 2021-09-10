@@ -20,6 +20,12 @@ pub struct Centers{
 use std::fs::File;
 use std::io::prelude::*;
 impl Centers{
+
+    /// Creates a new list of centers from a vector of point indices.
+    pub fn new(centers: Vec<PointIdx>) -> Centers {
+        Centers{centers} 
+    }
+
     /// Returns the number of centers m.
     pub fn m(&self) -> PointCount {
         self.centers.len()
