@@ -146,6 +146,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
 
             // first test if eta-vector makes sense at all:
             if sum_of_a > opening.eta.iter().sum() {
+                #[cfg(debug_assertions)]
                 println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
                 continue;
             }
