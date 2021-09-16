@@ -33,7 +33,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
 
     let mut state = initialize_state(space.n(), prob.k);
 
-    let mut pending: Vec<VecDeque<Edge>> = (0..prob.k).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect();
+    let mut pending: Vec<VecDeque<Edge>> = (0..prob.k).map(|_| VecDeque::new()).collect();
 
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
 
