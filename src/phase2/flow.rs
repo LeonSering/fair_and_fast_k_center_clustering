@@ -78,8 +78,8 @@ pub(super) fn initialize_state<'a>(n: PointCount, k: PointCount) -> State<'a> {
     State {
         center_of: vec!(None; n), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
         max_flow: 0,
-        reassign: (0..k).map(|_| (0..k).map(|_| VecDeque::with_capacity(k*k)).collect()).collect(),
-        unassigned: (0..k).map(|_| VecDeque::with_capacity(k*k)).collect(),
+        reassign: (0..k).map(|_| (0..k).map(|_| VecDeque::new()).collect()).collect(),
+        unassigned: (0..k).map(|_| VecDeque::new()).collect(),
         next_to_non_private: (0..k).map(|l| Some(l)).collect(), // in the beginning all centers are non_private
         number_of_covered_points: vec![0; k],
         edge_present: vec!(vec!(false; n); k),

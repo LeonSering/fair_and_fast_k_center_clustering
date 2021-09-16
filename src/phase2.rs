@@ -55,7 +55,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
 
 //    println!("edges: {:?}", edges);
 
-    // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 1)
+    // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 2)
     let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), prob.k, power_of_k);
 
@@ -83,13 +83,12 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
 
     let b = buckets.len(); // number of buckets
 
-
-    // TODO: think of correct Vec_capacities
-    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::with_capacity(prob.k*prob.k)).collect()).collect();
+    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::new()).collect()).collect();
        // pending[j][t] contains edges from buckets[t] with left = j (which is a center not considered yet)
        // note that t can also be the current bucket, but then pending only contains edges that has
        // a distance small than the settled radius of the previous center, i.e., they can be added
        // fearlessly
+    
     let mut state = initialize_state(space.n(),prob.k);
 
 
@@ -100,7 +99,8 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
 
 //    println!("\n\n************************ Bucket {} ***********************", j);
     while i < prob.k { // extend set of gonzales centers one by one
-//        println!{"\n+++ center {} now considered!\n", i};
+        #[cfg(debug_assertions)]
+        println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
         for c in 0..j {
