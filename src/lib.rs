@@ -26,6 +26,7 @@
 use std::fmt;
 use std::time::Instant;
 
+#[derive(Clone)]
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
     pub privacy_bound : PointCount, // lower bound of representation L

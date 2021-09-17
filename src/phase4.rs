@@ -1,13 +1,17 @@
 use crate::{ClusteringProblem,Centers,ColoredMetric};
 use crate::types::{PointCount,PointIdx,ColorCount,ColorIdx,Distance,CenterIdx};
 use super::datastructures::{OpeningList,NewCenters};
-use std::collections::HashMap;
+use std::collections::{HashMap,VecDeque};
 
 mod neighborhood;
 use neighborhood::determine_neighborhood;
 
 mod color_flow;
 use color_flow::compute_assignment_by_flow;
+
+// for parallel execution:
+use std::sync::{mpsc,Arc};
+use std::thread;
 
 /// an edge between a gonzales center and a color class;
 /// lablled with the point and the distance between center and point
@@ -39,7 +43,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<NewCenters>, Vec<usize>) {
+pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<NewCenters>, Vec<usize>) {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 
@@ -70,156 +74,30 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
     // each center has to be connected to the clostest a_l ponits of each color class l
     // fill up the neighborhood to k points with the closest remaining points (but never more than b_l
     // points of color l)
-    let edges_of_cluster: Vec<Vec<ColorEdge>> = determine_neighborhood(space, prob, gonzales);
+
+    let edges_of_cluster: Arc<Vec<Vec<ColorEdge>>> = Arc::new(determine_neighborhood(space, prob, gonzales));
+
+    let mut receivers = VecDeque::with_capacity(prob.k);
 
     // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
+    for i in (0..prob.k).rev() {
+        let opening_list = opening_lists.pop().unwrap();
+        let (tx, rx) = mpsc::channel();
+        receivers.push_front(rx);
+        
+        let edges_of_cluster = Arc::clone(&edges_of_cluster);
+
+        let problem = prob.clone();
+        thread::spawn(move || {
+            let (centers,node_to_point, count) = shift_centers(problem, sum_of_a, i, &edges_of_cluster,opening_list);
+            tx.send((centers, node_to_point, count)).unwrap();
+        });
+    }
     for i in 0..prob.k {
-        #[cfg(debug_assertions)]
-        println!("\n\n************** Phase 4; i = {} ******************", i);
-
-        // except for the opening vector the network can be defined now:
-
-        // first, collect all edges in the neighborhood of centers 0 to i.
-        let mut edges: Vec<&ColorEdge> = Vec::with_capacity((i+1) * prob.k); // a reference to all edges with centers in S_i
-        for j in 0..i+1 {
-            edges.extend(edges_of_cluster[j].iter());
-        }
-        // we want to consider them in increasing order
-        edges.sort_by(|a,b| a.partial_cmp(b).unwrap());
-
-
-
-
-        // Note that we only have k^2 edges so at most k^2 point and color classes can occur.
-        // We reindex the relevant points and colors. The new indices are called point-node and color-node index and they are
-        // used in the flow network
-
-        let mut point_to_node: HashMap<PointIdx, PNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a point index to the point-node index used in the flow network
-        let mut node_to_point: Vec<PointIdx> = Vec::with_capacity((i+1) * prob.k); // maps a point-node index to the original point index
-        let mut point_counter = 0; // number of relevant points (= number of point-nodes)
-
-        let mut a: Vec<PointCount> = Vec::with_capacity((i + 1) * prob.k); // lower bound given by the color-node index
-        let mut b: Vec<PointCount> = Vec::with_capacity((i +1) * prob.k); // upper bound given by the color-node index
-        let mut color_to_node: HashMap<ColorIdx, CNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a color index to the color-node index used in the flow network
-        let mut color_counter = 0; // number of relevant colors (= number of color-nodes)
-
-        let mut point_idx_to_color_idx: Vec<ColorIdx> = Vec::with_capacity((i+1) * prob.k);
-
-        for e in edges.iter() { // there are k^2 edges
-            if !color_to_node.contains_key(&e.color) {
-                color_to_node.insert(e.color, color_counter);
-                if e.color >= prob.rep_intervals.len() {
-                    a.push(0);
-                    b.push(<PointCount>::MAX);
-                } else {
-                    a.push(prob.rep_intervals[e.color].0);
-                    b.push(prob.rep_intervals[e.color].1);
-                }
-                color_counter += 1;
-            }
-            if !point_to_node.contains_key(&e.point) {
-                point_to_node.insert(e.point, point_counter);
-                node_to_point.push(e.point);
-                point_idx_to_color_idx.push(*color_to_node.get(&e.color).unwrap());
-                point_counter += 1;
-            }
-        }
-
+        let (centers, node_to_point, count) = receivers[i].recv().unwrap();
+        shifted_centers[i] = centers;
         node_to_point_list.push(node_to_point); // save node_to_point for recreate the point index at the very end of the phase
-
-        // edges should also be referrable from their points and their color classes:
-
-        let mut edges_by_color_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); color_counter);
-        let mut edges_by_point_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); point_counter);
-
-        for e in edges.iter() {
-            edges_by_color_node[color_to_node[&e.color]].push(e);
-            edges_by_point_node[point_to_node[&e.point]].push(e);
-        }
-        edges_by_color_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
-        edges_by_point_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
-
-
-        // The network is almost done, only the opening-vector is missing.
-        // println!("point_to_node: {:?}", point_to_node);
-
-        let mut current_best_radius = <Distance>::MAX;
-
-        for (j, opening) in opening_lists[i].iter().enumerate() {
-
-
-            // we can skip the flow computation if the forrest_radius alone is bigger than the
-            // previously best sum of forrest_radius + assignment_radius
-            if current_best_radius <= opening.forrest_radius {
-                #[cfg(debug_assertions)]
-                println!("  - Flow-network for i = {} and open_list = {} is obsolet as the forrest_radius is bigger than forrest_radius + assignment_radius of earlier open list (= {}).", i, opening, current_best_radius);
-                continue;
-
-            }
-
-            // first test if eta-vector makes sense at all:
-            if sum_of_a > opening.eta.iter().sum() {
-                #[cfg(debug_assertions)]
-                println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
-                continue;
-            }
-
-            // now test if the exact (or less restrictive) flow problem has been solved already:
-            let mut has_been_solved = false;
-            for old in 0..j {
-                let old_eta = &opening_lists[i][old].eta;
-                let mut old_equal_or_bigger = true;
-                for l in 0..old_eta.len() {
-                    if opening.eta[l] > old_eta[l] {
-                        old_equal_or_bigger = false;
-                        break;
-                    }
-                }
-                if old_equal_or_bigger {
-                    has_been_solved = true;
-                    break;
-                }
-            }
-            if has_been_solved {
-                #[cfg(debug_assertions)]
-                println!("  - Flow-network for i = {} and opening_list = {} has been solved before (or less restricted version). Skipping this flow computation.", i, opening);
-                continue;
-            }
-
-            let network = Network {
-                edges : &edges,
-                k : prob.k,
-                opening,
-                i,
-                number_of_points: point_counter,
-                number_of_colors: color_counter,
-                sum_of_a,
-                a : &a,
-                b : &b,
-                edges_of_cluster : &edges_of_cluster,
-                point_to_node : &point_to_node,
-                point_idx_to_color_idx : &point_idx_to_color_idx,
-                edges_by_color_node : &edges_by_color_node,
-                edges_by_point_node : &edges_by_point_node,
-            };
-
-            counts[i] += 1;
-
-            // for each eta vector we solve the flow problem individually:
-            let new = compute_assignment_by_flow(&network);
-
-            if current_best_radius > new.forrest_radius + new.assignment_radius {
-                current_best_radius = new.forrest_radius + new.assignment_radius;
-                shifted_centers[i] = Some(new);
-            }
-
-        }
-        #[cfg(debug_assertions)]
-        println!("number of flow problem for i = {} solved: {}", i, counts[i]);
-
-        // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
-
-
+        counts[i] = count;
     }
 
 
@@ -245,6 +123,168 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
 
     (new_centers, counts)
 }
+
+/// The following function is executed once for each gonzales prefix C_i.
+/// First the flow network network is prepared.
+/// For each of the i opening_list (one for each forest) it checks wether this flow problem has
+/// been solved already. Then it executes the flow algorithm to obtain new shifted centers.
+/// It only return the best shifted centers for this Gonzales prefix.
+///
+/// Output: shifted_centers (None if not feasible),
+/// node_to_point : maps node index to point index,
+/// count : number of flow problems that have been solved,
+fn shift_centers(prob: ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, edges_of_cluster: &Vec<Vec<ColorEdge>>, opening_lists: Vec<OpeningList>) -> (Option<ShiftedCenters>, Vec<PointIdx>, usize){
+    #[cfg(debug_assertions)]
+    println!("\n\n************** i = {} (in Phase 4) ******************", i);
+
+    // except for the opening vector the network can be defined now:
+
+    // first, collect all edges in the neighborhood of centers 0 to i.
+    let mut edges: Vec<&ColorEdge> = Vec::with_capacity((i+1) * prob.k); // a reference to all edges with centers in S_i
+    for j in 0..i+1 {
+        edges.extend(edges_of_cluster[j].iter());
+    }
+    // we want to consider them in increasing order
+    edges.sort_by(|a,b| a.partial_cmp(b).unwrap());
+
+
+
+
+    // Note that we only have k^2 edges so at most k^2 point and color classes can occur.
+    // We reindex the relevant points and colors. The new indices are called point-node and color-node index and they are
+    // used in the flow network
+
+    let mut point_to_node: HashMap<PointIdx, PNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a point index to the point-node index used in the flow network
+    let mut node_to_point: Vec<PointIdx> = Vec::with_capacity((i+1) * prob.k); // maps a point-node index to the original point index
+    let mut point_counter = 0; // number of relevant points (= number of point-nodes)
+
+    let mut a: Vec<PointCount> = Vec::with_capacity((i + 1) * prob.k); // lower bound given by the color-node index
+    let mut b: Vec<PointCount> = Vec::with_capacity((i +1) * prob.k); // upper bound given by the color-node index
+    let mut color_to_node: HashMap<ColorIdx, CNodeIdx> = HashMap::with_capacity((i + 1) * prob.k); // maps a color index to the color-node index used in the flow network
+    let mut color_counter = 0; // number of relevant colors (= number of color-nodes)
+
+    let mut point_idx_to_color_idx: Vec<ColorIdx> = Vec::with_capacity((i+1) * prob.k);
+
+    for e in edges.iter() { // there are k^2 edges
+        if !color_to_node.contains_key(&e.color) {
+            color_to_node.insert(e.color, color_counter);
+            if e.color >= prob.rep_intervals.len() {
+                a.push(0);
+                b.push(<PointCount>::MAX);
+            } else {
+                a.push(prob.rep_intervals[e.color].0);
+                b.push(prob.rep_intervals[e.color].1);
+            }
+            color_counter += 1;
+        }
+        if !point_to_node.contains_key(&e.point) {
+            point_to_node.insert(e.point, point_counter);
+            node_to_point.push(e.point);
+            point_idx_to_color_idx.push(*color_to_node.get(&e.color).unwrap());
+            point_counter += 1;
+        }
+    }
+
+
+    // edges should also be referrable from their points and their color classes:
+
+    let mut edges_by_color_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); color_counter);
+    let mut edges_by_point_node: Vec<Vec<&ColorEdge>> = vec!(Vec::new(); point_counter);
+
+    let mut count = 0;
+
+    for e in edges.iter() {
+        edges_by_color_node[color_to_node[&e.color]].push(e);
+        edges_by_point_node[point_to_node[&e.point]].push(e);
+    }
+    edges_by_color_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
+    edges_by_point_node.sort_by(|a,b| a.partial_cmp(b).unwrap());
+
+
+    // The network is almost done, only the opening-vector is missing.
+    // println!("point_to_node: {:?}", point_to_node);
+
+    let mut current_best_radius = <Distance>::MAX;
+
+    let mut centers = None;
+
+    for (j, opening) in opening_lists.iter().enumerate() {
+
+
+        // we can skip the flow computation if the forrest_radius alone is bigger than the
+        // previously best sum of forrest_radius + assignment_radius
+        if current_best_radius <= opening.forrest_radius {
+            #[cfg(debug_assertions)]
+            println!("  - Flow-network for i = {} and open_list = {} is obsolet as the forrest_radius is bigger than forrest_radius + assignment_radius of earlier open list (= {}).", i, opening, current_best_radius);
+            continue;
+
+        }
+
+        // first test if eta-vector makes sense at all:
+        if sum_of_a > opening.eta.iter().sum() {
+            #[cfg(debug_assertions)]
+            println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
+            continue;
+        }
+
+        // now test if the exact (or less restrictive) flow problem has been solved already:
+        let mut has_been_solved = false;
+        for old in 0..j {
+            let old_eta = &opening_lists[old].eta;
+            let mut old_equal_or_bigger = true;
+            for l in 0..old_eta.len() {
+                if opening.eta[l] > old_eta[l] {
+                    old_equal_or_bigger = false;
+                    break;
+                }
+            }
+            if old_equal_or_bigger {
+                has_been_solved = true;
+                break;
+            }
+        }
+        if has_been_solved {
+            #[cfg(debug_assertions)]
+            println!("  - Flow-network for i = {} and opening_list = {} has been solved before (or less restricted version). Skipping this flow computation.", i, opening);
+            continue;
+        }
+
+        let network = Network {
+            edges : &edges,
+            k : prob.k,
+            opening,
+            i,
+            number_of_points: point_counter,
+            number_of_colors: color_counter,
+            sum_of_a,
+            a : &a,
+            b : &b,
+            edges_of_cluster : &edges_of_cluster,
+            point_to_node : &point_to_node,
+            point_idx_to_color_idx : &point_idx_to_color_idx,
+            edges_by_color_node : &edges_by_color_node,
+            edges_by_point_node : &edges_by_point_node,
+        };
+
+        count += 1;
+
+        // for each eta vector we solve the flow problem individually:
+        let new = compute_assignment_by_flow(&network);
+
+        if current_best_radius > new.forrest_radius + new.assignment_radius {
+            current_best_radius = new.forrest_radius + new.assignment_radius;
+            centers = Some(new);
+        }
+
+    }
+    #[cfg(debug_assertions)]
+    println!("number of flow problem for i = {} solved: {}", i, count);
+
+    // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
+    return (centers, node_to_point, count);
+
+}
+
 
 
 struct Network<'a> {
