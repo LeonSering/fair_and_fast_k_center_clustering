@@ -39,11 +39,12 @@ type CNodeIdx = usize; // type for the index of a color node
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> Vec<NewCenters> {
+pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<NewCenters>, Vec<usize>) {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 
     let mut shifted_centers: Vec<Option<ShiftedCenters>> = (0..prob.k).map(|_| None).collect();
+    let mut counts = vec!(0; prob.k); // counter for how many flow problems are solved.
     let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
 
 
@@ -73,7 +74,8 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
 
     // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
     for i in 0..prob.k {
-        // println!("\n\n************** i = {} ******************", i);
+        #[cfg(debug_assertions)]
+        println!("\n\n************** Phase 4; i = {} ******************", i);
 
         // except for the opening vector the network can be defined now:
 
@@ -142,14 +144,9 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
         // println!("point_to_node: {:?}", point_to_node);
 
         let mut current_best_radius = <Distance>::MAX;
+
         for (j, opening) in opening_lists[i].iter().enumerate() {
 
-            // first test if eta-vector makes sense at all:
-            if sum_of_a > opening.eta.iter().sum() {
-                #[cfg(debug_assertions)]
-                println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
-                continue;
-            }
 
             // we can skip the flow computation if the forrest_radius alone is bigger than the
             // previously best sum of forrest_radius + assignment_radius
@@ -160,6 +157,13 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
 
             }
 
+            // first test if eta-vector makes sense at all:
+            if sum_of_a > opening.eta.iter().sum() {
+                #[cfg(debug_assertions)]
+                println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
+                continue;
+            }
+
             // now test if the exact (or less restrictive) flow problem has been solved already:
             let mut has_been_solved = false;
             for old in 0..j {
@@ -168,10 +172,12 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
                 for l in 0..old_eta.len() {
                     if opening.eta[l] > old_eta[l] {
                         old_equal_or_bigger = false;
+                        break;
                     }
                 }
                 if old_equal_or_bigger {
                     has_been_solved = true;
+                    break;
                 }
             }
             if has_been_solved {
@@ -197,6 +203,8 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
                 edges_by_point_node : &edges_by_point_node,
             };
 
+            counts[i] += 1;
+
             // for each eta vector we solve the flow problem individually:
             let new = compute_assignment_by_flow(&network);
 
@@ -206,6 +214,8 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
             }
 
         }
+        #[cfg(debug_assertions)]
+        println!("number of flow problem for i = {} solved: {}", i, counts[i]);
 
         // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
 
@@ -233,7 +243,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, o
     }
 
 
-    new_centers
+    (new_centers, counts)
 }
 
 

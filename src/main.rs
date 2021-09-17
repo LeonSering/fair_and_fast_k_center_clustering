@@ -34,7 +34,7 @@ fn main() {
         rep_intervals : vec!((1,50);400), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
-    let clustering = compute_privacy_preserving_representative_k_center(&space, &prob,true);
+    let clustering = compute_privacy_preserving_representative_k_center(&space, &prob,false);
     clustering.save_to_file(format!("output/{}.clustering", space_name).as_str());
 
 

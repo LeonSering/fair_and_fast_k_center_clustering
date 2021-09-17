@@ -16,8 +16,10 @@ use settle::settle;
 pub(crate) mod with_sorting;
 
 use std::collections::VecDeque;
+use std::collections::HashMap;
 
 type EdgeIdx = usize;
+type BucketIdx = usize;
 
 // An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
@@ -28,6 +30,46 @@ pub (crate) struct Edge<'a> { // Care: The ordering of attributes is important f
     right : &'a Point,
 }
 
+struct PendingQueues<'a> {
+    queues : HashMap<(CenterIdx,BucketIdx), VecDeque<Edge<'a>>> 
+}
+
+impl<'a> PendingQueues<'a> {
+    fn new() -> PendingQueues<'a> {
+        PendingQueues { queues: HashMap::new()}
+    }
+
+    fn push(&mut self, c: CenterIdx, b: BucketIdx, edge: Edge<'a>) {
+        match self.queues.get_mut(&(c,b)) {
+            Some(queue) => {queue.push_back(edge)},
+            None => {
+                self.queues.insert((c,b),VecDeque::from(vec![edge]));
+            }
+        }
+    }
+
+    fn pop(&mut self, c:CenterIdx, b: BucketIdx) -> Option<Edge<'a>> {
+        match self.queues.get_mut(&(c,b)) {
+            Some(queue) => queue.pop_front(),
+            None => None
+        }
+    }
+
+    fn is_empty(&self, c: CenterIdx, b: BucketIdx) -> bool {
+        match self.queues.get(&(c,b)) {
+            Some(queue) => queue.is_empty(),
+            None => true
+        }
+    }
+
+    fn clear(&mut self, c: CenterIdx, b: BucketIdx) {
+        match self.queues.get_mut(&(c,b)) {
+            Some(queue) => queue.clear(),
+            None => {} 
+        }
+         
+    }
+}
 
 // centers_graph: nodes = centers 0,...,i (i goes from 0 to k-1) and we have an arc c_1 to c_2 iff
 // there is a point x that is assigned to c_1 but could also be assigne to c_2
@@ -80,10 +122,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
 
-
-    let b = buckets.len(); // number of buckets
-
-    let mut pending: Vec<Vec<VecDeque<Edge>>> = (0..prob.k).map(|_| (0..b).map(|_| VecDeque::new()).collect()).collect();
+    let mut pending = PendingQueues::new();
        // pending[j][t] contains edges from buckets[t] with left = j (which is a center not considered yet)
        // note that t can also be the current bucket, but then pending only contains edges that has
        // a distance small than the settled radius of the previous center, i.e., they can be added
@@ -103,14 +142,14 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
         println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
-        for c in 0..j {
+        for b in 0..j {
             // here, we process edges from previous (and the current) buckets (< j) that were ignored because they
             // were adjacent to ceners not in the set that was being processed
             // We do not processed pending edges of the current bucket, as the bucket has changed,
             // and therefore pending[_][l] has been cleared
 
-            while !pending[i][c].is_empty() {
-                let e = pending[i][c].pop_front().unwrap();
+            while !pending.is_empty(i,b) {
+                let e = pending.pop(i,b).unwrap();
                 assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
                 add_edge(e, i, prob, &mut state);
 //                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
@@ -135,7 +174,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
             if c > i {
                 // in this case the left side (t) corresponds to a center not yet considered, so we
                 // postpone the processing of the arc to the point when i == c
-                pending[c][j].push_back(e);
+                pending.push(c,j,e);
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, prob, &mut state);
@@ -158,8 +197,8 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, prob : &ClusteringProb
 
         // start bucket from beginning, hence clear all pendings
         edge_cursor = 0;
-        for t in i..prob.k {
-            pending[t][j].clear();
+        for c in i..prob.k {
+            pending.clear(c,j);
         }
         i += 1;
     }

@@ -73,6 +73,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
         #[cfg(debug_assertions)]
         assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
+        #[cfg(debug_assertions)]
         println!("\tRadius for center {} found: {}", i, current_d);
 
         // create new clustering:
