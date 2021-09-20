@@ -218,13 +218,14 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let (new_centers, counts) = phase4(space, &prob, opening_lists, &gonzales);
 
     let time_after_phase4 = Instant::now();
+    let count_sum: usize = counts.iter().sum();
     if verbose {
-        println!("\n  - Phase 4 done (time: {:?}): Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3));
+        println!("\n  - Phase 4 done (time: {:?}): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), count_sum);
         for (i,centers) in new_centers.iter().enumerate() {
             println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {}; number of flow problems solved: {}", i, centers.as_points, centers.assignment_radius, centers.forrest_radius, counts[i]);
         }
     } else {
-        println!("  - Phase 4 done (time: {:?}): Determined new centers.", time_after_phase4.duration_since(time_after_phase3));
+        println!("  - Phase 4 done (time: {:?}): Determined new centers. Number of flow problem solved: {}", time_after_phase4.duration_since(time_after_phase3), count_sum);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
