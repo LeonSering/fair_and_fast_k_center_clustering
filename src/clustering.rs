@@ -233,6 +233,7 @@ impl Clustering{
         if self.center_of[p.idx()].is_some() {
             let old_center = self.center_of[p.idx()].unwrap();
             if space.dist(p, self.centers.get(old_center,space)) >= self.radius {
+                #[cfg(debug_assertions)]
                 println!("WARNING: Point {} is already assigned to {} and is reassigned to {}; Radius is probably wrong (too large) now! Call update_radius()", p.idx(), old_center, center_idx);
                 self.radius_valid = false;
             }
@@ -247,6 +248,7 @@ impl Clustering{
         if dist >= self.radius {
             self.radius = dist;
             if !self.radius_valid {
+                #[cfg(debug_assertions)]
                 println!("Radius is valid again!");
                 self.radius_valid = true;
             }

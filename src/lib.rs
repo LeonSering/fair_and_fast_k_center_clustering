@@ -109,16 +109,16 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
-/// * a boolean indicating the length of the output. true: verbose; false: only final message
+/// * a u8 indicating the length of the output. 0: silent, 1: brief, 2: verbose;
 ///
 /// # Output
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
 /// TODO: Update this doc-comment
-pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, verbose : bool) -> Clustering {
+pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, verbose : u8) -> Clustering {
     let time_start = Instant::now();
 
-    if verbose {
+    if verbose >= 2 {
         println!("\n**** Solving: {}", prob);
     }
 
@@ -134,7 +134,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     }
 
     let time_after_assertions = Instant::now();
-    if verbose {
+    if verbose >= 2 {
         println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
     }
 
@@ -149,9 +149,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let gonzales: Centers = gonzales_heuristic(space, prob.k);
 
     let time_after_phase1 = Instant::now();
-    if verbose {
+    if verbose >= 2{
         println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzales);
-    } else {
+    } else if verbose == 1 {
         println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
     }
 
@@ -165,12 +165,12 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
 
     let time_after_phase2 = Instant::now();
-    if verbose {
+    if verbose >= 2 {
         println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
         for (i,clustering) in clusterings.iter().enumerate() {
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
-    } else {
+    } else if verbose == 1 {
         println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.", time_after_phase2.duration_since(time_after_phase1), prob.k);
     }
 
@@ -197,7 +197,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
 
     let time_after_phase3 = Instant::now();
-    if verbose {
+    if verbose >= 2 {
         println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
         for (i,openings) in opening_lists.iter().enumerate() {
             println!("\tC_{}:", i);
@@ -205,7 +205,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
                 println!("\t\t{};",o);
             }
         }
-    } else {
+    } else if verbose == 1 {
         println!("  - Phase 3 done (time: {:?}): Determined opening lists.", time_after_phase3.duration_since(time_before_phase3));
     }
 
@@ -223,12 +223,12 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
     let time_after_phase4 = Instant::now();
     let count_sum: usize = counts.iter().sum();
-    if verbose {
+    if verbose >= 2 {
         println!("\n  - Phase 4 done (time: {:?} with {} threads on {} cores): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), thread_count, num_cpus::get(), count_sum);
         for (i,centers) in new_centers.iter().enumerate() {
             println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {}; number of flow problems solved: {}", i, centers.as_points, centers.assignment_radius, centers.forrest_radius, counts[i]);
         }
-    } else {
+    } else if verbose == 1 {
         println!("  - Phase 4 done (time: {:?} with {} threads on {} cores): Determined new centers. Number of flow problem solved: {}.", time_after_phase4.duration_since(time_after_phase3), thread_count, num_cpus::get(), count_sum);
     }
 
@@ -242,13 +242,13 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
     let time_after_phase5 = Instant::now();
-    if verbose {
+    if verbose >= 2 {
         println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
-    } else {
+    } else if verbose == 1 {
         println!("  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}).", time_after_phase5.duration_since(time_after_phase4), best_i);
     }
 
-    if verbose {
+    if verbose >= 2 {
         println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
         println!("\tTimes: phase 1: {:?}; phase 2: {:?}; phase 3: {:?}; phase 4: {:?}; phase 5: {:?};",
              time_after_phase1.duration_since(time_start),
@@ -256,7 +256,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
              time_after_phase3.duration_since(time_after_phase2),
              time_after_phase4.duration_since(time_after_phase3),
              time_after_phase5.duration_since(time_after_phase4));
-    } else {
+    } else if verbose == 1 {
         println!("**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
     }
 

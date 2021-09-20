@@ -140,12 +140,12 @@ impl FFKCenter{
     /// Input: 2d-Array. An array of Datapoints, which are an array of dimension-many floats
     /// (Value).
     /// A 1d-Array containing a color-label for each datapoint.
-    /// Optional: keyword-argument: verbose = false
+    /// Optional: keyword-argument: verbose = 1 (0: silent, 1: brief, 2: verbose)
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
     /// and can be accessed via model.centers or model.labels.
-    #[args(data,colors,"*",verbose="false")]
-    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: bool) -> () {
+    #[args(data,colors,"*",verbose="1")]
+    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8) -> () {
         // First create a metric space from the data
         self.space = Some(SpaceND::by_ndpoints(data,colors));
 
@@ -154,9 +154,9 @@ impl FFKCenter{
     }
 
     /// Executes the algorithm. Space (created from datapoints and colors) must be set beforehand.
-    /// Optional: keyword-argument: verbose = false
-    #[args("*",verbose="false")]
-    fn compute_clustering(&mut self, verbose: bool) {
+    /// Optional: keyword-argument: verbose = 1 (0: silent, 1: brief, 2: verbose)
+    #[args("*",verbose="1")]
+    fn compute_clustering(&mut self, verbose: u8) {
         self.clustering = Some(compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), verbose));
     }
 
@@ -224,9 +224,10 @@ impl FFKCenter{
     /// end)
     /// Optional: expected can be set to the expected number of points to speed up the process.
     /// (Default: 1000).
-    #[args(file_path, "*", expected = "1000")]
-    fn load_space_from_file(&mut self, file_path: &str, expected: PointCount) -> PyResult<()> {
-        self.space = Some(SpaceND::by_file(file_path, expected));
+    /// Optional: verbose = 1 (0: silent, 1: brief, 2: verbose)
+    #[args(file_path, "*", expected = "1000", verbose = "1")]
+    fn load_space_from_file(&mut self, file_path: &str, expected: PointCount, verbose: u8) -> PyResult<()> {
+        self.space = Some(SpaceND::by_file(file_path, expected, verbose));
         self.clustering = None;
         Ok(())
     }
@@ -285,7 +286,7 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
     /// Needs data to be assigned to the model and a clustering problem.
     /// Ignores the color data, as well as, k and rep_intervals and only uses data and
     /// privacy_bound.
-    /// The assignment can be accessed by model.assignment and the radius via model.radius. 
+    /// The assignment can be accessed by model.assignment and the radius via model.radius.
     /// Note that this does not compute a ff_k_center clustering.
     fn private_assignment_by_centers(&mut self, centers: Vec<PointIdx>) -> PyResult<()> {
         let k = centers.len();

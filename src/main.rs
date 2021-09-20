@@ -26,15 +26,17 @@ fn main() {
         // rep_intervals : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     // };
 
+    let verbose = 1; // 0: silent, 1:brief, 2:verbose
+
     let space_name = "groupSize400";
-    let space = SpaceND::by_file(format!("{}.4dspace",space_name).as_str(),15);
+    let space = SpaceND::by_file(format!("{}.4dspace",space_name).as_str(),15,verbose);
     let prob = ClusteringProblem{
-        k : 400, // number of center;
+        k : 100, // number of center;
         privacy_bound : 5, // number of points to represent;
-        rep_intervals : vec!((1,50);400), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        rep_intervals : vec!((0,50);400), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
-    let clustering = compute_privacy_preserving_representative_k_center(&space, &prob,false);
+    let clustering = compute_privacy_preserving_representative_k_center(&space, &prob,verbose);
     clustering.save_to_file(format!("output/{}.clustering", space_name).as_str());
 
 

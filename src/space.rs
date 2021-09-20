@@ -324,6 +324,9 @@ impl SpaceND {
 
     /// Loads a new metric space of type [SpaceND] from a file.
     /// The expected_number_of_points is used to allocate enough storage.
+    /// The verbose parameter determines the amount of output in a success: 
+    /// 0: silent, 1 or 2: verbose.
+    ///
     /// File_path must point into a text-file that stores a tuple in each line, separated by a comma.
     /// The first entries of each line must be of type f32 specifying the position;
     /// the last entry must be a non-negative integer specifying the color (of type u16).
@@ -339,7 +342,7 @@ impl SpaceND {
     /// # Panics
     ///
     /// Panics if the file cannot be open of if it cannot parse the triplets.
-    pub fn by_file(file_path : &str, expected_number_of_points : PointCount) -> SpaceND {
+    pub fn by_file(file_path : &str, expected_number_of_points : PointCount, verbose: u8) -> SpaceND {
 
         let f = File::open(file_path).expect("Cannot open file to read ndpoints.");
         let f = BufReader::new(f);
@@ -364,7 +367,9 @@ impl SpaceND {
             colors.push(content[dim].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
 
         }
-        println!("\n**** Successfully loaded {} points/colors (dimension: {}) from '{}'", positions.len(), dim, file_path);
+        if verbose >= 1 {
+            println!("\n**** Successfully loaded {} points/colors (dimension: {}) from '{}'", positions.len(), dim, file_path);
+        }
 
         #[cfg(debug_assertions)]
         {
