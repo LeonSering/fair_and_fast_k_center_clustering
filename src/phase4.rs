@@ -12,7 +12,7 @@ use color_flow::compute_assignment_by_flow;
 // for parallel execution:
 use std::sync::{mpsc,Arc};
 use threadpool::ThreadPool;
-const THREAD_COUNT: usize = 8;
+extern crate num_cpus; // read the number of cpus and create that meany threads
 
 /// an edge between a gonzales center and a color class;
 /// lablled with the point and the distance between center and point
@@ -78,7 +78,9 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
 
     let edges_of_cluster: Arc<Vec<Vec<ColorEdge>>> = Arc::new(determine_neighborhood(space, prob, gonzales));
 
-    let thread_pool = ThreadPool::new(THREAD_COUNT);
+    let thread_count = num_cpus::get();
+    println!("{}", thread_count);
+    let thread_pool = ThreadPool::new(thread_count);
     let mut receivers = VecDeque::with_capacity(prob.k);
 
     // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
