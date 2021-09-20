@@ -12,7 +12,6 @@ use color_flow::compute_assignment_by_flow;
 // for parallel execution:
 use std::sync::{mpsc,Arc};
 use threadpool::ThreadPool;
-extern crate num_cpus; // read the number of cpus and create that meany threads
 
 /// an edge between a gonzales center and a color class;
 /// lablled with the point and the distance between center and point
@@ -44,7 +43,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
 ///
-pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers) -> (Vec<NewCenters>, Vec<usize>) {
+pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers, thread_count: usize) -> (Vec<NewCenters>, Vec<usize>) {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 
@@ -78,7 +77,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
 
     let edges_of_cluster: Arc<Vec<Vec<ColorEdge>>> = Arc::new(determine_neighborhood(space, prob, gonzales));
 
-    let thread_count = num_cpus::get();
     let thread_pool = ThreadPool::new(thread_count);
     let mut receivers = VecDeque::with_capacity(prob.k);
 
@@ -87,7 +85,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
         let opening_list = opening_lists.pop().unwrap();
         let (tx, rx) = mpsc::channel();
         receivers.push_front(rx);
-        
+
         let edges_of_cluster = Arc::clone(&edges_of_cluster);
 
         let problem = prob.clone();

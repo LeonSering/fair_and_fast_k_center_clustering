@@ -26,6 +26,8 @@
 use std::fmt;
 use std::time::Instant;
 
+extern crate num_cpus; // read the number of cpus and create that meany threads
+
 #[derive(Clone)]
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
@@ -215,17 +217,19 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     #[cfg(debug_assertions)]
     println!("\n**** Phase 4 ****");
 
-    let (new_centers, counts) = phase4(space, &prob, opening_lists, &gonzales);
+
+    let thread_count = num_cpus::get();
+    let (new_centers, counts) = phase4(space, &prob, opening_lists, &gonzales,thread_count);
 
     let time_after_phase4 = Instant::now();
     let count_sum: usize = counts.iter().sum();
     if verbose {
-        println!("\n  - Phase 4 done (time: {:?}): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), count_sum);
+        println!("\n  - Phase 4 done (time: {:?} with {} threads on {} cores): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), thread_count, num_cpus::get(), count_sum);
         for (i,centers) in new_centers.iter().enumerate() {
             println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {}; number of flow problems solved: {}", i, centers.as_points, centers.assignment_radius, centers.forrest_radius, counts[i]);
         }
     } else {
-        println!("  - Phase 4 done (time: {:?}): Determined new centers. Number of flow problem solved: {}", time_after_phase4.duration_since(time_after_phase3), count_sum);
+        println!("  - Phase 4 done (time: {:?} with {} threads on {} cores): Determined new centers. Number of flow problem solved: {}.", time_after_phase4.duration_since(time_after_phase3), thread_count, num_cpus::get(), count_sum);
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////
@@ -241,11 +245,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     if verbose {
         println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
     } else {
-        println!("  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}). Radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_radius());
+        println!("  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}).", time_after_phase5.duration_since(time_after_phase4), best_i);
     }
 
     if verbose {
-        println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Final radius: {}", time_after_phase5.duration_since(time_start),final_clustering.get_radius());
+        println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
         println!("\tTimes: phase 1: {:?}; phase 2: {:?}; phase 3: {:?}; phase 4: {:?}; phase 5: {:?};",
              time_after_phase1.duration_since(time_start),
              time_after_phase2.duration_since(time_after_phase1),
@@ -253,7 +257,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
              time_after_phase4.duration_since(time_after_phase3),
              time_after_phase5.duration_since(time_after_phase4));
     } else {
-        println!("**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Final radius: {}", time_after_phase5.duration_since(time_start),final_clustering.get_radius());
+        println!("**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
     }
 
     final_clustering
