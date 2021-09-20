@@ -79,7 +79,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
     let edges_of_cluster: Arc<Vec<Vec<ColorEdge>>> = Arc::new(determine_neighborhood(space, prob, gonzales));
 
     let thread_count = num_cpus::get();
-    println!("{}", thread_count);
     let thread_pool = ThreadPool::new(thread_count);
     let mut receivers = VecDeque::with_capacity(prob.k);
 
