@@ -239,14 +239,34 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
 
-    let (best_i, final_clustering) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
+    let (best_i, final_centers, phase5_radius) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees);
 
     let time_after_phase5 = Instant::now();
     if verbose >= 2 {
-        println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_clustering.get_centers(), final_clustering.get_radius());
+        println!("\n  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, final_centers, phase5_radius);
     } else if verbose == 1 {
-        println!("  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}).", time_after_phase5.duration_since(time_after_phase4), best_i);
+        println!("  - Phase 5 done (time: {:?}): Created assignments and chose the final clustering (based on C_{}) with radius: {}.", time_after_phase5.duration_since(time_after_phase4), best_i, phase5_radius);
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //////////// rerun phase 2 on the final centers to obtain optimal clustering //////////
+    ///////////////////////////////////////////////////////////////////////////////////////
+    #[cfg(debug_assertions)]
+    println!("\n**** Phase 2 Rerun ****\n");
+
+    let final_clustering = make_private(space, &prob, &final_centers).pop().unwrap();
+
+
+    let time_after_phase2rerun = Instant::now();
+    if verbose >= 2 {
+        println!("\n  - Rerun of phase 2 done (time: {:?}): final clustering determined with radius: {} (improvement to phase 5: {}).", time_after_phase2rerun.duration_since(time_after_phase5), final_clustering.get_radius(), final_clustering.get_radius() - phase5_radius);
+    } else if verbose == 1 {
+        println!("  - Rerun of phase 2 done (time: {:?}): final clustering determined with radius: {} (improvement to phase 5: {}).", time_after_phase2rerun.duration_since(time_after_phase5), final_clustering.get_radius(), final_clustering.get_radius() - phase5_radius);
+    }
+
+    ////////////////////////////////////////////////////////////////
+    ///////////////////////// final print //////////////////////////
+    ////////////////////////////////////////////////////////////////
 
     if verbose >= 2 {
         println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());

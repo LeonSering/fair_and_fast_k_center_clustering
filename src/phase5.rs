@@ -2,7 +2,7 @@ use crate::ClusteringProblem;
 use crate::datastructures::{NewCenters,RootedSpanningTree};
 use crate::types::{Distance,CenterIdx,PointCount};
 use crate::space::{Point,ColoredMetric};
-use crate::clustering::Clustering;
+use crate::clustering::{Clustering,Centers};
 use crate::utilities;
 
 use std::collections::HashMap;
@@ -17,10 +17,9 @@ struct PointCenterLink<'a> {
     center_idx : CenterIdx,
 }
 
-pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Clustering) {
+pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Centers, Distance) {
 
 
-    let mut best_assignment: Vec<Option<CenterIdx>> = Vec::new();
     let mut best_radius = <Distance>::MAX;
     let mut best_i = 0;
 
@@ -32,28 +31,20 @@ pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, c
 
 
         // now assign the points of each cluster the new centers and compute the radius:
-        let (radius, new_assignment) = assign_points_to_new_centers(space, prob, i, &clustering_list[i], new_centers);
-
-        #[cfg(debug_assertions)]
-        {
-            let clustering = Clustering::new(new_centers.as_points.clone(), new_assignment.clone(), space);
-            let save_path = format!("output/temp/after_phase_5_for_i_{}.clustering", i);
-            clustering.save_to_file(save_path.as_str());
-        }
+        let radius = assign_points_to_new_centers(space, prob, i, &clustering_list[i], new_centers);
 
         #[cfg(debug_assertions)]
         println!("  - C_{}: radius: {}", i, radius);
 
         // now only save the best clustering (over all k+1 gonzales sets) depending on the minimum radius
         if radius < best_radius {
-            best_assignment = new_assignment;
             best_radius = radius;
             best_i = i;
         }
 
 
     }
-    (best_i, Clustering::new(centers_list[best_i].as_points.clone(), best_assignment, space))
+    (best_i, centers_list[best_i].as_points.clone(), best_radius)
 }
 
 fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clustering : &mut Clustering, spanning_tree: &RootedSpanningTree, threshold: Distance){
@@ -99,7 +90,7 @@ fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier:
 }
 
 
-fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, i : CenterIdx, old_clustering: &Clustering, centers: &NewCenters) -> (Distance, Vec<Option<CenterIdx>>) {
+fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, i : CenterIdx, old_clustering: &Clustering, centers: &NewCenters) -> Distance {
 
     // now the clusters are given, now we really open the new centers and assign the points to
     // them:
@@ -197,6 +188,6 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
         } // end of batch
 
     } // and of cluster
-    (radius, new_assignment)
+    radius
 
 }
