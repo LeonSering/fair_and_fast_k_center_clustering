@@ -269,15 +269,16 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     ////////////////////////////////////////////////////////////////
 
     if verbose >= 2 {
-        println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
-        println!("\tTimes: phase 1: {:?}; phase 2: {:?}; phase 3: {:?}; phase 4: {:?}; phase 5: {:?};",
+        println!("\n**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase2rerun.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
+        println!("\tTimes: phase 1: {:?}; phase 2: {:?}; phase 3: {:?}; phase 4: {:?}; phase 5: {:?}; phase 2 rerun: {:?};",
              time_after_phase1.duration_since(time_start),
              time_after_phase2.duration_since(time_after_phase1),
              time_after_phase3.duration_since(time_after_phase2),
              time_after_phase4.duration_since(time_after_phase3),
-             time_after_phase5.duration_since(time_after_phase4));
+             time_after_phase5.duration_since(time_after_phase4),
+             time_after_phase2rerun.duration_since(time_after_phase5));
     } else if verbose == 1 {
-        println!("**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase5.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
+        println!("**** Algorithm done (total time: {:?}): Privacy-preserving representative k-center computed. Number of centers: {}; final radius: {}.", time_after_phase2rerun.duration_since(time_start),final_clustering.get_centers().m(),final_clustering.get_radius());
     }
 
     final_clustering
