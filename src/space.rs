@@ -22,8 +22,7 @@
 use crate::types::{PointIdx,ColorIdx,PointCount,ColorCount,Distance};
 
 /// A point of a metric space. Their only attribute is an index, which can be obtained by idx().
-/// Points are create by metric spaces and can only be accessed via the point_inter() method of the
-/// [ColoredMetric] trait.
+/// Points are created by metric spaces and can only be accessed via the [ColoredMetric::point_iter].
 #[derive(Debug,PartialOrd,PartialEq,Eq,Hash)]
 pub struct Point{ // a point in the metric
     index : PointIdx,
@@ -134,7 +133,7 @@ pub trait ColoredMetric{
 //////////////////// SpaceMatrix /////////////////////////
 
 /// A general finite metric space with color classes. </br>
-/// Distances are given by a symetric distance matrx of type nxn; </br>
+/// Distances are given by a symmetric distance matrix of size nxn; </br>
 /// Colors are given by a list of size n; </br>
 /// Implements the [ColoredMetric] trait.
 pub struct SpaceMatrix{
@@ -159,14 +158,14 @@ impl SpaceMatrix {
     /// Panics, if the length of the color classes does not match the number of points given by distances;
     /// Panics, if distances does not satisfy the metric properties;
     pub fn new(distances: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> SpaceMatrix {
-        // check if distances is a qudratic matrix:
+        // check if distances is a quadratic matrix:
         let number_of_rows = distances.len();
         let mut points: Vec<Point> = Vec::with_capacity(number_of_rows);
         for (i, row) in distances.iter().enumerate() {
-            assert_eq!(row.len(), number_of_rows, "Matrix is not qudratic. row {} has {} entries; number of rows: {}", i, row.len(), number_of_rows);
+            assert_eq!(row.len(), number_of_rows, "Matrix is not quadratic. row {} has {} entries; number of rows: {}", i, row.len(), number_of_rows);
             points.push(Point{index:i});
         }
-        assert_eq!(number_of_rows, colors.len(), "Number of points: {} do not match number of colors: {}", number_of_rows, colors.len());
+        assert_eq!(number_of_rows, colors.len(), "Number of points: {} does not match number of colors: {}", number_of_rows, colors.len());
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
 
         let space = SpaceMatrix {
@@ -176,7 +175,7 @@ impl SpaceMatrix {
             gamma,
         };
 
-        assert!(space.is_metric(), "distances do not satisfy the metric properties.");
+        assert!(space.is_metric(), "Distances do not satisfy the metric properties.");
         space
     }
 
@@ -197,7 +196,7 @@ impl SpaceMatrix {
     /// ```
     pub fn new_by_array<const N: PointCount>(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix {
 
-        // this is kind of silly, to doulbe initilize the points, but I don't see a way to make this
+        // This is kind of silly, to double initialize the points, but I don't see a way to make this
         // without unsafe rust.
         //let mut points = [Point{index : 0}; N];
         let mut points : Vec<Point> = Vec::with_capacity(N);

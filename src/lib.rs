@@ -8,7 +8,7 @@
 //! For details on how to create or load metric spaces see: [SpaceMatrix] and [SpaceND].
 //!
 //! Then create a [ClusteringProblem] by specifying the maximal number of clusters k, the lower bound
-//! for privacy condition privacy_bound, and a list intervals (one for each color class) for the representaive conditon.
+//! for privacy condition privacy_bound, and a list intervals (one for each color class) for the representative condition.
 //!
 //! With [compute_privacy_preserving_representative_k_center] a [Clustering] is created, which
 //! contains a list of centers (see [Centers]) and an assignment of each point to a center.

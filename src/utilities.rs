@@ -39,13 +39,13 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<
     list.truncate(t);
 }
 
-/// splits of all elements except for the t smallest. Hence, afterwords the list consists of the t
+/// splits off all elements except for the t smallest. Hence, afterwords the list consists of the t
 /// smallest elements and the remaining elements are returned.
 pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize) -> Vec<E>{
     if t >= list.len() {
         #[cfg(debug_assertions)]
         if t > list.len() {
-            println!("Care: list has only length {}, but is asked to split of the t = {} smallest elements. Everything is split up.", list.len(), t);
+            println!("Care: list has only length {}, but is asked to split off the t = {} smallest elements. Everything is split up.", list.len(), t);
         }
         return list.split_off(list.len())
     }

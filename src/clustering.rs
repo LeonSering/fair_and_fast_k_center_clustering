@@ -228,7 +228,7 @@ impl Clustering{
     pub fn get_center<'a, M: ColoredMetric>(&self, center_idx: CenterIdx, space: &'a M) -> &'a Point {
         self.centers.get(center_idx, space)
     }
-    /// Assigns or Reassigns a point to a new cluster given by the center_idx
+    /// Assigns or reassigns a point to a new cluster given by the center_idx
     pub fn assign<M : ColoredMetric>(&mut self, p : &Point, center_idx: CenterIdx, space: &M) {
         if self.center_of[p.idx()].is_some() {
             let old_center = self.center_of[p.idx()].unwrap();

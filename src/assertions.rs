@@ -2,7 +2,7 @@ use crate::{ColoredMetric,ClusteringProblem};
 use crate::types::PointCount;
 
 /// Asserts a clustering problem.
-/// Checks whether the clustering problem is feasible. If this assertions runs through the main
+/// Checks whether the clustering problem is feasible. If this assertion runs through, the main
 /// algorithm will return a feasible clustering.
 ///
 /// # Inputs
