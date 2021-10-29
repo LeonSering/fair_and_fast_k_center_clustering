@@ -41,7 +41,7 @@ pub trait ColoredMetric{
     /// Returns the distance between two points x1 and x2.
     fn dist(&self, x1 : &Point, x2 : &Point) -> Distance; // returns the distance between x1 and x2
 
-    /// Returns the the color of point x.
+    /// Returns the color of point x.
     fn color(&self, x : &Point) -> ColorIdx;
 
     /// Returns the distance between a point x and a set of points.
