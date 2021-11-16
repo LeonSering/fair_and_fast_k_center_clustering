@@ -1,6 +1,6 @@
 [package]
 name = "ff_k-center"
-version = "1.0.3"
+version = "1.0.4"
 edition = "2018"
 authors = ["Leon Sering <sering@math.ethz.ch>"]
 
