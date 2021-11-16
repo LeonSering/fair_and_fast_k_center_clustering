@@ -161,7 +161,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
-    let mut clusterings : Vec<Clustering> = make_private(space, prob, &gonzales);
+    let mut clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzales);
 
 
     let time_after_phase2 = Instant::now();
@@ -176,7 +176,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
     #[cfg(debug_assertions)]
     {
-        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob, &gonzales);
+        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzales);
 
         let time_after_phase2_sorting = Instant::now();
         println!("\n  - Phase 2 (with sorting) done (time: {:?}): Determined k = {} clusterings:", time_after_phase2_sorting.duration_since(time_after_phase2), prob.k);
@@ -219,7 +219,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
 
 
     let thread_count = num_cpus::get();
-    let (new_centers, counts) = phase4(space, &prob, opening_lists, &gonzales,thread_count);
+    let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzales,thread_count);
 
     let time_after_phase4 = Instant::now();
     let count_sum: usize = counts.iter().sum();
@@ -254,7 +254,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric>(spa
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 Rerun ****\n");
 
-    let final_clustering = make_private(space, &prob, &final_centers).pop().unwrap();
+    let final_clustering = make_private(space, prob.privacy_bound, &final_centers).pop().unwrap();
 
 
     let time_after_phase2rerun = Instant::now();

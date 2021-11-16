@@ -1,15 +1,15 @@
-use crate::ClusteringProblem;
-use crate::types::Distance;
+use crate::types::{Distance,PointCount};
 use crate::space::ColoredMetric;
 use crate::clustering::{Clustering,Centers};
 use std::collections::VecDeque;
 use super::{Edge,flow::{initialize_state,add_edge}};
 
-pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, gonzales : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
+pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
+    let k = centers.m();
 // create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
-    let mut edges : Vec<Edge> = Vec::with_capacity(prob.k * space.n());
-    for (j, c) in gonzales.get_all(space).iter().enumerate() {
+    let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
+    for (j, c) in centers.get_all(space).iter().enumerate() {
         for p in space.point_iter() {
             edges.push(Edge{
                 d : space.dist(c, p),
@@ -19,7 +19,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
         }
     }
 
-    println!("\n  ** make_private_with_sort with privacy_bound = {}\n", prob.privacy_bound);
+    println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
 
     edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
 //    println!("Edges: {:?}", edges.iter().map(|x| x.d).collect::<Vec<_>>());
@@ -28,28 +28,28 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
 
     // step 2: solve flow problem
 
-    let mut clusterings: Vec<Clustering> = Vec::with_capacity(prob.k);
+    let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
 
 
-    let mut state = initialize_state(space.n(), prob.k);
+    let mut state = initialize_state(space.n(), k);
 
-    let mut pending: Vec<VecDeque<Edge>> = (0..prob.k).map(|_| VecDeque::new()).collect();
+    let mut pending: Vec<VecDeque<Edge>> = (0..k).map(|_| VecDeque::new()).collect();
 
     let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
 
     let mut current_d = <Distance>::MIN;
-    while i < prob.k { // extend set of gonzales centers one by one
+    while i < k { // extend set of gonzales centers one by one
 //        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
 
         while !pending[i].is_empty() {
             let e = pending[i].pop_front().unwrap();
             assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
-            add_edge(e, i, prob, &mut state);
+            add_edge(e, i, k, privacy_bound, &mut state);
 //            println!("  Pending edge added: {:?}; \tmax_flow: {}", e, state.max_flow);
         }
 
-        while state.max_flow < (i + 1) * prob.privacy_bound {
+        while state.max_flow < (i + 1) * privacy_bound {
 
 
             let e = *edge_iter.next().expect("no edges remaining");
@@ -61,7 +61,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
                 pending[t].push_back(e);
             } else {
                 // in this case we do add edge e.
-                add_edge(e, i, prob, &mut state);
+                add_edge(e, i, k, privacy_bound, &mut state);
 //                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
             }
             current_d = e.d;
@@ -69,20 +69,19 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, prob : &C
         }
 
 
-        // at this point, we have identified the bucket that settles the set S_i
         #[cfg(debug_assertions)]
-        assert_eq!(state.max_flow, (i + 1) * prob.privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
+        assert_eq!(state.max_flow, (i + 1) * privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
         #[cfg(debug_assertions)]
         println!("\tRadius for center {} found: {}", i, current_d);
 
         // create new clustering:
-        let mut centers = Centers::with_capacity(i+1);
-        for c in gonzales.get_all(space).iter().take(i+1) {
-            centers.push(c);
+        let mut center_prefix = Centers::with_capacity(i+1);
+        for c in centers.get_all(space).iter().take(i+1) {
+            center_prefix.push(c);
         }
 
-        let clustering = Clustering::new(centers,state.center_of.clone(),space);
+        let clustering = Clustering::new(center_prefix,state.center_of.clone(),space);
         #[cfg(debug_assertions)]
         assert_eq!(current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
         clusterings.push(clustering);

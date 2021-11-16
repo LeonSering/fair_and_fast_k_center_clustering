@@ -28,11 +28,11 @@ fn main() {
 
     let verbose = 1; // 0: silent, 1:brief, 2:verbose
 
-    let space_name = "groupSize400";
-    let space = SpaceND::by_file(format!("{}.4dspace",space_name).as_str(),15,verbose);
+    let space_name = "maritalCreditCard";
+    let space = SpaceND::by_file(format!("{}.2dspace",space_name).as_str(),15,verbose);
     let prob = ClusteringProblem{
-        k : 100, // number of center;
-        privacy_bound : 5, // number of points to represent;
+        k : 21, // number of center;
+        privacy_bound : 56, // number of points to represent;
         rep_intervals : vec!((0,50);400), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 

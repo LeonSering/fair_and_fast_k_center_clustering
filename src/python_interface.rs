@@ -303,7 +303,7 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
 
         let centers = Centers::new(centers);
 
-        self.clustering = Some(phase2::make_private(space, &prob, &centers).pop().unwrap());
+        self.clustering = Some(phase2::make_private(space, prob.privacy_bound, &centers).pop().unwrap());
         Ok(())
     }
 

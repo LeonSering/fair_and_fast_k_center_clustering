@@ -1,6 +1,6 @@
 use super::Edge;
 use crate::types::CenterIdx;
-use crate::{ClusteringProblem,PointCount,space::Point};
+use crate::{PointCount,space::Point};
 use std::collections::VecDeque;
 
 // describes the state of the flow network and of the centers graph.
@@ -92,7 +92,7 @@ pub(super) fn initialize_state<'a>(n: PointCount, k: PointCount) -> State<'a> {
 // task: add edge e to the current flow network and look for an augmenting path to increase the
 // flow by 1; then execute this augmentation
 
-pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>){
+pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_bound:PointCount, state: &mut State<'a>){
     let c = e.left;
     let x = e.right; // maybe cloning needed
 
@@ -119,15 +119,15 @@ pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, 
             if state.next_to_non_private[center_of_x].is_none() && state.next_to_non_private[c].is_some() {
                 // in this case there is also a path from center_of_x to non_private
                 state.next_to_non_private[center_of_x] = Some(c);
-                update_reachability(vec!(center_of_x), prob, state) // update path_to_non_center in backwards bfs starting from center_of_x
+                update_reachability(vec!(center_of_x), k, state) // update path_to_non_center in backwards bfs starting from center_of_x
             }
             // otherwise the path_to_non_private will not change at all
         }
     }
-    augment_flow(prob,i,state); // trying to increase flow. If no augmenting path: O(k), if increase possible: O(k^2)
+    augment_flow(k,privacy_bound,i,state); // trying to increase flow. If no augmenting path: O(k), if increase possible: O(k^2)
 }
 
-pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProblem, state: &mut State<'a>) {
+pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_bound: PointCount, state: &mut State<'a>) {
     let c = e.left;
     let x = e.right;
 
@@ -158,8 +158,8 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProble
                 // also x cannot be part of unassigned[t] at this point, because the moment it was
                 // assigned to t it was poped from unassigned[t] (and it can only enter this queue
                 // again, when edge e is added to the network)
-                rebuild_reachability(prob, state);
-                augment_flow(prob, i, state); // see if we can add a flow unit along other paths
+                rebuild_reachability(k, privacy_bound, state);
+                augment_flow(k, privacy_bound, i, state); // see if we can add a flow unit along other paths
             } else {
 //                println!{"\tarc was not flow carrying!"};
             }
@@ -167,7 +167,7 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, prob: &ClusteringProble
     }
 }
 
-fn augment_flow<'a>(prob: &ClusteringProblem, i: CenterIdx, state: &mut State<'a>) {
+fn augment_flow<'a>(k: PointCount, privacy_bound: PointCount, i: CenterIdx, state: &mut State<'a>) {
     // We need to check if there is an augmenting path to increase the max_flow:
 
     // looking for the first center v (in 0,...,i) that has a path to a non_private center
@@ -204,7 +204,7 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: CenterIdx, state: &mut State<'a
     // for this we do a BFS on the centers_graph (but only on the centers that has a path to a non_private center)
 
 
-    while state.number_of_covered_points[v] > prob.privacy_bound { // while v is overfull
+    while state.number_of_covered_points[v] > privacy_bound { // while v is overfull
 
         // need to find new center w, such that arc (v,w) is in centers_graph, at w is closer to
         // non-private center
@@ -225,29 +225,29 @@ fn augment_flow<'a>(prob: &ClusteringProblem, i: CenterIdx, state: &mut State<'a
 
     // Since the connectivity in the center_graph has changed we need to update to
     // path_to_non_private:
-    rebuild_reachability(prob,state); // takes O(k^2) time
+    rebuild_reachability(k,privacy_bound,state); // takes O(k^2) time
 }
 
 
 // rebuilds the data structures can_reach and path_to_non_private
 // takes up to O(k^2) time
-fn rebuild_reachability(prob: &ClusteringProblem, state: &mut State) {
+fn rebuild_reachability(k: PointCount, privacy_bound: PointCount, state: &mut State) {
     // we need to rebuild path_to_non_private
     // first set only non_private centers to true
-    state.next_to_non_private = (0..prob.k).map(|c| if state.number_of_covered_points[c] < prob.privacy_bound {Some(c)} else {None}).collect();
+    state.next_to_non_private = (0..k).map(|c| if state.number_of_covered_points[c] < privacy_bound {Some(c)} else {None}).collect();
     // then update with a backwards BFS all other centers: takes up to O(k^2) time
-    update_reachability((0..prob.k).filter(|c| state.next_to_non_private[*c].is_some()).collect(), prob, state);
+    update_reachability((0..k).filter(|c| state.next_to_non_private[*c].is_some()).collect(), k, state);
 }
 
-fn update_reachability(start_centers: Vec<CenterIdx>, prob: &ClusteringProblem, state: &mut State) {
+fn update_reachability(start_centers: Vec<CenterIdx>, k: PointCount, state: &mut State) {
     // do a backwards bfs
-    let mut queue : VecDeque<CenterIdx> = VecDeque::with_capacity(prob.k);
+    let mut queue : VecDeque<CenterIdx> = VecDeque::with_capacity(k);
     for c in start_centers {
         queue.push_back(c);
     }
     while !queue.is_empty() {
         let w = queue.pop_front().unwrap();
-        for v in 0..prob.k {
+        for v in 0..k {
             if !state.reassign_is_empty(v, w) && state.next_to_non_private[v].is_none() {
                 state.next_to_non_private[v] = Some(w);
                 queue.push_back(v);
