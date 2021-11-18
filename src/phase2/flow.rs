@@ -231,7 +231,7 @@ fn augment_flow<'a>(k: PointCount, privacy_bound: PointCount, i: CenterIdx, stat
 
 // rebuilds the data structures can_reach and path_to_non_private
 // takes up to O(k^2) time
-fn rebuild_reachability(k: PointCount, privacy_bound: PointCount, state: &mut State) {
+pub(super) fn rebuild_reachability(k: PointCount, privacy_bound: PointCount, state: &mut State) {
     // we need to rebuild path_to_non_private
     // first set only non_private centers to true
     state.next_to_non_private = (0..k).map(|c| if state.number_of_covered_points[c] < privacy_bound {Some(c)} else {None}).collect();

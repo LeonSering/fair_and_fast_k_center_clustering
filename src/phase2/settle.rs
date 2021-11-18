@@ -1,6 +1,6 @@
 use crate::{Clustering,Centers,ColoredMetric,utilities};
 use crate::types::{CenterIdx,Distance,PointCount};
-use super::{Edge,EdgeIdx,flow::{State,add_edge,remove_edge}};
+use super::{Edge,EdgeIdx,flow,flow::State};
 
 // note that edge_cursor points at the edge that has not been added yet
 // (the edge at edge_curser-1 has been added already)
@@ -16,7 +16,7 @@ pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Ve
     // first clear or fill bucket:
     if edge_cursor >= bucket.len()/2 { // in this case fill the bucket
         while cursor < bucket.len() {
-            add_edge(bucket[cursor],i,k,privacy_bound,state);
+            flow::add_edge(bucket[cursor],i,k,privacy_bound,state);
 //            println!("\tInitial adding: {:?} in binary search for center: {};\tmax_flow: {}", bucket[cursor], i, state.max_flow);
             cursor += 1;
         }
@@ -24,7 +24,7 @@ pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Ve
     } else { // in this case empty bucket
         while cursor > 0 {
             cursor -= 1;
-            remove_edge(bucket[cursor],i,k,privacy_bound,state);
+            flow::remove_edge(bucket[cursor],i,k,privacy_bound,state);
 //            println!("\tInitial removing: {:?} in binary search for center: {};\tmax_flow: {}", bucket[cursor], i, state.max_flow);
         }
         edges_present = false;
@@ -51,7 +51,7 @@ pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Ve
     // empty bucket for the final time
     while cursor > 0 {
         cursor -= 1;
-        remove_edge(bucket[cursor],i,k,privacy_bound,state);
+        flow::remove_edge(bucket[cursor],i,k,privacy_bound,state);
 //        println!("\tClean up removing: {:?} in binary search for center: {};\tmaxflow: {}", bucket[cursor], i,state.max_flow);
     }
 
@@ -72,7 +72,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
     assert!(list_len > 0, "Empty list in binary search");
     if list_len == 1 {
         if !edges_present {
-            add_edge(list[0],i,k,privacy_bound,state);
+            flow::add_edge(list[0],i,k,privacy_bound,state);
             *cursor += 1;
 //            println!("\n\tAdd final edge: {:?} in binary search for center: {};\tmax_flow: {}", list[0], i, state.max_flow);
         }
@@ -88,13 +88,16 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
     // take care that smaller edges are added and bigger edges are not present in the flow network
     if edges_present {
         for e in bigger.iter().rev() {
-            remove_edge(*e, i, k, privacy_bound, state);
+            flow::remove_edge(*e, i, k, privacy_bound, state);
 //            println!("\tTry removing: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor -= 1;
         }
+
+        flow::rebuild_reachability(k, privacy_bound, state); // former bug; As edges get removed reachability must be rebuilt
+
     } else {
         for e in smaller.iter() {
-            add_edge(*e, i, k, privacy_bound, state);
+            flow::add_edge(*e, i, k, privacy_bound, state);
 //            println!("\tTry adding: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor += 1;
         }
