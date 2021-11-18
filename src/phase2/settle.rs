@@ -92,9 +92,6 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
 //            println!("\tTry removing: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor -= 1;
         }
-
-        flow::rebuild_reachability(k, privacy_bound, state); // former bug; As edges get removed reachability must be rebuilt
-
     } else {
         for e in smaller.iter() {
             flow::add_edge(*e, i, k, privacy_bound, state);

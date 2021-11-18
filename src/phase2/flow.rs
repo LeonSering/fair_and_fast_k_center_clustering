@@ -143,6 +143,7 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_
 //    println!("x: {}, center of x: {:?}", x.idx(), state.center_of[x.idx()]);
     match state.center_of[x.idx()] {
         None => {
+            rebuild_reachability(k, privacy_bound, state);
 //            println!{"\tarc was not flow carrying (point not assigned)!"};
 
         }
@@ -161,6 +162,7 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_
                 rebuild_reachability(k, privacy_bound, state);
                 augment_flow(k, privacy_bound, i, state); // see if we can add a flow unit along other paths
             } else {
+                rebuild_reachability(k, privacy_bound, state);
 //                println!{"\tarc was not flow carrying!"};
             }
         }
@@ -231,7 +233,7 @@ fn augment_flow<'a>(k: PointCount, privacy_bound: PointCount, i: CenterIdx, stat
 
 // rebuilds the data structures can_reach and path_to_non_private
 // takes up to O(k^2) time
-pub(super) fn rebuild_reachability(k: PointCount, privacy_bound: PointCount, state: &mut State) {
+fn rebuild_reachability(k: PointCount, privacy_bound: PointCount, state: &mut State) {
     // we need to rebuild path_to_non_private
     // first set only non_private centers to true
     state.next_to_non_private = (0..k).map(|c| if state.number_of_covered_points[c] < privacy_bound {Some(c)} else {None}).collect();
