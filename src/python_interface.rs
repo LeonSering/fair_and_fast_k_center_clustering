@@ -2,9 +2,9 @@ use pyo3::proc_macro::{pyclass,pymethods};
 use pyo3::prelude::{Python,PyResult};
 use pyo3::types::PyDict;
 
-use crate::{ClusteringProblem,compute_privacy_preserving_representative_k_center};
+use crate::{ClusteringProblem,OptionalParameters,compute_privacy_preserving_representative_k_center};
 use crate::clustering::Clustering;
-use crate::types::{PointCount,Interval,CenterIdx,PointIdx,ColorIdx,Distance};
+use crate::types::{PointCount,Interval,CenterIdx,PointIdx,ColorIdx,Distance,DurationInSec};
 use crate::space::{ColoredMetric,SpaceND};
 use crate::assertions::assert_problem_parameters;
 use pyo3::create_exception;
@@ -33,6 +33,9 @@ pub(crate) struct FFKCenter {
 
     // attributes
     clustering: Option<Clustering>,
+
+    // information
+    running_time: Option<DurationInSec>
 }
 
 impl FFKCenter{
@@ -42,6 +45,11 @@ impl FFKCenter{
 
     fn get_prob(&self) -> &ClusteringProblem {
         self.prob.as_ref().expect(NOCLUSTERING)
+    }
+
+    fn delete_result(&mut self) {
+        self.clustering = None;
+        self.running_time = None;
     }
 }
 
@@ -59,7 +67,7 @@ impl FFKCenter{
         match assert_problem_parameters(&problem) {
             Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
             _ => {
-                Ok(FFKCenter{prob: Some(problem), space: None, clustering: None})
+                Ok(FFKCenter{prob: Some(problem), space: None, clustering: None, running_time: None})
             }
         }
     }
@@ -88,7 +96,7 @@ impl FFKCenter{
         match assert_problem_parameters(&problem) {
             Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
             _ => {
-                self.clustering = None;
+                self.delete_result();
                 self.prob = Some(problem);
                 Ok(())
             }
@@ -98,19 +106,19 @@ impl FFKCenter{
     #[setter]
     fn set_k(&mut self, k: PointCount) {
         self.prob.as_mut().expect(NOPROB).k = k;
-        self.clustering = None;
+        self.delete_result();
     }
 
     #[setter]
     fn set_privacy_bound(&mut self, privacy_bound: PointCount) {
         self.prob.as_mut().expect(NOPROB).privacy_bound = privacy_bound;
-        self.clustering = None;
+        self.delete_result();
     }
 
     #[setter]
     fn set_rep_intervals(&mut self, rep_intervals: Vec<Interval>) {
         self.prob.as_mut().expect(NOPROB).rep_intervals = rep_intervals;
-        self.clustering = None;
+        self.delete_result();
     }
 
 
@@ -133,31 +141,68 @@ impl FFKCenter{
     /// Use execute() to compute a clustering.
     fn insert(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> () {
         self.space = Some(SpaceND::by_ndpoints(data,colors));
-        self.clustering = None;
+        self.delete_result();
     }
 
     /// Executes the algorithm.
-    /// Input: 2d-Array. An array of Datapoints, which are an array of dimension-many floats
+    ///
+    /// # Input:
+    /// * 2d-Array. An array of Datapoints, which are an array of dimension-many floats
     /// (Value).
-    /// A 1d-Array containing a color-label for each datapoint.
-    /// Optional: keyword-argument: verbose = 1 (0: silent, 1: brief, 2: verbose)
+    /// * A 1d-Array containing a color-label for each datapoint.
+    ///
+    /// # Optional input as keyword-arguments:
+    /// * verbose = 1 (0: silent, 1: brief, 2: verbose)
+    /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
+    /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
+    /// obtain the optimal privacy-conserving assignment for the computed centers.)
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
     /// and can be accessed via model.centers or model.labels.
-    #[args(data,colors,"*",verbose="1")]
-    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8) -> () {
+    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true")]
+    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8, thread_count: usize, phase_2_rerun: bool) -> () {
         // First create a metric space from the data
         self.space = Some(SpaceND::by_ndpoints(data,colors));
 
-        // Then execute the algorithm and save the output clustering into self.clustering
-        self.clustering = Some(compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), verbose));
+        // Then prepare optional parameters:
+        let threads_opt = match thread_count {
+            0 => None,
+            t => Some(t)
+        };
+        let optional = OptionalParameters {
+            verbose: Some(verbose),
+            thread_count: threads_opt,
+            phase_2_rerun: Some(phase_2_rerun)
+        };
+
+        // Finally execute the algorithm and save the output clustering into self.clustering
+        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), Some(optional));
+        self.clustering = Some(clustering);
+        self.running_time = Some(total_time);
     }
 
     /// Executes the algorithm. Space (created from datapoints and colors) must be set beforehand.
-    /// Optional: keyword-argument: verbose = 1 (0: silent, 1: brief, 2: verbose)
-    #[args("*",verbose="1")]
-    fn compute_clustering(&mut self, verbose: u8) {
-        self.clustering = Some(compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), verbose));
+    ///
+    /// # Optional input as keyword-arguments:
+    /// * verbose = 1 (0: silent, 1: brief, 2: verbose)
+    /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
+    /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
+    /// obtain the optimal privacy-conserving assignment for the computed centers.)
+    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true")]
+    fn compute_clustering(&mut self, verbose: u8, thread_count: usize, phase_2_rerun:bool) {
+        let threads_opt = match thread_count {
+            0 => None,
+            t => Some(t)
+        };
+        let optional = OptionalParameters {
+            verbose: Some(verbose),
+            thread_count: threads_opt,
+            phase_2_rerun: Some(phase_2_rerun)
+        };
+
+        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), Some(optional));
+        self.clustering = Some(clustering);
+        self.running_time = Some(total_time);
     }
 
     /// Returns a list of point-indices. The point corresponding to centers[i] is hence,
@@ -208,6 +253,15 @@ impl FFKCenter{
         }
     }
 
+    /// Return as float specifying the running time of the computation in sec.
+    #[getter]
+    fn get_running_time(&self) -> PyResult<DurationInSec> {
+        match &self.running_time {
+            Some(time) => Ok(*time),
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+        }
+    }
+
     /// Saves clusterig in txt-file. One line for each cluster.
     fn save_clustering_to_file(&self, file_path: &str) -> PyResult<()>{
         match &self.clustering {
@@ -228,7 +282,7 @@ impl FFKCenter{
     #[args(file_path, "*", expected = "1000", verbose = "1")]
     fn load_space_from_file(&mut self, file_path: &str, expected: PointCount, verbose: u8) -> PyResult<()> {
         self.space = Some(SpaceND::by_file(file_path, expected, verbose));
-        self.clustering = None;
+        self.delete_result();
         Ok(())
     }
 
@@ -302,8 +356,10 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
         }
 
         let centers = Centers::new(centers);
-
+        let start = std::time::Instant::now();
         self.clustering = Some(phase2::make_private(space, prob.privacy_bound, &centers).pop().unwrap());
+        let end = std::time::Instant::now();
+        self.running_time = Some(end.duration_since(start).as_secs_f64());
         Ok(())
     }
 
