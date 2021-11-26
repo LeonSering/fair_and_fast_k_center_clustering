@@ -10,8 +10,8 @@ mod color_flow;
 use color_flow::compute_assignment_by_flow;
 
 // for parallel execution:
-use std::sync::{mpsc,Arc};
-use threadpool::ThreadPool;
+use std::sync::mpsc;
+use rayon::ThreadPoolBuilder;
 
 /// an edge between a gonzales center and a color class;
 /// lablled with the point and the distance between center and point
@@ -42,7 +42,6 @@ type CNodeIdx = usize; // type for the index of a color node
 /// Given a metric space and a clustering problem,
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
-///
 pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers, thread_count: usize) -> (Vec<NewCenters>, Vec<usize>) {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
@@ -75,31 +74,34 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
     // fill up the neighborhood to k points with the closest remaining points (but never more than b_l
     // points of color l)
 
-    let edges_of_cluster: Arc<Vec<Vec<ColorEdge>>> = Arc::new(determine_neighborhood(space, prob, gonzales));
+    let edges_of_cluster: Vec<Vec<ColorEdge>> = determine_neighborhood(space, prob, gonzales);
 
-    let thread_pool = ThreadPool::new(thread_count);
+    let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
     let mut receivers = VecDeque::with_capacity(prob.k);
 
-    // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
-    for i in (0..prob.k).rev() {
-        let opening_list = opening_lists.pop().unwrap();
-        let (tx, rx) = mpsc::channel();
-        receivers.push_front(rx);
+    thread_pool.scope(|pool| { // define this scope as refs to edges_of_cluster should be moved into threads but it cannot be 'static
 
-        let edges_of_cluster = Arc::clone(&edges_of_cluster);
+        // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
+        for i in (0..prob.k).rev() {
+            let opening_list = opening_lists.pop().unwrap();
+            let (tx, rx) = mpsc::channel();
+            receivers.push_front(rx);
 
-        let problem = prob.clone();
-        thread_pool.execute(move || {
-            let (centers,node_to_point, count) = shift_centers(problem, sum_of_a, i, &edges_of_cluster,opening_list);
-            tx.send((centers, node_to_point, count)).unwrap();
-        });
-    }
-    for i in 0..prob.k {
-        let (centers, node_to_point, count) = receivers[i].recv().unwrap();
-        shifted_centers[i] = centers;
-        node_to_point_list.push(node_to_point); // save node_to_point for recreate the point index at the very end of the phase
-        counts[i] = count;
-    }
+            let edges_of_cluster_ref = &edges_of_cluster; // take a ref in order to move it the the thread
+
+            let problem = (&prob).clone();
+            pool.spawn(move |_| {
+                let (centers,node_to_point, count) = shift_centers(problem, sum_of_a, i, edges_of_cluster_ref,opening_list);
+                tx.send((centers, node_to_point, count)).unwrap();
+            });
+        }
+        for i in 0..prob.k {
+            let (centers, node_to_point, count) = receivers[i].recv().unwrap();
+            shifted_centers[i] = centers;
+            node_to_point_list.push(node_to_point); // save node_to_point for recreate the point index at the very end of the phase
+            counts[i] = count;
+        }
+    });
 
 
     let mut new_centers: Vec<NewCenters> = Vec::with_capacity(prob.k+1); // return vector
@@ -134,7 +136,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
 /// Output: shifted_centers (None if not feasible),
 /// node_to_point : maps node index to point index,
 /// count : number of flow problems that have been solved,
-fn shift_centers(prob: ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, edges_of_cluster: &Vec<Vec<ColorEdge>>, opening_lists: Vec<OpeningList>) -> (Option<ShiftedCenters>, Vec<PointIdx>, usize){
+fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, edges_of_cluster: &Vec<Vec<ColorEdge>>, opening_lists: Vec<OpeningList>) -> (Option<ShiftedCenters>, Vec<PointIdx>, usize){
     #[cfg(debug_assertions)]
     println!("\n\n************** i = {} (in Phase 4) ******************", i);
 

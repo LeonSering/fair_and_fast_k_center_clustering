@@ -5,9 +5,11 @@ use crate::space::{Point,ColoredMetric};
 use crate::clustering::{Clustering,Centers};
 use crate::utilities;
 
-use std::collections::HashMap;
+use std::collections::{VecDeque,HashMap};
 
-
+// for parallel execution:
+use std::sync::mpsc;
+use rayon::ThreadPoolBuilder;
 
 /// A point-center-pair with computed distance:
 #[derive(Debug,Clone,PartialOrd,PartialEq,Copy)]
@@ -17,22 +19,47 @@ struct PointCenterLink<'a> {
     center_idx : CenterIdx,
 }
 
-pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>) -> (CenterIdx, Centers, Distance) {
+pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>, thread_count: usize) -> (CenterIdx, Centers, Distance) {
 
 
     let mut best_radius = <Distance>::MAX;
     let mut best_i = 0;
 
-    for (i, new_centers) in centers_list.iter().enumerate() {
-        let threshold = new_centers.forrest_radius;
+    let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
+    let mut receivers = VecDeque::with_capacity(prob.k);
 
-        // first realize the shifting of phase 3 but this time really shift the points:
-        point_shifting(space, prob.privacy_bound, &mut clustering_list[i], &spanning_trees[i], threshold);
+    // We need to define a scope as space and prob are moved to threads and we cannot make their
+    // life-time static due to the nature of the python interface. Hence the scope defines the
+    // range in which the parallel threads have to be finished.
+    thread_pool.scope(|pool| {
 
+        let mut clustering_iter = clustering_list.into_iter();
+        let mut spanning_trees_iter = spanning_trees.into_iter();
+        for (i, new_centers) in centers_list.iter().enumerate() {
+            let threshold = new_centers.forrest_radius;
 
-        // now assign the points of each cluster the new centers and compute the radius:
-        let radius = assign_points_to_new_centers(space, prob, i, &clustering_list[i], new_centers);
+            let (tx, rx) = mpsc::channel();
+            receivers.push_back((i,rx));
 
+            let clustering = clustering_iter.next().unwrap();
+            let spanning_tree = spanning_trees_iter.next().unwrap();
+
+            // copy the read non-mut references from prob and space to move them into the thread
+            let prob_ref = (&prob).clone();
+            let space_ref = (&space).clone();
+            pool.spawn(move |_| {
+                // first realize the shifting of phase 3 but this time really shift the points:
+                point_shifting(space_ref, prob.privacy_bound, clustering, &spanning_tree, threshold);
+
+                // now assign the points of each cluster the new centers and compute the radius:
+                let radius = assign_points_to_new_centers(space_ref, prob_ref, i, &clustering, new_centers);
+                tx.send(radius).unwrap();
+            });
+        }
+    });
+
+    for (i, receiver) in receivers.into_iter() {
+        let radius = receiver.recv().unwrap();
         #[cfg(debug_assertions)]
         println!("  - C_{}: radius: {}", i, radius);
 
@@ -41,7 +68,6 @@ pub(crate) fn phase5<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, c
             best_radius = radius;
             best_i = i;
         }
-
 
     }
     (best_i, centers_list[best_i].as_points.clone(), best_radius)
