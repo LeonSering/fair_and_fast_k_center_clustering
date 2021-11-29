@@ -44,7 +44,7 @@ mod phase2;
 use phase2::make_private;
 
 mod phase3;
-use phase3::redistribute;
+use phase3::algebraic_pushing;
 
 mod phase4;
 use phase4::phase4;
@@ -212,15 +212,15 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         }
     }
 
-    ////////////////////////////////////////////////////////////////////
-    // phase 3: redistribute assignment, s.t. sizes are multiple of L //
-    ////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////
+    // phase 3: determine spanning trees and eta-vector by algebraic_pushing //
+    ///////////////////////////////////////////////////////////////////////////
     let time_before_phase3 = time::Instant::now();
 
     #[cfg(debug_assertions)]
     println!("\n**** Phase 3 ****");
 
-    let (spanning_trees, opening_lists) = redistribute(space, prob, &clusterings);
+    let (spanning_trees, opening_lists) = algebraic_pushing(space, prob, &clusterings);
 
 
     let time_after_phase3 = time::Instant::now();
@@ -238,7 +238,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
 
 
     //////////////////////////////////////////////////////////////////////
-    // phase 4: open new centers and  determine actual set of centers C //
+    // phase 4: open new centers and determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
     #[cfg(debug_assertions)]

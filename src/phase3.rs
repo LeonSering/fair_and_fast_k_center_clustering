@@ -14,8 +14,8 @@ use crate::clustering::Clustering;
 /// redistribute takes a vector of (full) clusterings, each satisfying the privacy constrait
 /// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center.
-/// It also updates the clusterings (shifting points around) to match this eta.
-pub(crate) fn redistribute<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
+/// It does not update the clusterings (shifting points around).
+pub(crate) fn algebraic_pushing<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
 
     #[cfg(debug_assertions)]
     println!("\n  - Phase 3a: Computing spanning trees.");

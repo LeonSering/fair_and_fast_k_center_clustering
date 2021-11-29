@@ -19,6 +19,20 @@ struct PointCenterLink<'a> {
     center_idx : CenterIdx,
 }
 
+/// assigns clients to new centers by first executing the pushing from phase 3 (this time for real)
+/// and then assigning point within these clusters to the new centers (from phase 4) by some
+/// heuristcs.
+/// # Input:
+/// * centers_list: the new centers computed by phase 4 (one set of centers for each k)
+/// * clustering_list: the assignments created by phase 2
+/// * spanning_trees: the spanning_trees in the centers class that were created by phase 3 and chosen
+/// (for each k) in phase 4.
+///
+/// # Output:
+/// * i: CenterIdx - The index i of the final centers. I.e. the final centers are based on the
+/// Gonzales prefix C_i.
+/// * final_centers: Centers - The final chosen centers.
+/// * r: Distance - The radius r of the final centers computed by the heuristic assignment.
 pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>, thread_count: usize) -> (CenterIdx, Centers, Distance) {
 
 
