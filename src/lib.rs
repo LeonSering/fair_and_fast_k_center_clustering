@@ -104,14 +104,18 @@ impl fmt::Display for ClusteringProblem {
 /// (default: #cores);
 /// * phase_2_rerun: Option<bool> determining whether an additonal phase 2 is run at the very end
 /// using the final centers in order to obtain the best privacy-preserving assignment. (default: true)
+/// * phase_5_gonzales: Option<bool> determining whether a colored-based gonzales is run during
+/// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
 pub struct OptionalParameters {
     pub verbose: Option<u8>,
     pub thread_count: Option<usize>,
     pub phase_2_rerun: Option<bool>,
+    pub phase_5_gonzales: Option<bool>
 }
 
 const DEFAULT_VERBOSE: u8 = 1;
 const DEFAULT_PHASE2_RERUN: bool = true;
+const DEFAULT_PHASE5_GONZALES: bool = true;
 
 
 /// Computes a privacy preserving representative k-clustering.
@@ -120,8 +124,8 @@ const DEFAULT_PHASE2_RERUN: bool = true;
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
-/// * a optional struct of optional parameters, containing verbose: Option<u8>, thread_count: Option<usize, and
-/// phase_2_rerun: Option<bool>. For None default values are filled in (see [OptionalParamters]).
+/// * a optional struct of optional parameters, containing verbose: Option<u8>, thread_count: Option<usize,
+/// phase_2_rerun: Option<bool>, phase_5_gonzales: Option<bool>. For None default values are filled in (see [OptionalParamters]).
 /// * a u8 indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose;
 ///
 /// # Output
@@ -139,11 +143,13 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     let optional_parameters = options.unwrap_or(OptionalParameters{
         verbose: Some(DEFAULT_VERBOSE),
         thread_count: Some(default_thread_count),
-        phase_2_rerun: Some(DEFAULT_PHASE2_RERUN)});
+        phase_2_rerun: Some(DEFAULT_PHASE2_RERUN),
+        phase_5_gonzales: Some(DEFAULT_PHASE5_GONZALES)});
 
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
     let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count);
     let phase_2_rerun = optional_parameters.phase_2_rerun.unwrap_or(DEFAULT_PHASE2_RERUN);
+    let phase_5_gonzales = optional_parameters.phase_5_gonzales.unwrap_or(DEFAULT_PHASE5_GONZALES);
 
     if verbose >= 2 {
         println!("\n**** Solving: {}", prob);
@@ -265,7 +271,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
 
-    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, &spanning_trees, thread_count);
+    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzales);
 
     let time_after_phase5 = time::Instant::now();
     if verbose >= 2 {

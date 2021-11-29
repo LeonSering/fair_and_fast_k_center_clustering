@@ -27,15 +27,15 @@ struct PointCenterLink<'a> {
 /// * clustering_list: the assignments created by phase 2
 /// * spanning_trees: the spanning_trees in the centers class that were created by phase 3 and chosen
 /// (for each k) in phase 4.
+/// * phase_5_gonzales: boolean indicated if a colored gonzales is run within each cluster (after the real pushing but
+/// before the assignment). This leads to more wide-spread centers within a cluster.
 ///
 /// # Output:
 /// * i: CenterIdx - The index i of the final centers. I.e. the final centers are based on the
 /// Gonzales prefix C_i.
 /// * final_centers: Centers - The final chosen centers.
 /// * r: Distance - The radius r of the final centers computed by the heuristic assignment.
-pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>, thread_count: usize) -> (CenterIdx, Clustering, Distance) {
-
-    let phase_5_gonzales = false; // TODO: Put into parameter
+pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: Vec<Clustering>, spanning_trees: Vec<RootedSpanningTree>, thread_count: usize, phase_5_gonzales: bool) -> (CenterIdx, Clustering, Distance) {
 
     let mut best_radius = <Distance>::MAX;
     let mut best_clustering = None;
@@ -94,24 +94,59 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
     (best_i, best_clustering.unwrap(), best_radius)
 }
 
+
+fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clustering : &mut Clustering, spanning_tree: &RootedSpanningTree, threshold: Distance){
+
+    let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
+
+    // this stacks contains all nodes in the order discovered by an BFS starting from the root;
+    // we push point in the reverse ordering (therefore a stack)
+    let mut stack = spanning_tree.build_bfs_stack(threshold);
+
+    while !stack.is_empty() {
+        let node = stack.pop().unwrap();
+        let potential_up_edge = spanning_tree.get_edge(node,threshold);
+        let surplus = cluster_sizes[node] % privacy_bound;
+        // println!("\tcluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
+        if surplus > 0 {
+            match potential_up_edge {
+                None => {} // node is a root
+                Some(up_edge) => {
+                    let parent = up_edge.up;
+                    // TODO: We could be more conservative and only hand_over as many points as
+                    // needed.
+                    hand_over(space, clustering, node, parent, surplus);
+                    cluster_sizes[parent] += surplus;
+                    cluster_sizes[node] -= surplus;
+                }
+            }
+        }
+    }
+}
+
+
+fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier: CenterIdx, consumer: CenterIdx, number: PointCount) {
+    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier,space).iter().cloned().map(|p|
+            PointCenterLink { dist: space.dist(p, clustering.get_centers().get(consumer,space)),
+                              point: p,
+                              center_idx: consumer }).collect();
+    utilities::truncate_to_smallest(&mut point_center_pairs, number);
+    // println!("Point_center_pairs after truncate:{:?}", point_center_pairs);
+    for PointCenterLink{dist:_, point: p, center_idx:_} in point_center_pairs {
+        clustering.assign(p, consumer, space);
+    }
+}
+
 fn spread_centers_within_cluster<M : ColoredMetric>(space: &M, pushed_clustering: &Clustering, phase4_centers: &NewCenters) -> NewCenters {
-
-
 
     let mut all_spread_centers = Centers::with_capacity(phase4_centers.as_points.m()); // here we collect all spread centers of all clusters
     let mut spread_centers_of_cluster = Vec::with_capacity(phase4_centers.new_centers_of_cluster.len());
-
-    // println!("\n\n**** phase4_centers: {:?}\t cluster:{:?}", phase4_centers.as_points, phase4_centers.new_centers_of_cluster);
-    // phase4_centers.as_points.save_to_file("temp/phase_4_centers.centers");
-    // pushed_clustering.get_centers().save_to_file("temp/gonzales.centers");
 
     for j in 0 .. pushed_clustering.m() { // go through all clusters
         let clients = pushed_clustering.get_cluster_of(j,space);
         let old_centers : Vec<&Point> = phase4_centers.new_centers_of_cluster.get(j).unwrap().iter().map(|&idx| phase4_centers.as_points.get(idx, space)).collect();
 
-        // println!("\nFor C_{}, the cluster {} has opened {} centers in phase 4: {:?}", pushed_clustering.m() - 1, j, old_centers.len(),old_centers);
-        // println!("Clients: {:?}", clients.iter().map(|p| p.idx()).collect::<Vec<_>>());
-        // we know apply colored Gonzales, meaning that the new centers should have the exact same
+        // we now apply colored Gonzales, meaning that the new centers should have the exact same
         // colors as the old centers in the cluster
 
 
@@ -158,7 +193,8 @@ fn spread_centers_within_cluster<M : ColoredMetric>(space: &M, pushed_clustering
                 }
             }
 
-            // it can be the case that there were no client in the cluster of an acceptable colors, i.e., at least one phase4_center is not part of the cluster.
+            // it can be the case that there were no client in the cluster of an acceptable colors,
+            // i.e., at least one phase4_center is not part of the cluster.
             if candidate.is_none() {
 
                 // look for a center within the phase4_centers:
@@ -200,52 +236,9 @@ fn spread_centers_within_cluster<M : ColoredMetric>(space: &M, pushed_clustering
 }
 
 
-fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clustering : &mut Clustering, spanning_tree: &RootedSpanningTree, threshold: Distance){
-
-    let mut cluster_sizes: Vec<PointCount> = clustering.get_cluster_sizes().clone();
-
-    // this stacks contains all nodes in the order discovered by an BFS starting from the root;
-    // we push point in the reverse ordering (therefore a stack)
-    let mut stack = spanning_tree.build_bfs_stack(threshold);
-
-    while !stack.is_empty() {
-        let node = stack.pop().unwrap();
-        let potential_up_edge = spanning_tree.get_edge(node,threshold);
-        let surplus = cluster_sizes[node] % privacy_bound;
-        // println!("\tcluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
-        if surplus > 0 {
-            match potential_up_edge {
-                None => {} // node is a root
-                Some(up_edge) => {
-                    let parent = up_edge.up;
-                    // TODO: We could be more conservative and only hand_over as many points as
-                    // needed.
-                    hand_over(space, clustering, node, parent, surplus);
-                    cluster_sizes[parent] += surplus;
-                    cluster_sizes[node] -= surplus;
-                }
-            }
-        }
-    }
-}
-
-
-fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier: CenterIdx, consumer: CenterIdx, number: PointCount) {
-    let mut point_center_pairs: Vec<PointCenterLink> = clustering.get_cluster_of(supplier,space).iter().cloned().map(|p|
-            PointCenterLink { dist: space.dist(p, clustering.get_centers().get(consumer,space)),
-                              point: p,
-                              center_idx: consumer }).collect();
-    utilities::truncate_to_smallest(&mut point_center_pairs, number);
-    // println!("Point_center_pairs after truncate:{:?}", point_center_pairs);
-    for PointCenterLink{dist:_, point: p, center_idx:_} in point_center_pairs {
-        clustering.assign(p, consumer, space);
-    }
-}
-
-
 fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, i : CenterIdx, old_clustering: Clustering, centers: NewCenters) -> (Distance, Clustering) {
 
-    // now the clusters are given, now we really open the new centers and assign the points to
+    // the clusters and centers are final now, time to finally assign the points to
     // them:
     let mut new_assignment: Vec<Option<CenterIdx>> = vec!(None; space.n());
     let mut radius = <Distance>::MIN;

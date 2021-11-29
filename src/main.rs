@@ -33,13 +33,14 @@ fn main() {
     let prob = ClusteringProblem{
         k : 9, // number of center;
         privacy_bound : 2, // number of points to represent;
-        rep_intervals : vec!((3,500),(3,500),(3,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
+        rep_intervals : vec!((0,500),(3,500),(3,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 
     let opt_paras = OptionalParameters{
         verbose : Some(verbose),
         thread_count : None,
-        phase_2_rerun : Some(false)
+        phase_2_rerun : Some(false),
+        phase_5_gonzales : Some(true)
     };
 
     let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, Some(opt_paras));

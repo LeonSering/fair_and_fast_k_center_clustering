@@ -156,11 +156,13 @@ impl FFKCenter{
     /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
     /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
+    /// * phase_5_gonzales: Option<bool> determining whether a colored-based gonzales is run during
+    /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
     /// and can be accessed via model.centers or model.labels.
-    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true")]
-    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8, thread_count: usize, phase_2_rerun: bool) -> () {
+    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true", phase_5_gonzales="true")]
+    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzales: bool) -> () {
         // First create a metric space from the data
         self.space = Some(SpaceND::by_ndpoints(data,colors));
 
@@ -172,7 +174,8 @@ impl FFKCenter{
         let optional = OptionalParameters {
             verbose: Some(verbose),
             thread_count: threads_opt,
-            phase_2_rerun: Some(phase_2_rerun)
+            phase_2_rerun: Some(phase_2_rerun),
+            phase_5_gonzales: Some(phase_5_gonzales)
         };
 
         // Finally execute the algorithm and save the output clustering into self.clustering
@@ -188,8 +191,10 @@ impl FFKCenter{
     /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
     /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
-    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true")]
-    fn compute_clustering(&mut self, verbose: u8, thread_count: usize, phase_2_rerun:bool) {
+    /// * phase_5_gonzales: Option<bool> determining whether a colored-based gonzales is run during
+    /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
+    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true",phase_5_gonzales="true")]
+    fn compute_clustering(&mut self, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzales: bool) {
         let threads_opt = match thread_count {
             0 => None,
             t => Some(t)
@@ -197,7 +202,8 @@ impl FFKCenter{
         let optional = OptionalParameters {
             verbose: Some(verbose),
             thread_count: threads_opt,
-            phase_2_rerun: Some(phase_2_rerun)
+            phase_2_rerun: Some(phase_2_rerun),
+            phase_5_gonzales: Some(phase_5_gonzales)
         };
 
         let (clustering, total_time) = compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), Some(optional));
