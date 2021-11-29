@@ -188,7 +188,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
 
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
-    let mut clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzales);
+    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzales);
 
 
     let time_after_phase2 = time::Instant::now();
@@ -265,11 +265,11 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
 
-    let (best_i, final_centers, phase5_radius) = phase5(space, prob, new_centers, &mut clusterings, &spanning_trees, thread_count);
+    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, &spanning_trees, thread_count);
 
     let time_after_phase5 = time::Instant::now();
     if verbose >= 2 {
-        println!("\n  - Phase 5 done (time: {:?} with {} threads on {} cores): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), thread_count, cpu_count, best_i, final_centers, phase5_radius);
+        println!("\n  - Phase 5 done (time: {:?} with {} threads on {} cores): Created assignments and chose the final clustering (based on C_{}) with centers: ({}) and radius: {}.", time_after_phase5.duration_since(time_after_phase4), thread_count, cpu_count, best_i, final_clustering.get_centers(), phase5_radius);
     } else if verbose == 1 {
         println!("  - Phase 5 done (time: {:?} with {} threads on {} cores): Created assignments and chose the final clustering (based on C_{}) with radius: {}.", time_after_phase5.duration_since(time_after_phase4), thread_count, cpu_count, best_i, phase5_radius);
     }
@@ -277,14 +277,14 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     ///////////////////////////////////////////////////////////////////////////////////////
     //////////// rerun phase 2 on the final centers to obtain optimal clustering //////////
     ///////////////////////////////////////////////////////////////////////////////////////
-    let mut final_clustering = clusterings.into_iter().nth(best_i).unwrap();
+    // let mut final_clustering = clusterings.into_iter().nth(best_i).unwrap();
     let mut phase2_rerun_time_str = String::from("-");
     if phase_2_rerun {
 
         #[cfg(debug_assertions)]
         println!("\n**** Phase 2 Rerun ****\n");
 
-        final_clustering = make_private(space, prob.privacy_bound, &final_centers).pop().unwrap();
+        final_clustering = make_private(space, prob.privacy_bound, &final_clustering.get_centers()).pop().unwrap();
 
 
         let time_after_phase2rerun = time::Instant::now();

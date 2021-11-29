@@ -1,6 +1,6 @@
 use crate::ClusteringProblem;
 use crate::datastructures::{NewCenters,RootedSpanningTree};
-use crate::types::{Distance,CenterIdx,PointCount};
+use crate::types::{Distance,CenterIdx,PointCount,ColorIdx};
 use crate::space::{Point,ColoredMetric};
 use crate::clustering::{Clustering,Centers};
 use crate::utilities;
@@ -33,10 +33,12 @@ struct PointCenterLink<'a> {
 /// Gonzales prefix C_i.
 /// * final_centers: Centers - The final chosen centers.
 /// * r: Distance - The radius r of the final centers computed by the heuristic assignment.
-pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: &mut Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>, thread_count: usize) -> (CenterIdx, Centers, Distance) {
+pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: Vec<Clustering>, spanning_trees: &Vec<RootedSpanningTree>, thread_count: usize) -> (CenterIdx, Clustering, Distance) {
 
+    let phase_5_gonzales = false; // TODO: Put into parameter
 
     let mut best_radius = <Distance>::MAX;
+    let mut best_clustering = None;
     let mut best_i = 0;
 
     let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
@@ -49,13 +51,13 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
 
         let mut clustering_iter = clustering_list.into_iter();
         let mut spanning_trees_iter = spanning_trees.into_iter();
-        for (i, new_centers) in centers_list.iter().enumerate() {
+        for (i, new_centers) in centers_list.into_iter().enumerate() {
             let threshold = new_centers.forrest_radius;
 
             let (tx, rx) = mpsc::channel();
             receivers.push_back((i,rx));
 
-            let clustering = clustering_iter.next().unwrap();
+            let mut clustering = clustering_iter.next().unwrap();
             let spanning_tree = spanning_trees_iter.next().unwrap();
 
             // copy the read non-mut references from prob and space to move them into the thread
@@ -63,17 +65,21 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
             let space_ref = (&space).clone();
             pool.spawn(move |_| {
                 // first realize the shifting of phase 3 but this time really shift the points:
-                point_shifting(space_ref, prob.privacy_bound, clustering, &spanning_tree, threshold);
+                point_shifting(space_ref, prob.privacy_bound, &mut clustering, &spanning_tree, threshold);
+
+                let spread_centers = if phase_5_gonzales {spread_centers_within_cluster(space_ref, &clustering, &new_centers)} else {new_centers};
+
 
                 // now assign the points of each cluster the new centers and compute the radius:
-                let radius = assign_points_to_new_centers(space_ref, prob_ref, i, &clustering, new_centers);
-                tx.send(radius).unwrap();
+                let (radius, new_clustering) = assign_points_to_new_centers(space_ref, prob_ref, i, clustering, spread_centers);
+
+                tx.send((radius, new_clustering)).unwrap();
             });
         }
     });
 
     for (i, receiver) in receivers.into_iter() {
-        let radius = receiver.recv().unwrap();
+        let (radius, clustering) = receiver.recv().unwrap();
         #[cfg(debug_assertions)]
         println!("  - C_{}: radius: {}", i, radius);
 
@@ -81,11 +87,118 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
         if radius < best_radius {
             best_radius = radius;
             best_i = i;
+            best_clustering = Some(clustering);
         }
 
     }
-    (best_i, centers_list[best_i].as_points.clone(), best_radius)
+    (best_i, best_clustering.unwrap(), best_radius)
 }
+
+fn spread_centers_within_cluster<M : ColoredMetric>(space: &M, pushed_clustering: &Clustering, phase4_centers: &NewCenters) -> NewCenters {
+
+
+
+    let mut all_spread_centers = Centers::with_capacity(phase4_centers.as_points.m()); // here we collect all spread centers of all clusters
+    let mut spread_centers_of_cluster = Vec::with_capacity(phase4_centers.new_centers_of_cluster.len());
+
+    // println!("\n\n**** phase4_centers: {:?}\t cluster:{:?}", phase4_centers.as_points, phase4_centers.new_centers_of_cluster);
+    // phase4_centers.as_points.save_to_file("temp/phase_4_centers.centers");
+    // pushed_clustering.get_centers().save_to_file("temp/gonzales.centers");
+
+    for j in 0 .. pushed_clustering.m() { // go through all clusters
+        let clients = pushed_clustering.get_cluster_of(j,space);
+        let old_centers : Vec<&Point> = phase4_centers.new_centers_of_cluster.get(j).unwrap().iter().map(|&idx| phase4_centers.as_points.get(idx, space)).collect();
+
+        // println!("\nFor C_{}, the cluster {} has opened {} centers in phase 4: {:?}", pushed_clustering.m() - 1, j, old_centers.len(),old_centers);
+        // println!("Clients: {:?}", clients.iter().map(|p| p.idx()).collect::<Vec<_>>());
+        // we know apply colored Gonzales, meaning that the new centers should have the exact same
+        // colors as the old centers in the cluster
+
+
+        // first extract the color information and determine the first center to be the
+        // phase4_center that is closest to the original Gonzales center (from phase 2):
+        let mut colors_to_be_opened : HashMap<ColorIdx,PointCount> = HashMap::with_capacity(old_centers.len());
+        let mut first_center = None;
+        let mut min_dist_to_original = Distance::MAX;
+        for &c in old_centers.iter() {
+            *colors_to_be_opened.entry(space.color(c)).or_insert(0) += 1;
+
+            let dist_to_original = space.dist(c, pushed_clustering.get_center(j,space));
+
+            if dist_to_original < min_dist_to_original {
+                min_dist_to_original = dist_to_original;
+                first_center = Some(c);
+            }
+
+        }
+
+        let mut spread_centers = Centers::with_capacity(phase4_centers.as_points.m());
+        spread_centers.push(first_center.unwrap());
+        *colors_to_be_opened.get_mut(&space.color(first_center.unwrap())).unwrap() -= 1;
+
+        let mut dist_x_center : Vec<Distance> = vec!(Distance::MAX; clients.len());
+
+        for r in 1..old_centers.len() { // one center opened already old_centers.len() - 1 to go
+            let mut candidate_dist = Distance::MIN;
+            let mut candidate : Option<&Point> = None;
+
+
+            for (s, client) in clients.iter().enumerate() {
+                let dist_to_newest_center = space.dist(client, spread_centers.get(r-1,space));
+
+                if dist_to_newest_center < dist_x_center[s] {
+                    dist_x_center[s] = dist_to_newest_center;
+                }
+
+                let color = space.color(client);
+
+                if dist_x_center[s] > candidate_dist && colors_to_be_opened.contains_key(&color) && *colors_to_be_opened.get(&color).unwrap() > 0 {
+                    candidate_dist = dist_x_center[s];
+                    candidate = Some(client);
+                }
+            }
+
+            // it can be the case that there were no client in the cluster of an acceptable colors, i.e., at least one phase4_center is not part of the cluster.
+            if candidate.is_none() {
+
+                // look for a center within the phase4_centers:
+                for old_center in old_centers.iter() {
+                    let dist_to_chosen_centers = space.dist_set(old_center, spread_centers.get_all(space));
+
+                    let color = space.color(old_center);
+                    if dist_to_chosen_centers > candidate_dist && colors_to_be_opened.contains_key(&color) && *colors_to_be_opened.get(&color).unwrap() > 0 {
+                        candidate_dist = dist_to_chosen_centers;
+                        candidate = Some(old_center);
+
+                    }
+
+                }
+
+            }
+
+            spread_centers.push(candidate.unwrap());
+            *colors_to_be_opened.get_mut(&space.color(candidate.unwrap())).unwrap() -=1;
+
+        }
+
+        let index_start = all_spread_centers.m();
+        for c in spread_centers.get_all(space) {
+            all_spread_centers.push(c);
+        }
+        let index_end = all_spread_centers.m();
+        spread_centers_of_cluster.push((index_start..index_end).collect());
+    }
+
+
+    NewCenters {
+        as_points : all_spread_centers,
+        forrest_radius : phase4_centers.forrest_radius,
+        assignment_radius: phase4_centers.assignment_radius,
+        new_centers_of_cluster : spread_centers_of_cluster
+    }
+
+}
+
 
 fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clustering : &mut Clustering, spanning_tree: &RootedSpanningTree, threshold: Distance){
 
@@ -130,7 +243,7 @@ fn hand_over<M: ColoredMetric>(space: &M, clustering: &mut Clustering, supplier:
 }
 
 
-fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, i : CenterIdx, old_clustering: &Clustering, centers: &NewCenters) -> Distance {
+fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, i : CenterIdx, old_clustering: Clustering, centers: NewCenters) -> (Distance, Clustering) {
 
     // now the clusters are given, now we really open the new centers and assign the points to
     // them:
@@ -228,6 +341,6 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
         } // end of batch
 
     } // and of cluster
-    radius
+    (radius, Clustering::new(centers.as_points, new_assignment, space))
 
 }
