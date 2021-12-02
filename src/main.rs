@@ -40,7 +40,7 @@ fn main() {
         verbose : Some(verbose),
         thread_count : None,
         phase_2_rerun : Some(false),
-        phase_5_gonzales : Some(true)
+        phase_5_gonzalez : Some(true)
     };
 
     let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, Some(opt_paras));

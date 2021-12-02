@@ -97,9 +97,9 @@ enum Node {
 /// until all source-leaving arcs are saturated, which corresponds to a feasible flow in the
 /// flow-network with lower flow bounds.
 ///
-/// Returns the partial assignment of points to gonzales center, such that the number of assigned points
+/// Returns the partial assignment of points to gonzalez center, such that the number of assigned points
 /// of color class l are within [a_l,b_l]; each cluster j has between 1 and eta_j assigned points
-/// and the maximal distance between an assigned point and its cluster center (= gonzales center)
+/// and the maximal distance between an assigned point and its cluster center (= gonzalez center)
 /// is minimized.
 pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCenters {
     // create a new flow of maximal flow value of min{sum_of_a, i+1} in the network without

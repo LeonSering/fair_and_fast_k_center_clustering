@@ -7,7 +7,7 @@ use super::{Edge,flow::{initialize_state,add_edge}};
 pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
     let k = centers.m();
-// create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
+// create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
     for (j, c) in centers.get_all(space).iter().enumerate() {
         for p in space.point_iter() {
@@ -35,16 +35,16 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
 
     let mut pending: Vec<VecDeque<Edge>> = (0..k).map(|_| VecDeque::new()).collect();
 
-    let mut i = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
+    let mut i = 0; // currently processing gonzalez set containing center 0, ..., i; here, i goes from 0 to k-1
 
     let mut current_d = <Distance>::MIN;
-    while i < k { // extend set of gonzales centers one by one
+    while i < k { // extend set of gonzalez centers one by one
 //        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
 
         while !pending[i].is_empty() {
             let e = pending[i].pop_front().unwrap();
-            assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
+            assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
             add_edge(e, i, k, privacy_bound, &mut state);
 //            println!("  Pending edge added: {:?}; \tmax_flow: {}", e, state.max_flow);
         }

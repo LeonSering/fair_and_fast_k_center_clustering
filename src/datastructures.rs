@@ -3,10 +3,10 @@ use crate::clustering::Centers;
 use std::collections::VecDeque;
 use std::fmt;
 
-/// Phase 3 return a vector (one for each gonzales set) of this type (together with the computed
+/// Phase 3 return a vector (one for each gonzalez set) of this type (together with the computed
 /// MSTs -> input of Phase 5).
 /// It is the input of Phase 4.
-/// It contains the eta-vector which determines how many centers can be opened in each gonzales
+/// It contains the eta-vector which determines how many centers can be opened in each gonzalez
 /// cluster.
 #[derive(Debug)]
 pub(crate) struct OpeningList {
@@ -28,10 +28,10 @@ impl fmt::Display for OpeningList {
     }
 }
 
-/// Phase 4 returns a vector (one for each gonzales set) of this type.
+/// Phase 4 returns a vector (one for each gonzalez set) of this type.
 /// This together with the MSTs of Phase 3 are the input of Phase 5.
 /// It contains the forrest and the assignment radius (which was minimized in the sum)
-/// for each gonzales cluster it contains the new centers that needs to be open within this cluster
+/// for each gonzalez cluster it contains the new centers that needs to be open within this cluster
 #[derive(Debug)]
 pub(crate) struct NewCenters {
     pub as_points : Centers,
@@ -40,9 +40,9 @@ pub(crate) struct NewCenters {
     pub new_centers_of_cluster : Vec<Vec<CenterIdx>>,
 }
 
-/// Phase 3 return a vector (one for each gonzales set) of this type.
+/// Phase 3 return a vector (one for each gonzalez set) of this type.
 /// Together with the new centers of Phase 4 this is the input of Phase 5.
-/// It contains a minimum spanning tree (MST) on the gonzales centers.
+/// It contains a minimum spanning tree (MST) on the gonzalez centers.
 /// It has a designated root (always center with index 0) and each edge is pointing towards this
 /// root.
 #[derive(Debug)]
@@ -141,7 +141,7 @@ impl fmt::Display for RootedSpanningTree {
 }
 
 
-/// A pointer from a gonzales center to its parent in a rooted forest.
+/// A pointer from a gonzalez center to its parent in a rooted forest.
 #[derive(Debug,Clone)]
 pub(crate) struct UpEdge {
     pub d : Distance,

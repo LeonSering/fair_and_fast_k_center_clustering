@@ -13,12 +13,12 @@ use color_flow::compute_assignment_by_flow;
 use std::sync::mpsc;
 use rayon::ThreadPoolBuilder;
 
-/// an edge between a gonzales center and a color class;
+/// an edge between a gonzalez center and a color class;
 /// lablled with the point and the distance between center and point
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
 struct ColorEdge {
-    d: Distance, // distance between the gonzales center and the point
-    center: CenterIdx, // index to the gonzales center
+    d: Distance, // distance between the gonzalez center and the point
+    center: CenterIdx, // index to the gonzalez center
     point: PointIdx, // a point that might be a final center
     color: ColorIdx, // the color of the point
 }
@@ -32,7 +32,7 @@ struct ShiftedCenters {
     assignment_radius : Distance, // the shift radius
 
     new_centers : Vec<PNodeIdx>,
-    origins : Vec<CenterIdx> // the original gonzales center for each new center
+    origins : Vec<CenterIdx> // the original gonzalez center for each new center
 }
 
 
@@ -42,7 +42,7 @@ type CNodeIdx = usize; // type for the index of a color node
 /// Given a metric space and a clustering problem,
 /// phase4 takes a vector of clusterings in which each center (except for one) covers a multple of L
 /// points, and returns a single list of new centers that also satisfy the representative constaints and has minimum shifting radius
-pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzales : &Centers, thread_count: usize) -> (Vec<NewCenters>, Vec<usize>) {
+pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, mut opening_lists : Vec<Vec<OpeningList>>,  gonzalez : &Centers, thread_count: usize) -> (Vec<NewCenters>, Vec<usize>) {
 
     let sum_of_a: PointCount = prob.rep_intervals.iter().map(|interval| interval.0).sum();
 
@@ -57,7 +57,7 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
     //    for p in space.point_iter() {
     //        let color = space.color(p);
     //        all_edges_of_cluster[i].push(ColorEdge{
-    //            d: space.dist(gonzales.get(i), p),
+    //            d: space.dist(gonzalez.get(i), p),
     //            center: i,
     //            point: p.idx(),
     //            color});
@@ -69,19 +69,19 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
 
 
 
-    // define the neighborhood of each gonzales center
+    // define the neighborhood of each gonzalez center
     // each center has to be connected to the clostest a_l ponits of each color class l
     // fill up the neighborhood to k points with the closest remaining points (but never more than b_l
     // points of color l)
 
-    let edges_of_cluster: Vec<Vec<ColorEdge>> = determine_neighborhood(space, prob, gonzales);
+    let edges_of_cluster: Vec<Vec<ColorEdge>> = determine_neighborhood(space, prob, gonzalez);
 
     let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
     let mut receivers = VecDeque::with_capacity(prob.k);
 
     thread_pool.scope(|pool| { // define this scope as refs to edges_of_cluster should be moved into threads but it cannot be 'static
 
-        // next, we solve k^2 flow problem. One for each gonzales set and each opening-vector
+        // next, we solve k^2 flow problem. One for each gonzalez set and each opening-vector
         for i in (0..prob.k).rev() {
             let opening_list = opening_lists.pop().unwrap();
             let (tx, rx) = mpsc::channel();
@@ -127,11 +127,11 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
     (new_centers, counts)
 }
 
-/// The following function is executed once for each gonzales prefix C_i.
+/// The following function is executed once for each gonzalez prefix C_i.
 /// First the flow network network is prepared.
 /// For each of the i opening_list (one for each forest) it checks wether this flow problem has
 /// been solved already. Then it executes the flow algorithm to obtain new shifted centers.
-/// It only return the best shifted centers for this Gonzales prefix.
+/// It only return the best shifted centers for this Gonzalez prefix.
 ///
 /// Output: shifted_centers (None if not feasible),
 /// node_to_point : maps node index to point index,

@@ -39,7 +39,7 @@ pub use assertions::assert_clustering_problem;
 use assertions::assert_optional_parameters;
 
 mod phase1;
-use phase1::gonzales_heuristic;
+use phase1::gonzalez_heuristic;
 
 mod phase2;
 use phase2::make_private;
@@ -105,18 +105,18 @@ impl fmt::Display for ClusteringProblem {
 /// (default: #cores);
 /// * phase_2_rerun: Option<bool> determining whether an additonal phase 2 is run at the very end
 /// using the final centers in order to obtain the best privacy-preserving assignment. (default: true)
-/// * phase_5_gonzales: Option<bool> determining whether a colored-based gonzales is run during
+/// * phase_5_gonzalez: Option<bool> determining whether a colored-based gonzalez is run during
 /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
 pub struct OptionalParameters {
     pub verbose: Option<u8>,
     pub thread_count: Option<usize>,
     pub phase_2_rerun: Option<bool>,
-    pub phase_5_gonzales: Option<bool>
+    pub phase_5_gonzalez: Option<bool>
 }
 
 const DEFAULT_VERBOSE: u8 = 1;
 const DEFAULT_PHASE2_RERUN: bool = true;
-const DEFAULT_PHASE5_GONZALES: bool = true;
+const DEFAULT_PHASE5_GONZALEZ: bool = true;
 
 
 /// Computes a privacy preserving representative k-clustering.
@@ -126,7 +126,7 @@ const DEFAULT_PHASE5_GONZALES: bool = true;
 /// * a metric space implementing the [ColoredMetric] trait;
 /// * a [ClusteringProblem];
 /// * a optional struct of optional parameters, containing verbose: Option<u8>, thread_count: Option<usize,
-/// phase_2_rerun: Option<bool>, phase_5_gonzales: Option<bool>. For None default values are filled in (see [OptionalParamters]).
+/// phase_2_rerun: Option<bool>, phase_5_gonzalez: Option<bool>. For None default values are filled in (see [OptionalParamters]).
 /// * a u8 indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose;
 ///
 /// # Output
@@ -145,7 +145,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         verbose: Some(DEFAULT_VERBOSE),
         thread_count: Some(default_thread_count),
         phase_2_rerun: Some(DEFAULT_PHASE2_RERUN),
-        phase_5_gonzales: Some(DEFAULT_PHASE5_GONZALES)});
+        phase_5_gonzalez: Some(DEFAULT_PHASE5_GONZALEZ)});
 
     match assert_optional_parameters(&optional_parameters) {
         Err(msg) => {
@@ -157,7 +157,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
     let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count);
     let phase_2_rerun = optional_parameters.phase_2_rerun.unwrap_or(DEFAULT_PHASE2_RERUN);
-    let phase_5_gonzales = optional_parameters.phase_5_gonzales.unwrap_or(DEFAULT_PHASE5_GONZALES);
+    let phase_5_gonzalez = optional_parameters.phase_5_gonzalez.unwrap_or(DEFAULT_PHASE5_GONZALEZ);
 
     if verbose >= 1 {
         println!("\n**** Solving: {}", prob);
@@ -181,19 +181,19 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
 
 
     /////////////////////////////////////////////////////////////////////////////////////
-    // phase 1: use gonzales heuristic to obtain an ordered set of preliminary centers //
+    // phase 1: use gonzalez heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
 
     #[cfg(debug_assertions)]
     println!("\n**** Phase 1 ****");
 
-    let gonzales: Centers = gonzales_heuristic(space, prob.k);
+    let gonzalez: Centers = gonzalez_heuristic(space, prob.k);
 
     let time_after_phase1 = time::Instant::now();
     if verbose >= 2{
-        println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzales);
+        println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzalez);
     } else if verbose == 1 {
-        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzales heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
+        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
     }
 
     ///////////////////////////////////////
@@ -202,7 +202,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
 
     #[cfg(debug_assertions)]
     println!("\n**** Phase 2 ****");
-    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzales);
+    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzalez);
 
 
     let time_after_phase2 = time::Instant::now();
@@ -217,7 +217,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
 
     #[cfg(debug_assertions)]
     {
-        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzales);
+        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
 
         let time_after_phase2_sorting = time::Instant::now();
         println!("\n  - Phase 2 (with sorting) done (time: {:?}): Determined k = {} clusterings:", time_after_phase2_sorting.duration_since(time_after_phase2), prob.k);
@@ -259,7 +259,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     println!("\n**** Phase 4 ****");
 
 
-    let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzales,thread_count);
+    let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzalez,thread_count);
 
     let time_after_phase4 = time::Instant::now();
     let count_sum: usize = counts.iter().sum();
@@ -279,7 +279,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     #[cfg(debug_assertions)]
     println!("\n**** Phase 5 ****\n");
 
-    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzales);
+    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzalez);
 
     let time_after_phase5 = time::Instant::now();
     if verbose >= 2 {

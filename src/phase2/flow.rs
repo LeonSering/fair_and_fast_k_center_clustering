@@ -6,7 +6,7 @@ use std::collections::VecDeque;
 // describes the state of the flow network and of the centers graph.
 #[derive(Debug)]
 pub(super) struct State<'a>{
-    pub center_of: Vec<Option<CenterIdx>>, // center[x] is the assigned center (in form of gonzales index) of point x
+    pub center_of: Vec<Option<CenterIdx>>, // center[x] is the assigned center (in form of gonzalez index) of point x
     pub max_flow: PointCount, // the current value of a maximum flow
     reassign: Vec<Vec<VecDeque<&'a Point>>>, // reassing[c][t] contains all points that are assigned to c but could also be assigned to t
     unassigned: Vec<VecDeque<&'a Point>>, // unassigned[c] contains all points that are unassigned but could be assigned to c
@@ -76,7 +76,7 @@ impl<'a> State<'a> {
 
 pub(super) fn initialize_state<'a>(n: PointCount, k: PointCount, privacy_bound_zero: bool) -> State<'a> {
     State {
-        center_of: vec!(None; n), // gives for each point the index (in gonzales array) of the center it is assigned to; at the beginning all are unassigned (= None)
+        center_of: vec!(None; n), // gives for each point the index (in gonzalez array) of the center it is assigned to; at the beginning all are unassigned (= None)
         max_flow: 0,
         reassign: (0..k).map(|_| (0..k).map(|_| VecDeque::new()).collect()).collect(),
         unassigned: (0..k).map(|_| VecDeque::new()).collect(),
@@ -87,8 +87,8 @@ pub(super) fn initialize_state<'a>(n: PointCount, k: PointCount, privacy_bound_z
 
 }
 
-// input: the edge e for processing, the current gonzales set (0,...,i), the current bucket j, and the
-//        index t of the center of e.left (within the gonzales set)
+// input: the edge e for processing, the current gonzalez set (0,...,i), the current bucket j, and the
+//        index t of the center of e.left (within the gonzalez set)
 // task: add edge e to the current flow network and look for an augmenting path to increase the
 // flow by 1; then execute this augmentation
 

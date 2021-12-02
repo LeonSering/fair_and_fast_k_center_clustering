@@ -20,12 +20,12 @@ use std::collections::HashMap;
 type EdgeIdx = usize;
 type BucketIdx = usize;
 
-// An edge in the flow network. One for every center (left; in form of an gonzales index 0,..,k-1) to every point (right). note that center appear on both sides.
+// An edge in the flow network. One for every center (left; in form of an gonzalez index 0,..,k-1) to every point (right). note that center appear on both sides.
 // The distance is stored in d.
 #[derive(Debug,Clone,Copy,PartialOrd,PartialEq)]
 pub (crate) struct Edge<'a> { // Care: The ordering of attributes is important for the partial order! Ties in d are broken by left, then right
     pub d : Distance,
-    left : CenterIdx, // index of the center in gonzales
+    left : CenterIdx, // index of the center in gonzalez
     right : &'a Point,
 }
 
@@ -84,7 +84,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
 
     let k = centers.m();
 
-// create edges: care, edge.left stores the index of the gonzales center (0,...,k-1).
+// create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
     for (j, c) in centers.get_all(space).iter().enumerate() {
         for p in space.point_iter() {
@@ -132,13 +132,13 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     let mut state = initialize_state(space.n(),k, if privacy_bound == 0 {true} else {false});
 
 
-    let mut i : CenterIdx = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
+    let mut i : CenterIdx = 0; // currently processing gonzalez set containing center 0, ..., i; here, i goes from 0 to k-1
     let mut j = 0; // currently processing buckets; from 0,..., k^2-1. We have a shift by -1 compared to paper
     let mut edge_cursor : EdgeIdx = 0; // an cursor pointing to the current edge in the current bucket
 
 
 //    println!("\n\n************************ Bucket {} ***********************", j);
-    while i < k { // extend set of gonzales centers one by one
+    while i < k { // extend set of gonzalez centers one by one
         #[cfg(debug_assertions)]
         println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
@@ -152,7 +152,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
 
             while !pending.is_empty(i,b) {
                 let e = pending.pop(i,b).unwrap();
-                assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzales)
+                assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
                 add_edge(e, i, k, privacy_bound, &mut state);
 //                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
             }

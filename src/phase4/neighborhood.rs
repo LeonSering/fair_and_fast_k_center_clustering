@@ -2,11 +2,11 @@ use crate::{ClusteringProblem,ColoredMetric,Centers};
 use crate::utilities;
 use super::ColorEdge;
 
-/// define the neighborhood of each gonzales center
+/// define the neighborhood of each gonzalez center
 /// each center has to be connected to the clostest a_l ponits of each color class l
 /// fill up the neighborhood to k points with the closest remaining points (but never more than b_l
 /// points of color l)
-pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, gonzales: &Centers) -> Vec<Vec<ColorEdge>> {
+pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &ClusteringProblem, gonzalez: &Centers) -> Vec<Vec<ColorEdge>> {
     let mut edges_of_cluster: Vec<Vec<ColorEdge>> = vec!(Vec::with_capacity(prob.k);prob.k);
 
 
@@ -15,11 +15,11 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         // first we make edge lists for each color class
         let mut edges_by_color: Vec<Vec<ColorEdge>> = vec!(Vec::new();space.gamma());
 
-        // for this we create all edges from gonzales center i to all points
+        // for this we create all edges from gonzalez center i to all points
         for p in space.point_iter() {
             let color = space.color(p);
             edges_by_color[space.color(p)].push(ColorEdge{
-                d: space.dist(gonzales.get(i,space), p),
+                d: space.dist(gonzalez.get(i,space), p),
                 center: i,
                 point: p.idx(),
                 color});

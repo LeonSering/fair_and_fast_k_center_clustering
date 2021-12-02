@@ -12,7 +12,7 @@ use crate::clustering::Clustering;
 
 /// Given a metric space and a clusting problem,
 /// redistribute takes a vector of (full) clusterings, each satisfying the privacy constrait
-/// and returns, for each gonzales set and each of the i+1 spanning forests, the number eta of
+/// and returns, for each gonzalez set and each of the i+1 spanning forests, the number eta of
 /// centers that can be opened in the neighborhood of each center.
 /// It does not update the clusterings (shifting points around).
 pub(crate) fn algebraic_pushing<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
@@ -87,14 +87,14 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
 
 ////// Spanning Tree Computation ////////
 
-/// Given a set of clusterings (one for each gonzales set), return a minimum spanning tree on the
+/// Given a set of clusterings (one for each gonzalez set), return a minimum spanning tree on the
 /// centers, one for each clustering
 fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> Vec<RootedSpanningTree> {
 
     let mut spanning_trees : Vec<RootedSpanningTree> = Vec::with_capacity(prob.k);
 
     for clustering in clusterings.iter() {
-        let i = clustering.m() - 1; // the number of centers; i.e. we consider gonzales set S_i (counting from 0 to k-1)
+        let i = clustering.m() - 1; // the number of centers; i.e. we consider gonzalez set S_i (counting from 0 to k-1)
 
         // first lets do the algorithm of prim to compute the minimum spanning tree.
         // takes O(i^2) time

@@ -27,15 +27,15 @@ struct PointCenterLink<'a> {
 /// * clustering_list: the assignments created by phase 2
 /// * spanning_trees: the spanning_trees in the centers class that were created by phase 3 and chosen
 /// (for each k) in phase 4.
-/// * phase_5_gonzales: boolean indicated if a colored gonzales is run within each cluster (after the real pushing but
+/// * phase_5_gonzalez: boolean indicated if a colored gonzalez is run within each cluster (after the real pushing but
 /// before the assignment). This leads to more wide-spread centers within a cluster.
 ///
 /// # Output:
 /// * i: CenterIdx - The index i of the final centers. I.e. the final centers are based on the
-/// Gonzales prefix C_i.
+/// Gonzalez prefix C_i.
 /// * final_centers: Centers - The final chosen centers.
 /// * r: Distance - The radius r of the final centers computed by the heuristic assignment.
-pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: Vec<Clustering>, spanning_trees: Vec<RootedSpanningTree>, thread_count: usize, phase_5_gonzales: bool) -> (CenterIdx, Clustering, Distance) {
+pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &ClusteringProblem, centers_list: Vec<NewCenters>, clustering_list: Vec<Clustering>, spanning_trees: Vec<RootedSpanningTree>, thread_count: usize, phase_5_gonzalez: bool) -> (CenterIdx, Clustering, Distance) {
 
     let mut best_radius = <Distance>::MAX;
     let mut best_clustering = None;
@@ -67,7 +67,7 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
                 // first realize the shifting of phase 3 but this time really shift the points:
                 point_shifting(space_ref, prob.privacy_bound, &mut clustering, &spanning_tree, threshold);
 
-                let spread_centers = if phase_5_gonzales {spread_centers_within_cluster(space_ref, &clustering, &new_centers)} else {new_centers};
+                let spread_centers = if phase_5_gonzalez {spread_centers_within_cluster(space_ref, &clustering, &new_centers)} else {new_centers};
 
 
                 // now assign the points of each cluster the new centers and compute the radius:
@@ -83,7 +83,7 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
         #[cfg(debug_assertions)]
         println!("  - C_{}: radius: {}", i, radius);
 
-        // now only save the best clustering (over all k+1 gonzales sets) depending on the minimum radius
+        // now only save the best clustering (over all k+1 gonzalez sets) depending on the minimum radius
         if radius < best_radius {
             best_radius = radius;
             best_i = i;
@@ -151,12 +151,12 @@ fn spread_centers_within_cluster<M : ColoredMetric>(space: &M, pushed_clustering
         let clients = pushed_clustering.get_cluster_of(j,space);
         let old_centers : Vec<&Point> = phase4_centers.new_centers_of_cluster.get(j).unwrap().iter().map(|&idx| phase4_centers.as_points.get(idx, space)).collect();
 
-        // we now apply colored Gonzales, meaning that the new centers should have the exact same
+        // we now apply colored Gonzalez, meaning that the new centers should have the exact same
         // colors as the old centers in the cluster
 
 
         // first extract the color information and determine the first center to be the
-        // phase4_center that is closest to the original Gonzales center (from phase 2):
+        // phase4_center that is closest to the original Gonzalez center (from phase 2):
         let mut colors_to_be_opened : HashMap<ColorIdx,PointCount> = HashMap::with_capacity(old_centers.len());
         let mut first_center = None;
         let mut min_dist_to_original = Distance::MAX;
