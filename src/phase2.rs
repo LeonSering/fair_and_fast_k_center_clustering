@@ -129,7 +129,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
        // a distance small than the settled radius of the previous center, i.e., they can be added
        // fearlessly
 
-    let mut state = initialize_state(space.n(),k);
+    let mut state = initialize_state(space.n(),k, if privacy_bound == 0 {true} else {false});
 
 
     let mut i : CenterIdx = 0; // currently processing gonzales set containing center 0, ..., i; here, i goes from 0 to k-1
@@ -143,6 +143,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         println!{"\n+++ center {} now considered!\n", i};
         assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
+
         for b in 0..j {
             // here, we process edges from previous (and the current) buckets (< j) that were ignored because they
             // were adjacent to ceners not in the set that was being processed
@@ -193,7 +194,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         assert_eq!(state.max_flow, (i + 1) * privacy_bound, "The maximum flow value is bigger than allowed");
         // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
-//        println!("\n+++ Center {} settles in bucket {}:\n", i, j);
+        // println!("\n+++ Center {} settles in bucket {}:\n", i, j);
         clusterings.push(settle(edge_cursor, &mut buckets[j], i, privacy_bound, &mut state, &centers, space));
 
         // start bucket from beginning, hence clear all pendings

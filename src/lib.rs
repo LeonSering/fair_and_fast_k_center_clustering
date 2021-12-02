@@ -36,6 +36,7 @@ mod datastructures;
 
 mod assertions;
 pub use assertions::assert_clustering_problem;
+use assertions::assert_optional_parameters;
 
 mod phase1;
 use phase1::gonzales_heuristic;
@@ -146,12 +147,19 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         phase_2_rerun: Some(DEFAULT_PHASE2_RERUN),
         phase_5_gonzales: Some(DEFAULT_PHASE5_GONZALES)});
 
+    match assert_optional_parameters(&optional_parameters) {
+        Err(msg) => {
+            println!("\n\x1b[0;31mInvalidOptionalParameters:\x1b[0m {}", msg);
+            panic!("Invalid parameters. Abort!")}
+        _ => {}
+    }
+
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
     let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count);
     let phase_2_rerun = optional_parameters.phase_2_rerun.unwrap_or(DEFAULT_PHASE2_RERUN);
     let phase_5_gonzales = optional_parameters.phase_5_gonzales.unwrap_or(DEFAULT_PHASE5_GONZALES);
 
-    if verbose >= 2 {
+    if verbose >= 1 {
         println!("\n**** Solving: {}", prob);
     }
 

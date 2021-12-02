@@ -31,7 +31,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
 
 
-    let mut state = initialize_state(space.n(), k);
+    let mut state = initialize_state(space.n(), k, if privacy_bound == 0 {true} else {false});
 
     let mut pending: Vec<VecDeque<Edge>> = (0..k).map(|_| VecDeque::new()).collect();
 

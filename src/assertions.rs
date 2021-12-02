@@ -1,4 +1,4 @@
-use crate::{ColoredMetric,ClusteringProblem};
+use crate::{ColoredMetric,ClusteringProblem,OptionalParameters};
 use crate::types::PointCount;
 
 /// Asserts a clustering problem.
@@ -76,5 +76,18 @@ pub(crate) fn assert_problem_parameters(prob: &ClusteringProblem) -> Result<(),S
     }
     if !(sum_of_a <= prob.k) {return Err(format!("The sum of the lower bounds of the representative intervals is {}, which is larger than k = {}.", sum_of_a, prob.k))};
 
+    Ok(())
+}
+
+/// Assertion for the optional program parameters.
+pub(crate) fn assert_optional_parameters(para: &OptionalParameters) -> Result<(),String> {
+    match para.verbose{
+        Some(i) => { if i > 2 {return Err(String::from("The verbose parameter must be 0 (silent), 1 (brief) or 2 (verbose)."));}}
+        _ => {}
+    };
+    match para.thread_count{
+        Some(i) => { if i <= 1 {return Err(String::from("There need to be at least two threads."));}}
+        _ => {}
+    };
     Ok(())
 }

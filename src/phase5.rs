@@ -106,7 +106,12 @@ fn point_shifting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, clus
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
-        let surplus = cluster_sizes[node] % privacy_bound;
+        let surplus;
+        if privacy_bound == 0 {
+            surplus = 0;
+        } else {
+            surplus = cluster_sizes[node] % privacy_bound;
+        }
         // println!("\tcluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
         if surplus > 0 {
             match potential_up_edge {

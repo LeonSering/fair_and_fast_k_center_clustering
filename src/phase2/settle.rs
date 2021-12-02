@@ -67,21 +67,21 @@ pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Ve
 // Output: None if max_flow_target cannot be reached or Some(radius) if found
 //   list becomes more sorted
 fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut EdgeIdx, i : CenterIdx, k : PointCount, privacy_bound: PointCount, state: &mut State<'a>) -> Distance {
-//    println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<Distance>>(), edges_present);
+    // println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<Distance>>(), edges_present);
     let list_len = list.len();
     assert!(list_len > 0, "Empty list in binary search");
     if list_len == 1 {
         if !edges_present {
             flow::add_edge(list[0],i,k,privacy_bound,state);
             *cursor += 1;
-//            println!("\n\tAdd final edge: {:?} in binary search for center: {};\tmax_flow: {}", list[0], i, state.max_flow);
+            // println!("\n\tAdd final edge: {:?} in binary search for center: {};\tmax_flow: {}", list[0], i, state.max_flow);
         }
         assert_eq!(state.max_flow, (i+1) * privacy_bound, "Something went wrong in the binary search.");
         return list[0].d;
     }
 
     let (mut smaller, mut bigger) = utilities::split_at_median(list);
-//    println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
+    // println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
 
 

@@ -26,13 +26,13 @@ fn main() {
         // rep_intervals : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     // };
 
-    let verbose = 2; // 0: silent, 1:brief, 2:verbose
+    let verbose = 1; // 0: silent, 1:brief, 2:verbose
 
     let space_name = "classIris_crop";
     let space = SpaceND::by_file(format!("{}.2dspace",space_name).as_str(),15,verbose);
     let prob = ClusteringProblem{
         k : 9, // number of center;
-        privacy_bound : 2, // number of points to represent;
+        privacy_bound : 1, // number of points to represent;
         rep_intervals : vec!((0,500),(3,500),(3,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
 

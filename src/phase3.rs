@@ -58,7 +58,12 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
         let node = stack.pop().unwrap();
         // println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
-        eta[node] = Some(cluster_sizes[node] / privacy_bound);
+
+        if privacy_bound == 0 {
+            eta[node] = Some(cluster_sizes[node]);
+        } else {
+            eta[node] = Some(cluster_sizes[node] / privacy_bound);
+        }
         let surplus = cluster_sizes[node] - eta[node].unwrap()*privacy_bound;
         if surplus > 0 {
             match potential_up_edge {
