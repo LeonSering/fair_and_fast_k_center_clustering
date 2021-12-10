@@ -193,7 +193,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     if verbose >= 2{
         println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzalez);
     } else if verbose == 1 {
-        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
+        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.\n", time_after_phase1.duration_since(time_after_assertions), prob.k);
     }
 
     ///////////////////////////////////////
@@ -212,19 +212,13 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
     } else if verbose == 1 {
-        println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.", time_after_phase2.duration_since(time_after_phase1), prob.k);
+        println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.\n", time_after_phase2.duration_since(time_after_phase1), prob.k);
     }
+    
+    let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
 
-    #[cfg(debug_assertions)]
-    {
-        let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
-
-        let time_after_phase2_sorting = time::Instant::now();
-        println!("\n  - Phase 2 (with sorting) done (time: {:?}): Determined k = {} clusterings:", time_after_phase2_sorting.duration_since(time_after_phase2), prob.k);
-        for (i,clustering) in clusterings_with_sorting.iter().enumerate() {
-            print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
-        }
-    }
+    let time_after_phase2_sorting = time::Instant::now();
+    println!("  - Phase 2 (with sorting) done (time: {:?})\n", time_after_phase2_sorting.duration_since(time_after_phase2));
 
     ///////////////////////////////////////////////////////////////////////////
     // phase 3: determine spanning trees and eta-vector by algebraic_pushing //

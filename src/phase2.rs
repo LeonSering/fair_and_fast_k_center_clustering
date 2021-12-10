@@ -11,7 +11,9 @@ use flow::{initialize_state,add_edge};
 mod settle;
 use settle::settle;
 
-#[cfg(debug_assertions)]
+
+use std::time;
+
 pub(crate) mod with_sorting;
 
 use std::collections::VecDeque;
@@ -82,6 +84,7 @@ impl<'a> PendingQueues<'a> {
 /// Afterwards it assigns the remaining points to the nearest center to provide a full clustering.
 pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
+    let time_start_make_private = time::Instant::now();
     let k = centers.m();
 
 // create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
@@ -102,19 +105,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     let power_of_k: u32 = 2;
     let mut buckets = put_into_buckets(edges, space.n(), k, power_of_k);
 
-    #[cfg(debug_assertions)]
-    println!("\n  - Phase 2a: Put n*k = {} edges into {} buckets, each of size at most ceil(4n/k^{}) = {}.", k*space.n(), buckets.len(), power_of_k, (4*space.n()-1)/k.pow(power_of_k)+1);
 
-    #[cfg(debug_assertions)]
-    assert!(buckets::assert_buckets_properties(&buckets, space.n(), k, power_of_k));
-
-    #[cfg(debug_assertions)]
-    for (i, bucket) in buckets.iter().enumerate() {
-        let bucket_of_dist : Vec<Distance> = bucket.iter().map(|x| x.d).collect();
-        println!("\t Bucket {}: {:?}", i, bucket_of_dist);
-    }
-
-
+    let time_after_buckets = time::Instant::now();
+    println!("  - putting {} edges into {} bucket takes: {:?}.", space.n() * k, buckets.len(), time_after_buckets.duration_since(time_start_make_private));
 
 
     // step 2: solve flow problem
@@ -205,6 +198,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         i += 1;
     }
 
+    let time_after_flow = time::Instant::now();
+    println!("  - solving flow problems and settle all {} centers takes: {:?}.", k, time_after_flow.duration_since(time_after_buckets));
+
     // assigne all unassigned points to its nearest neighbor:
     // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
     #[cfg(debug_assertions)]
@@ -212,7 +208,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }
-
+    
+    let time_after_filling_up = time::Instant::now();
+    println!("  - filling up all remaining points takes: {:?}.", time_after_filling_up.duration_since(time_after_flow));
     clusterings
 }
 

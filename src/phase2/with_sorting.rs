@@ -4,8 +4,11 @@ use crate::clustering::{Clustering,Centers};
 use std::collections::VecDeque;
 use super::{Edge,flow::{initialize_state,add_edge}};
 
+use std::time;
+
 pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
+    let time_start_make_private_with_sorting = time::Instant::now();
     let k = centers.m();
 // create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
     let mut edges : Vec<Edge> = Vec::with_capacity(k * space.n());
@@ -19,13 +22,15 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         }
     }
 
-    println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
+    // println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
 
     edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
 //    println!("Edges: {:?}", edges.iter().map(|x| x.d).collect::<Vec<_>>());
 
     let mut edge_iter = edges.iter();
 
+    let time_after_sorting = time::Instant::now();
+    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_start_make_private_with_sorting));
     // step 2: solve flow problem
 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
@@ -88,9 +93,17 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
 
         i += 1;
     }
+
+    let time_after_flow_with_sorting = time::Instant::now();
+    println!("  - solving flow problems and settle all {} centers takes (sorting): {:?}.", k, time_after_flow_with_sorting.duration_since(time_after_sorting));
+
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }
+
+    let time_after_filling_up_with_sorting = time::Instant::now();
+    println!("  - filling up all remaining points (sorting) takes: {:?}.", time_after_filling_up_with_sorting.duration_since(time_after_flow_with_sorting));
+
     clusterings
 }
 
