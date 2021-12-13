@@ -11,7 +11,7 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
         return vec![list]
     }
 
-    let mut buckets : Vec<Vec<Edge>> = Vec::with_capacity((list.len()*2)/bucket_size_limit);
+    // let mut buckets : Vec<Vec<Edge>> = Vec::with_capacity((list.len()*2)/bucket_size_limit);
 
 
 //    println!("\nList before: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
@@ -21,8 +21,8 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
 //    println!("bigger: {:?}", bigger.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("List after: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
 
-    buckets.append(&mut put_into_buckets(smaller, n, k, power_of_k));
-    buckets.append(&mut put_into_buckets(bigger, n, k, power_of_k));
+    let mut buckets = put_into_buckets(smaller, n, k, power_of_k);
+    buckets.extend(put_into_buckets(bigger, n, k, power_of_k));
 
     buckets
 }

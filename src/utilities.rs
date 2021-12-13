@@ -1,4 +1,4 @@
-pub(super) fn split_at_median<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>) -> (Vec<E>, Vec<E>) {
+pub(super) fn split_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> (Vec<E>, Vec<E>) {
     let middle = (list.len() - 1 ) /2;
     split_at_pos(list, middle)
 }
@@ -7,7 +7,7 @@ pub(super) fn split_at_median<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>) -
 /// all elements in the left list are smaller or equal to all
 /// elements of the right list.
 /// list is empty afterwards.
-pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
+pub(super) fn split_at_pos<E: Clone + PartialOrd>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
     if pos >= list.len() {
         #[cfg(debug_assertions)]
         println!("Care: list has only length {}, but is asked to be split at pos = {}. Everyting will be in smaller.", list.len(), pos);
@@ -25,7 +25,7 @@ pub(super) fn split_at_pos<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos:
 }
 
 /// deletes element from the list, such that only the t smallest elements remain (unsorted)
-pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize){
+pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize){
     if t >= list.len() {
         #[cfg(debug_assertions)]
         {
@@ -41,7 +41,7 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Copy>(list: &mut Vec<
 
 /// splits off all elements except for the t smallest. Hence, afterwords the list consists of the t
 /// smallest elements and the remaining elements are returned.
-pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: usize) -> Vec<E>{
+pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -> Vec<E>{
     if t >= list.len() {
         #[cfg(debug_assertions)]
         if t > list.len() {
@@ -55,7 +55,7 @@ pub(super) fn split_off_at<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, t: u
 
 /// input: list of unsorted edges; an integer pos;
 /// output: the value of the element that would have pos as index if list was sorted.
-fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usize) -> E {
+fn median_of_medians<E: Clone + PartialOrd>(list: &mut Vec<E>, pos : usize) -> E {
     assert!(pos <= list.len(), "Cannot compute the element at position pos = {} if the list has only length = {}", pos, list.len());
 
     let chunks = list.chunks(5);
@@ -63,12 +63,12 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
     for chunk in chunks {
         let mut chunk = chunk.to_vec();
         chunk.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        sublist.push(chunk[(chunk.len()-1)/2]); // take the median: element with index = floor(length / 2)
+        sublist.push(chunk[(chunk.len()-1)/2].clone()); // take the median: element with index = floor(length / 2)
     }
     let median: E;
     if sublist.len() <= 5 {
         sublist.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        median = sublist[(sublist.len()-1) / 2];
+        median = sublist[(sublist.len()-1) / 2].clone();
     } else {
         let middle = (sublist.len()-1)/2;
         median = median_of_medians(&mut sublist, middle);
@@ -78,6 +78,8 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
     let mut left: Vec<E> = Vec::with_capacity((list.len()*7) /10);
     let mut right: Vec<E> = Vec::with_capacity((list.len()*7)/10);
     let mut median_seen: bool = false;
+
+    //TODO: this feels very inefficient: 
     while !list.is_empty() {
         let i = list.pop().unwrap(); // empties out list
         if i < median {
@@ -92,7 +94,7 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
             }
         }
     }
-    let mut pivot = median;
+    let mut pivot = median.clone();
     let k = left.len();
     if pos < k {
         pivot = median_of_medians(&mut left,pos);
@@ -100,9 +102,9 @@ fn median_of_medians<E: Clone + PartialOrd + Copy>(list: &mut Vec<E>, pos : usiz
         pivot = median_of_medians(&mut right,pos-k-1);
     }
 
-    list.append(&mut left);
+    list.extend(left);
     list.push(median);
-    list.append(&mut right);
+    list.extend(right);
     pivot
 }
 
