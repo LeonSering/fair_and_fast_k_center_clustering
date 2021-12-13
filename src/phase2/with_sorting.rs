@@ -3,6 +3,7 @@ use crate::space::ColoredMetric;
 use crate::clustering::{Clustering,Centers};
 use std::collections::VecDeque;
 use super::{Edge,flow::{initialize_state,add_edge}};
+use rayon::prelude::*;
 
 use std::time;
 
@@ -24,7 +25,8 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
 
     // println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
 
-    edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
+//    edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    edges.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
 //    println!("Edges: {:?}", edges.iter().map(|x| x.d).collect::<Vec<_>>());
 
     let mut edge_iter = edges.iter();

@@ -10,7 +10,7 @@ pub(super) fn split_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> (Vec<
 pub(super) fn split_at_pos<E: Clone + PartialOrd>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
     if pos >= list.len() {
         #[cfg(debug_assertions)]
-        println!("Care: list has only length {}, but is asked to be split at pos = {}. Everyting will be in smaller.", list.len(), pos);
+        println!("Care: list has only length {}, but is asked to be split at pos = {}. Everything will be in smaller.", list.len(), pos);
         let mut smaller: Vec<E> = Vec::with_capacity(list.len());
         let bigger: Vec<E> = Vec::new();
         smaller.append(list);
