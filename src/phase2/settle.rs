@@ -80,7 +80,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
         return list[0].d;
     }
 
-    let (mut smaller, mut bigger) = utilities::split_at_median(list);
+    let mut bigger = utilities::split_off_at_median(list);
     // println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
 
 
@@ -93,7 +93,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
             *cursor -= 1;
         }
     } else {
-        for e in smaller.iter() {
+        for e in list.iter() {
             flow::add_edge(*e, i, k, privacy_bound, state);
 //            println!("\tTry adding: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor += 1;
@@ -105,15 +105,14 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
 //    let mut left : Vec<Edge> = Vec::with_capacity(list_len);
 //    let mut right : Vec<Edge> = Vec::with_capacity(list_len/2 + 1);
     if state.max_flow >= (i+1) * privacy_bound { // we need to settle in smaller
-        radius = search_for_radius(true, &mut smaller, cursor, i, k, privacy_bound, state);
+        radius = search_for_radius(true, list, cursor, i, k, privacy_bound, state);
     } else { // we need to settle in bigger
         radius = search_for_radius(false, &mut bigger, cursor, i, k, privacy_bound, state);
     }
 
+    // println!("Smaller: {:?}", smaller);
     // concatenate smaller and bigger;
-    list.clear();
-    list.append(&mut smaller);
-    list.append(&mut bigger);
+    list.extend(bigger);
     radius
 }
 

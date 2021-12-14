@@ -6,7 +6,6 @@ use crate::utilities;
 // Output: list of buckets of size <= ceil(4n/k^4) edges; with property of Lemma 3;
 pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount, power_of_k: u32) -> Vec<Vec<Edge>> {
     let bucket_size_limit = (4*n-1)/(k.pow(power_of_k)) + 1; // ceil(4n/k^z)
-
     if list.len() <= bucket_size_limit {
         return vec![list]
     }
@@ -15,13 +14,13 @@ pub(super) fn put_into_buckets(mut list: Vec<Edge>, n: PointCount, k: PointCount
 
 
 //    println!("\nList before: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
-    let (smaller, bigger) = utilities::split_at_median(&mut list);
+    let bigger = utilities::split_off_at_median(&mut list);
 
 //    println!("smaller: {:?}", smaller.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("bigger: {:?}", bigger.iter().map(|e| e.d).collect::<Vec<_>>());
 //    println!("List after: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
 
-    let mut buckets = put_into_buckets(smaller, n, k, power_of_k);
+    let mut buckets = put_into_buckets(list, n, k, power_of_k);
     buckets.extend(put_into_buckets(bigger, n, k, power_of_k));
 
     buckets

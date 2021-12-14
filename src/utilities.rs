@@ -1,28 +1,28 @@
-pub(super) fn split_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> (Vec<E>, Vec<E>) {
-    let middle = (list.len() - 1 ) /2;
-    split_at_pos(list, middle)
-}
+// pub(super) fn split_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> (Vec<E>, Vec<E>) {
+    // let middle = (list.len() - 1 ) /2;
+    // split_at_pos(list, middle)
+// }
 
 /// finds the element that would be on position pos in a sorted list.
 /// all elements in the left list are smaller or equal to all
 /// elements of the right list.
 /// list is empty afterwards.
-pub(super) fn split_at_pos<E: Clone + PartialOrd>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
-    if pos >= list.len() {
-        #[cfg(debug_assertions)]
-        println!("Care: list has only length {}, but is asked to be split at pos = {}. Everything will be in smaller.", list.len(), pos);
-        let mut smaller: Vec<E> = Vec::with_capacity(list.len());
-        let bigger: Vec<E> = Vec::new();
-        smaller.append(list);
-        return (smaller, bigger)
-    }
-    median_of_medians(list, pos);
+// pub(super) fn split_at_pos<E: Clone + PartialOrd>(list: &mut Vec<E>, pos: usize) -> (Vec<E>, Vec<E>) {
+    // if pos >= list.len() {
+        // #[cfg(debug_assertions)]
+        // println!("Care: list has only length {}, but is asked to be split at pos = {}. Everything will be in smaller.", list.len(), pos);
+        // let mut smaller: Vec<E> = Vec::with_capacity(list.len());
+        // let bigger: Vec<E> = Vec::new();
+        // smaller.append(list);
+        // return (smaller, bigger)
+    // }
+    // median_of_medians(list, pos);
 
-    let bigger = list.split_off(pos+1);
-    let mut smaller: Vec<E> = Vec::with_capacity(list.len());
-    smaller.append(list);
-    (smaller, bigger)
-}
+    // let bigger = list.split_off(pos+1);
+    // let mut smaller: Vec<E> = Vec::with_capacity(list.len());
+    // smaller.append(list);
+    // (smaller, bigger)
+// }
 
 /// deletes element from the list, such that only the t smallest elements remain (unsorted)
 pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize){
@@ -37,6 +37,13 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: 
     }
     median_of_medians(list, t);
     list.truncate(t);
+}
+
+/// splits off the half largest elements. Hence, afterwords the list consists of the half
+/// smallest elements and the larger half of elements is returned.
+pub(super) fn split_off_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> Vec<E>{
+    let middle = (list.len() - 1)/2; //note that we take the lower median
+    split_off_at(list, middle+1) //splits of all larger elements (median itself remains in list)
 }
 
 /// splits off all elements except for the t smallest. Hence, afterwords the list consists of the t
