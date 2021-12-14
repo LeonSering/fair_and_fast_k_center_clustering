@@ -17,6 +17,11 @@ fn main() {
         _ => {},
     }
 
+    // TEMP:
+    // let mut temp_list = vec!(0,1,2,3,4,5,6,7,8,9,10,0);
+    // let (median, right) = ff_k_center::utilities::median_of_medians(&mut temp_list,5);
+    // println!("list: {:?}, median: {}, right: {:?}", temp_list, median, right);
+
     // load test Space2D from file:
     // let space_name = "example";
     // let space = Space2D::by_file(format!("{}.2dspace",space_name).as_str(),15);
@@ -25,6 +30,8 @@ fn main() {
         // privacy_bound : 3, // number of points to represent;
         // rep_intervals : vec!((0,2),(1,2),(2,6),(3,3),(0,40),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     // };
+
+
 
     let verbose = 1; // 0: silent, 1:brief, 2:verbose
 

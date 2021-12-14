@@ -26,6 +26,10 @@
 
 /// deletes element from the list, such that only the t smallest elements remain (unsorted)
 pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize){
+    if t == 0 {
+        list.clear();
+        return;
+    }
     if t >= list.len() {
         #[cfg(debug_assertions)]
         {
@@ -35,12 +39,14 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: 
         }
         return;
     }
-    median_of_medians(list, t);
-    list.truncate(t);
+    let (m, _) = median_of_medians(list, t-1);
+    list.push(m);
 }
 
 /// splits off the half largest elements. Hence, afterwords the list consists of the half
 /// smallest elements and the larger half of elements is returned.
+/// For list of a odd number of elements the list.len() = return_list.len()+1;
+/// i.e., the median remains in the list.
 pub(super) fn split_off_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> Vec<E>{
     let middle = (list.len() - 1)/2; //note that we take the lower median
     split_off_at(list, middle+1) //splits of all larger elements (median itself remains in list)
@@ -49,6 +55,11 @@ pub(super) fn split_off_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> V
 /// splits off all elements except for the t smallest. Hence, afterwords the list consists of the t
 /// smallest elements and the remaining elements are returned.
 pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -> Vec<E>{
+    if t == 0 {
+        let mut bigger = Vec::with_capacity(list.len());
+        bigger.append(list);
+        return bigger;
+    }
     if t >= list.len() {
         #[cfg(debug_assertions)]
         if t > list.len() {
@@ -56,14 +67,28 @@ pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -
         }
         return list.split_off(list.len())
     }
-    median_of_medians(list, t);
-    list.split_off(t)
+    let (m, bigger) = median_of_medians(list, t-1);
+    list.push(m);
+    bigger
 }
 
 /// input: list of unsorted edges; an integer pos;
-/// output: the value of the element that would have pos as index if list was sorted.
-fn median_of_medians<E: Clone + PartialOrd>(list: &mut Vec<E>, pos : usize) -> E {
+/// output: 
+/// the value of the element m that would have pos as index if list was sorted.
+/// a list of (n-pos-1)-many elements that are larger than (or equal to) m
+/// the provided list is reduced to pos-many the elements smaller than (or equal to) m
+///
+/// Note: The element m is neither in the provided list nore in the returned list.
+fn median_of_medians<E: Clone + PartialOrd>(list: &mut Vec<E>, pos : usize) -> (E, Vec<E>) {
     assert!(pos <= list.len(), "Cannot compute the element at position pos = {} if the list has only length = {}", pos, list.len());
+
+
+    // if list.len() < 10_000_000 {
+        // list.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        // let bigger = list.split_off(pos+1);
+        // let m = list.pop().unwrap();
+        // return (m,bigger); 
+    // }
 
     let chunks = list.chunks(5);
     let mut sublist: Vec<E> = Vec::with_capacity(list.len()/5+1);
@@ -73,46 +98,77 @@ fn median_of_medians<E: Clone + PartialOrd>(list: &mut Vec<E>, pos : usize) -> E
         sublist.push(chunk[(chunk.len()-1)/2].clone()); // take the median: element with index = floor(length / 2)
     }
     let median: E;
+    
     if sublist.len() <= 5 {
         sublist.sort_by(|a, b| a.partial_cmp(b).unwrap());
         median = sublist[(sublist.len()-1) / 2].clone();
     } else {
         let middle = (sublist.len()-1)/2;
-        median = median_of_medians(&mut sublist, middle);
+        let (m, _) = median_of_medians(&mut sublist, middle);
+        median = m;
     }
 
 
-    let mut left: Vec<E> = Vec::with_capacity((list.len()*7) /10);
-    let mut right: Vec<E> = Vec::with_capacity((list.len()*7)/10);
-    let mut median_seen: bool = false;
+    // let mut left: Vec<E> = Vec::with_capacity((list.len()*7) /10);
+    // let mut right: Vec<E> = Vec::with_capacity((list.len()*7)/10);
+    // let mut median_seen: bool = false;
 
-    //TODO: this feels very inefficient: 
-    while !list.is_empty() {
-        let i = list.pop().unwrap(); // empties out list
-        if i < median {
-            left.push(i);
-        } else if i > median {
-            right.push(i);
-        } else { // *i == pivot (if it is the second number with this property, push it to right)
-            if median_seen {
-                right.push(i);
-            } else {
-                median_seen = true;
+   
+    // lets reorganize the list in place into two halves: Left smaller than median, and right bigger than median.
+    let mut i = 0;
+    let mut j = list.len()-1;
+
+    let mut i_med = 0; // if the list is only 1 element long it has to be the median
+    while i < list.len() && list[i] <= median {
+        if list[i] == median {
+            i_med = i;
+        }
+        i += 1;
+    }
+    while j > 0 && list[j] > median {
+        j -= 1;
+    }
+
+    while i < j {
+        list.swap(i, j);
+        // println!("swap: i: {}, j: {}", i, j);
+        while i < list.len() && list[i] <= median {
+            if list[i] == median {
+                i_med = i;
             }
+            i += 1;
+        }
+        while j > 0 && list[j] > median {
+            j -= 1;
         }
     }
-    let mut pivot = median.clone();
-    let k = left.len();
-    if pos < k {
-        pivot = median_of_medians(&mut left,pos);
-    } else if pos > k {
-        pivot = median_of_medians(&mut right,pos-k-1);
-    }
+    // println!("after: {}, i: {}, j: {}", list.len(),i, j);
 
-    list.extend(left);
-    list.push(median);
-    list.extend(right);
-    pivot
+
+    let mut right = list.split_off(i);
+    list.swap(i_med, i-1);
+    let mut pivot = list.pop().unwrap();
+    
+
+
+    let k = list.len();
+    let final_right: Vec<E>;
+    if pos < k {
+        let (m, mut bigger) = median_of_medians(list,pos);
+        pivot = m;
+        bigger.push(median);
+        bigger.extend(right);
+        final_right = bigger;
+    } else if pos > k {
+        let (m, bigger) = median_of_medians(&mut right,pos-k-1);
+        pivot = m;
+        final_right = bigger;
+        list.extend(right);
+        list.push(median);
+    } else {
+        final_right = right;
+    }
+    (pivot, final_right)
 }
 
 
@@ -134,7 +190,7 @@ mod tests {
             // create n*k edges with dublicates:
         let mut clone = list.clone();
         let middle = (list.len() - 1)/2;
-        let median = median_of_medians(&mut list, middle);
+        let (median,_) = median_of_medians(&mut list, middle);
 
         clone.sort();
         assert_eq!(median, clone[(clone.len()-1)/2]);
