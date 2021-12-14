@@ -25,7 +25,7 @@
 // }
 
 /// deletes element from the list, such that only the t smallest elements remain (unsorted)
-pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize){
+pub(super) fn truncate_to_smallest<E: Clone + PartialOrd + Send>(list: &mut Vec<E>, t: usize){
     if t == 0 {
         list.clear();
         return;
@@ -47,14 +47,14 @@ pub(super) fn truncate_to_smallest<E: Clone + PartialOrd>(list: &mut Vec<E>, t: 
 /// smallest elements and the larger half of elements is returned.
 /// For list of a odd number of elements the list.len() = return_list.len()+1;
 /// i.e., the median remains in the list.
-pub(super) fn split_off_at_median<E: Clone + PartialOrd>(list: &mut Vec<E>) -> Vec<E>{
+pub(super) fn split_off_at_median<E: Clone + PartialOrd + Send>(list: &mut Vec<E>) -> Vec<E>{
     let middle = (list.len() - 1)/2; //note that we take the lower median
     split_off_at(list, middle+1) //splits of all larger elements (median itself remains in list)
 }
 
 /// splits off all elements except for the t smallest. Hence, afterwords the list consists of the t
 /// smallest elements and the remaining elements are returned.
-pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -> Vec<E>{
+pub(super) fn split_off_at<E: Clone + PartialOrd + Send>(list: &mut Vec<E>, t: usize) -> Vec<E>{
     if t == 0 {
         let mut bigger = Vec::with_capacity(list.len());
         bigger.append(list);
@@ -72,6 +72,7 @@ pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -
     bigger
 }
 
+use rayon::prelude::*;
 /// input: list of unsorted edges; an integer pos;
 /// output: 
 /// the value of the element m that would have pos as index if list was sorted.
@@ -79,34 +80,28 @@ pub(super) fn split_off_at<E: Clone + PartialOrd>(list: &mut Vec<E>, t: usize) -
 /// the provided list is reduced to pos-many the elements smaller than (or equal to) m
 ///
 /// Note: The element m is neither in the provided list nore in the returned list.
-fn median_of_medians<E: Clone + PartialOrd>(list: &mut Vec<E>, pos : usize) -> (E, Vec<E>) {
+fn median_of_medians<E: Clone + PartialOrd + Send>(list: &mut Vec<E>, pos : usize) -> (E, Vec<E>) {
     assert!(pos <= list.len(), "Cannot compute the element at position pos = {} if the list has only length = {}", pos, list.len());
 
 
-    // if list.len() < 10_000_000 {
-        // list.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        // let bigger = list.split_off(pos+1);
-        // let m = list.pop().unwrap();
-        // return (m,bigger); 
-    // }
+    if list.len() < 5 {
+        list.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
+        let bigger = list.split_off(pos+1);
+        let m = list.pop().unwrap();
+        return (m,bigger); 
+    }
 
     let chunks = list.chunks(5);
     let mut sublist: Vec<E> = Vec::with_capacity(list.len()/5+1);
     for chunk in chunks {
         let mut chunk = chunk.to_vec();
-        chunk.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        chunk.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
         sublist.push(chunk[(chunk.len()-1)/2].clone()); // take the median: element with index = floor(length / 2)
     }
-    let median: E;
     
-    if sublist.len() <= 5 {
-        sublist.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        median = sublist[(sublist.len()-1) / 2].clone();
-    } else {
-        let middle = (sublist.len()-1)/2;
-        let (m, _) = median_of_medians(&mut sublist, middle);
-        median = m;
-    }
+    let middle = (sublist.len()-1)/2;
+    let (m, _) = median_of_medians(&mut sublist, middle);
+    let median = m;
 
 
     // let mut left: Vec<E> = Vec::with_capacity((list.len()*7) /10);
