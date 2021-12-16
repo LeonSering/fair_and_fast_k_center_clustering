@@ -23,6 +23,9 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         }
     }
 
+    let time_end_edge_creation = time::Instant::now();
+    println!(" - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private_with_sorting));
+
     // println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
 
 //    edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -32,7 +35,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
     let mut edge_iter = edges.iter();
 
     let time_after_sorting = time::Instant::now();
-    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_start_make_private_with_sorting));
+    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_end_edge_creation));
     // step 2: solve flow problem
 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
