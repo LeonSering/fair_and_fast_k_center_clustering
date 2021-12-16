@@ -221,7 +221,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.\n", time_after_phase2.duration_since(time_after_phase1), prob.k);
     }
     
-    let clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
+    let _clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
 
     let time_after_phase2_sorting = time::Instant::now();
     println!("  - Phase 2 (with sorting) done (time: {:?})\n", time_after_phase2_sorting.duration_since(time_after_phase2));
