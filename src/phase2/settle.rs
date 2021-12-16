@@ -4,7 +4,7 @@ use super::{Edge,EdgeIdx,flow,flow::State};
 
 // note that edge_cursor points at the edge that has not been added yet
 // (the edge at edge_curser-1 has been added already)
-pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Vec<Edge<'a>>, i: CenterIdx, privacy_bound:PointCount, state: &mut State<'a>, centers: &Centers, space: &M) -> Clustering{
+pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut [Edge<'a>], i: CenterIdx, privacy_bound:PointCount, state: &mut State<'a>, centers: &Centers, space: &M) -> Clustering{
 
     let k = centers.m();
     let mut cursor = edge_cursor;
@@ -66,7 +66,7 @@ pub(super) fn settle<'a, M: ColoredMetric>(edge_cursor: EdgeIdx, bucket: &mut Ve
 //
 // Output: None if max_flow_target cannot be reached or Some(radius) if found
 //   list becomes more sorted
-fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor : &mut EdgeIdx, i : CenterIdx, k : PointCount, privacy_bound: PointCount, state: &mut State<'a>) -> Distance {
+fn search_for_radius<'a>(edges_present: bool, list: &mut [Edge<'a>], cursor : &mut EdgeIdx, i : CenterIdx, k : PointCount, privacy_bound: PointCount, state: &mut State<'a>) -> Distance {
     // println!("\n  List to settle: {:?} edges_present: {}", list.iter().map(|x| x.d).collect::<Vec<Distance>>(), edges_present);
     let list_len = list.len();
     assert!(list_len > 0, "Empty list in binary search");
@@ -80,10 +80,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
         return list[0].d;
     }
 
-    let mut bigger = utilities::split_off_at_median(list);
-    // println!("     smaller: {:?} bigger: {:?}\n", smaller.iter().map(|x| x.d).collect::<Vec<Distance>>(), bigger.iter().map(|x| x.d).collect::<Vec<Distance>>());
-
-
+    let (smaller, bigger) = utilities::sorting_split_in_half(list);
 
     // take care that smaller edges are added and bigger edges are not present in the flow network
     if edges_present {
@@ -93,7 +90,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
             *cursor -= 1;
         }
     } else {
-        for e in list.iter() {
+        for e in smaller.iter() {
             flow::add_edge(*e, i, k, privacy_bound, state);
 //            println!("\tTry adding: {:?} in binary search for center: {};\tmax_flow: {}", e, i,state.max_flow);
             *cursor += 1;
@@ -105,15 +102,11 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut Vec<Edge<'a>>, cursor :
 //    let mut left : Vec<Edge> = Vec::with_capacity(list_len);
 //    let mut right : Vec<Edge> = Vec::with_capacity(list_len/2 + 1);
     if state.max_flow >= (i+1) * privacy_bound { // we need to settle in smaller
-        radius = search_for_radius(true, list, cursor, i, k, privacy_bound, state);
+        radius = search_for_radius(true, smaller, cursor, i, k, privacy_bound, state);
     } else { // we need to settle in bigger
-        radius = search_for_radius(false, &mut bigger, cursor, i, k, privacy_bound, state);
+        radius = search_for_radius(false, bigger, cursor, i, k, privacy_bound, state);
     }
 
-    // println!("Smaller: {:?}", smaller);
-    // concatenate smaller and bigger;
-    list.extend(bigger);
     radius
 }
-
 

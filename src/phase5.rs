@@ -292,10 +292,12 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
         let safety_n_divided_k = space.n() / (prob.k * tradeoff_parameter);
         let batch_size = if prob.privacy_bound > safety_n_divided_k {prob.privacy_bound} else {safety_n_divided_k};
 
-        while link_to_nearest.len() > 0 {
-            let split_pos = if link_to_nearest.len() >= batch_size {link_to_nearest.len()-batch_size} else {0};
-            let batch = utilities::split_off_at(&mut link_to_nearest, split_pos);
-
+        let mut remaining_links : &mut [PointCenterLink] = &mut link_to_nearest;
+        while remaining_links.len() > 0 {
+            let split_pos = if remaining_links.len() >= batch_size {remaining_links.len()-batch_size} else {0};
+            let (remainder ,batch) = utilities::sorting_split_in_two_at(remaining_links, split_pos);
+            remaining_links = remainder;
+    
             for entry in batch {
                 let mut chosen_center = center_idx[0]; // we first set it to the closest center
                 let mut dist_to_chosen_center = <Distance>::MAX;

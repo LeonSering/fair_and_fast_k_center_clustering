@@ -103,8 +103,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
 
     // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 2)
     let power_of_k: u32 = 2;
-    let mut buckets = put_into_buckets(edges, space.n(), k, power_of_k);
+    let mut buckets = put_into_buckets(&mut edges, space.n(), k, power_of_k);
 
+    // buckets::assert_buckets_properties(&buckets, space.n(), k, power_of_k);
 
     let time_after_buckets = time::Instant::now();
     println!("  - putting {} edges into {} bucket takes: {:?}.", space.n() * k, buckets.len(), time_after_buckets.duration_since(time_start_make_private));
@@ -188,7 +189,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
         // println!("\n+++ Center {} settles in bucket {}:\n", i, j);
-        clusterings.push(settle(edge_cursor, &mut buckets[j], i, privacy_bound, &mut state, &centers, space));
+        clusterings.push(settle(edge_cursor, buckets[j], i, privacy_bound, &mut state, &centers, space));
 
         // start bucket from beginning, hence clear all pendings
         edge_cursor = 0;
