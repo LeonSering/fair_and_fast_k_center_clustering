@@ -1,6 +1,5 @@
 use super::Edge;
 use crate::types::PointCount;
-use crate::utilities;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets (as mutable slices) of size <= ceil(4n/k^4) edges; with property of Lemma 3;
@@ -16,19 +15,14 @@ pub(super) fn put_into_buckets<'a, 'b>(
         return vec![list];
     }
 
-    // let mut buckets : Vec<Vec<Edge>> = Vec::with_capacity((list.len()*2)/bucket_size_limit);
-
-    // println!("list.len(): {}", list.len());
-    let (slices, _) = utilities::ordering_split_at_median(list, false);
-
-    //    println!("smaller: {:?}", smaller.iter().map(|e| e.d).collect::<Vec<_>>());
-    //    println!("bigger: {:?}", bigger.iter().map(|e| e.d).collect::<Vec<_>>());
-    //    println!("List after: {:?}", list.iter().map(|e| e.d).collect::<Vec<_>>());
+    
+    let split_index = (list.len()-1) / 2;
+    list.select_nth_unstable_by(split_index, |a, b| a.partial_cmp(b).unwrap());
+    let (smaller, bigger) = list.split_at_mut(split_index+1);
 
     let mut buckets : Vec<&mut [Edge]> = Vec::new();
-    for slice in slices {
-        buckets.extend(put_into_buckets(slice, n, k, power_of_k));
-    }
+    buckets.extend(put_into_buckets(smaller, n, k, power_of_k));
+    buckets.extend(put_into_buckets(bigger, n, k, power_of_k));
     buckets
 }
 
