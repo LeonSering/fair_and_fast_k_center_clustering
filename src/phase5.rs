@@ -295,7 +295,7 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
         let mut remaining_links : &mut [PointCenterLink] = &mut link_to_nearest;
         while remaining_links.len() > 0 {
             let split_pos = if remaining_links.len() >= batch_size {remaining_links.len()-batch_size} else {0};
-            let (remainder ,batch) = utilities::sorting_split_in_two_at(remaining_links, split_pos);
+            let (remainder ,batch) = utilities::ordering_split_in_two_at(remaining_links, split_pos,true);
             remaining_links = remainder;
     
             for entry in batch {

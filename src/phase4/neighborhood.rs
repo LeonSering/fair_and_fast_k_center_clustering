@@ -39,7 +39,7 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
             // condition by itself;
             // the remaining b-a edges are collected in remaining_edges
             let a = prob.rep_intervals[c].0;
-            utilities::sorting_split_at(&mut edges_by_color[c], a);
+            utilities::ordering_split_at(&mut edges_by_color[c], a, true);
             remaining_edges.extend(edges_by_color[c][a..].to_vec());
             num_edges_to_fill -= a;
         }
