@@ -99,6 +99,9 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         }
     }
 
+    let time_end_edge_creation = time::Instant::now();
+    println!(" - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private));
+
 //    println!("edges: {:?}", edges);
 
     // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 2)
@@ -108,7 +111,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     // buckets::assert_buckets_properties(&buckets, space.n(), k, power_of_k);
 
     let time_after_buckets = time::Instant::now();
-    println!("  - putting {} edges into {} bucket takes: {:?}.", space.n() * k, buckets.len(), time_after_buckets.duration_since(time_start_make_private));
+    println!("  - putting {} edges into {} bucket takes: {:?}.", space.n() * k, buckets.len(), time_after_buckets.duration_since(time_end_edge_creation));
 
 
     // step 2: solve flow problem

@@ -53,7 +53,7 @@ pub(super) fn ordering_split_at_median<'a, E: Clone + PartialOrd + Send>(list: &
 }
 
 
-use rayon::prelude::*;
+// use rayon::prelude::*;
 /// input: slice of unsorted elements; 
 /// an integer pos;
 /// a boolean be_precise: true: the split has to be exactly at pos; false: the split can be off by

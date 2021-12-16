@@ -3,7 +3,7 @@ use crate::space::ColoredMetric;
 use crate::clustering::{Clustering,Centers};
 use std::collections::VecDeque;
 use super::{Edge,flow::{initialize_state,add_edge}};
-use rayon::prelude::*;
+// use rayon::prelude::*;
 
 use std::time;
 
@@ -23,6 +23,9 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         }
     }
 
+    let time_end_edge_creation = time::Instant::now();
+    println!(" - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private_with_sorting));
+
     // println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
 
    edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -32,7 +35,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
     let mut edge_iter = edges.iter();
 
     let time_after_sorting = time::Instant::now();
-    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_start_make_private_with_sorting));
+    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_end_edge_creation));
     // step 2: solve flow problem
 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
@@ -44,7 +47,8 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
 
     let mut i = 0; // currently processing gonzalez set containing center 0, ..., i; here, i goes from 0 to k-1
 
-    let mut current_d = <Distance>::MIN;
+    let mut _current_d = <Distance>::MIN;
+
     while i < k { // extend set of gonzalez centers one by one
 //        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
@@ -71,7 +75,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
                 add_edge(e, i, k, privacy_bound, &mut state);
 //                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
             }
-            current_d = e.d;
+            _current_d = e.d;
 
         }
 
@@ -80,7 +84,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         assert_eq!(state.max_flow, (i + 1) * privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
 
         #[cfg(debug_assertions)]
-        println!("\tRadius for center {} found: {}", i, current_d);
+        println!("\tRadius for center {} found: {}", i, _current_d);
 
         // create new clustering:
         let mut center_prefix = Centers::with_capacity(i+1);
@@ -90,7 +94,7 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
 
         let clustering = Clustering::new(center_prefix,state.center_of.clone(),space);
         #[cfg(debug_assertions)]
-        assert_eq!(current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
+        assert_eq!(_current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
         clusterings.push(clustering);
 
         i += 1;
