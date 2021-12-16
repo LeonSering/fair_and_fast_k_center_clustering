@@ -99,7 +99,8 @@ fn median_of_medians<E: Clone + PartialOrd + Send>(list: &mut Vec<E>, pos : usiz
         sublist.push(chunk[(chunk.len()-1)/2].clone()); // take the median: element with index = floor(length / 2)
     }
     
-    let middle = (sublist.len()-1)/2;
+    // let middle = (sublist.len()-1)/2;
+    let middle = pos/5;
     let (m, _) = median_of_medians(&mut sublist, middle);
     let median = m;
 
