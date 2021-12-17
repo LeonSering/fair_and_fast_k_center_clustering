@@ -156,12 +156,12 @@ impl FFKCenter{
     /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
     /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
-    /// * phase_5_gonzalez: Option<bool> determining whether a colored-based gonzalez is run during
+    /// * phase_5_gonzalez = False: determining whether a colored-based gonzalez is run during
     /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
     /// and can be accessed via model.centers or model.labels.
-    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true", phase_5_gonzalez="true")]
+    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true", phase_5_gonzalez="false")]
     fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzalez: bool) -> () {
         // First create a metric space from the data
         self.space = Some(SpaceND::by_ndpoints(data,colors));
@@ -191,9 +191,9 @@ impl FFKCenter{
     /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
     /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
-    /// * phase_5_gonzalez: Option<bool> determining whether a colored-based gonzalez is run during
+    /// * phase_5_gonzalez = False: determining whether a colored-based gonzalez is run during
     /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
-    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true",phase_5_gonzalez="true")]
+    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true",phase_5_gonzalez="false")]
     fn compute_clustering(&mut self, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzalez: bool) {
         let threads_opt = match thread_count {
             0 => None,

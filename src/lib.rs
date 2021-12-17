@@ -115,7 +115,7 @@ pub struct OptionalParameters {
 
 const DEFAULT_VERBOSE: u8 = 1;
 const DEFAULT_PHASE2_RERUN: bool = true;
-const DEFAULT_PHASE5_GONZALEZ: bool = true;
+const DEFAULT_PHASE5_GONZALEZ: bool = false;
 fn default_thread_count() -> usize {
     num_cpus::get()
 }
