@@ -4,8 +4,6 @@ version = "1.2.0"
 edition = "2021"
 authors = ["Leon Sering <sering@math.ethz.ch>"]
 
-#cargo.features = ["named-profiles"]
-
 [profile.phase2_benchmark]
 inherits = "release"
 debug-assertions = true

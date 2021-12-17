@@ -18,8 +18,6 @@ pub(super) fn put_into_buckets<'a, 'b>(
 
     let bucket_size_limit = (4 * n - 1) / (k.pow(power_of_k)) + 1; // ceil(4n/k^z)
     thread_pool.install(move || put_into_buckets_recursion(list, bucket_size_limit))
-
-    // put_into_buckets_recursion(list, bucket_size_limit)
 }
 
 

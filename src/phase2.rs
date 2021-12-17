@@ -119,7 +119,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     #[cfg(debug_assertions)]
     let time_after_buckets = time::Instant::now();
     #[cfg(debug_assertions)]
-    println!("    - putting {} edges into {} bucket with {} threads takes: {:?}.", thread_count, space.n() * k, buckets.len(), time_after_buckets.duration_since(time_end_edge_creation));
+    println!("    - putting {} edges into {} bucket with {} threads takes: {:?}.", space.n() * k, buckets.len(), thread_count, time_after_buckets.duration_since(time_end_edge_creation));
 
 
     // step 2: solve flow problem

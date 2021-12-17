@@ -33,7 +33,7 @@ fn main() {
 
     let space_name = "classIris_crop";
     // let space = SpaceND::by_file(format!("{}.2dspace",space_name).as_str(),15,verbose);
-    let n = 1_000_000;
+    let n = 5_000_000;
     let k = 8;
     let space = SpaceND::new_random(n);
     let prob = ClusteringProblem{
