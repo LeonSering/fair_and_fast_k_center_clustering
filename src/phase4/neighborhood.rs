@@ -35,12 +35,17 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         for c in 0..restricted_colors {
             // take only the b smallest in each class; all others cannot play any role.
             utilities::truncate_to_smallest(&mut edges_by_color[c], prob.rep_intervals[c].1);
+            assert_eq!(edges_by_color[c].len(), prob.rep_intervals[c].1);
+
             // the a smallest have to be present for sure, so each center can satisfy this
             // condition by itself;
-            // the remaining b-a edges are collected in remaining_edges
+            // Hence, the smallest a elements should for now remain in edges_by_color[c] and the
+            // others b-a edges are collected in remaining_edges:
             let a = prob.rep_intervals[c].0;
-            utilities::ordering_split_at(&mut edges_by_color[c], a, true);
-            remaining_edges.extend(edges_by_color[c][a..].to_vec());
+            utilities::split_in_two_at(&mut edges_by_color[c], a);
+            let bigger = edges_by_color[c].split_off(a);
+            remaining_edges.extend(bigger);
+            // assert_eq!(edges_by_color[c].len(), a);
             num_edges_to_fill -= a;
         }
 
@@ -59,7 +64,7 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         for c in 0..restricted_colors {
             edges_of_cluster[i].append(&mut edges_by_color[c]);
         }
-        edges_of_cluster[i].append(&mut remaining_edges);
+        edges_of_cluster[i].extend(remaining_edges);
 
         // there are now max k edges in edges_of_cluster[i]; so we can sort them:
         edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());

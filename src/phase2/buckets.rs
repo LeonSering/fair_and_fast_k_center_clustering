@@ -1,13 +1,14 @@
 use super::Edge;
 use crate::types::PointCount;
+use crate::utilities;
 
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets (as mutable slices) of size <= ceil(4n/k^4) edges; with property of Lemma 3;
 // lsit is now somewhat sorted according to the buckets
 pub(super) fn put_into_buckets<'a, 'b>(
-    list: &'b mut [Edge<'a>], 
-    n: PointCount, 
-    k: PointCount, 
+    list: &'b mut [Edge<'a>],
+    n: PointCount,
+    k: PointCount,
     power_of_k: u32
 ) -> Vec<&'b mut [Edge<'a>]> {
     let bucket_size_limit = (4 * n - 1) / (k.pow(power_of_k)) + 1; // ceil(4n/k^z)
@@ -15,10 +16,8 @@ pub(super) fn put_into_buckets<'a, 'b>(
         return vec![list];
     }
 
-    
-    let split_index = (list.len()-1) / 2;
-    list.select_nth_unstable_by(split_index, |a, b| a.partial_cmp(b).unwrap());
-    let (smaller, bigger) = list.split_at_mut(split_index+1);
+
+    let (smaller, bigger) = utilities::split_in_half(list);
 
     let mut buckets : Vec<&mut [Edge]> = Vec::new();
     buckets.extend(put_into_buckets(smaller, n, k, power_of_k));

@@ -80,7 +80,7 @@ fn search_for_radius<'a>(edges_present: bool, list: &mut [Edge<'a>], cursor : &m
         return list[0].d;
     }
 
-    let (smaller, bigger) = utilities::ordering_split_in_half(list, true);
+    let (smaller, bigger) = utilities::split_in_half(list);
 
     // take care that smaller edges are added and bigger edges are not present in the flow network
     if edges_present {
