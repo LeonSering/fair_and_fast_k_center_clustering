@@ -2,6 +2,7 @@ use super::Edge;
 use crate::types::PointCount;
 use crate::utilities;
 
+use rayon::ThreadPoolBuilder;
 // Input: unsorted list of edges, upper bound on the size of a bucket
 // Output: list of buckets (as mutable slices) of size <= ceil(4n/k^4) edges; with property of Lemma 3;
 // lsit is now somewhat sorted according to the buckets
@@ -11,18 +12,35 @@ pub(super) fn put_into_buckets<'a, 'b>(
     k: PointCount,
     power_of_k: u32
 ) -> Vec<&'b mut [Edge<'a>]> {
+   
+    let thread_count = 4;
+    let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
+
     let bucket_size_limit = (4 * n - 1) / (k.pow(power_of_k)) + 1; // ceil(4n/k^z)
+    thread_pool.install(move || put_into_buckets_recursion(list, bucket_size_limit))
+
+    // put_into_buckets_recursion(list, bucket_size_limit)
+}
+
+
+pub(super) fn put_into_buckets_recursion<'a, 'b>(
+    list: &'b mut [Edge<'a>],
+    bucket_size_limit: PointCount,
+) -> Vec<&'b mut [Edge<'a>]> {
+
     if list.len() <= bucket_size_limit {
         return vec![list];
     }
 
-
     let (smaller, bigger) = utilities::split_in_half(list);
 
-    let mut buckets : Vec<&mut [Edge]> = Vec::new();
-    buckets.extend(put_into_buckets(smaller, n, k, power_of_k));
-    buckets.extend(put_into_buckets(bigger, n, k, power_of_k));
-    buckets
+
+    let (mut smaller_buckets, bigger_buckets) = rayon::join(
+        move || put_into_buckets_recursion(smaller, bucket_size_limit),
+        move || put_into_buckets_recursion(bigger, bucket_size_limit));
+
+    smaller_buckets.extend(bigger_buckets);
+    smaller_buckets
 }
 
 #[cfg(test)]
