@@ -146,24 +146,17 @@ pub(super) fn compute_assignment_by_flow<'a>(network : &Network) -> ShiftedCente
         }
 
 
-//                println!("\n\tState: {:?}", state);
     }
 
-    // println!("\n  eta: {:?}, a: {:?}, b: {:?}", network.opening.eta, network.a, network.b);
-    // println!("  Final State: {:?}", state);
-//    println!("  node index of point of last largest edge: {}", network.point_to_node[&state.current_largest_edge.point]);
 
 
-    assert_eq!(state.flow_value, network.sum_of_a + network.i + 1, "All edges added but still not all source leaving arcs saturated.");
+    debug_assert_eq!(state.flow_value, network.sum_of_a + network.i + 1, "All edges added but still not all source leaving arcs saturated.");
     let mut new_centers: Vec<PNodeIdx> = Vec::with_capacity(state.flow_value - network.i + 1 + state.flow_t_z);
     let mut origins: Vec<CenterIdx> = Vec::with_capacity(state.flow_value - network.i + 1 + state.flow_t_z);
     for (p, origin) in state.point_covered_by.iter().enumerate().filter(|(_,o)| o.is_some()) {
         new_centers.push(p);
         origins.push(origin.unwrap());
     }
-//    println!("\npoint_covered_by: {:?}", state.point_covered_by);
-//    println!("new_centers: {:?}", new_centers);
-//    println!("origins: {:?}\n", origins);
 
     ShiftedCenters{
         assignment_radius : state.current_largest_edge.d,
@@ -327,7 +320,7 @@ fn bfs(state: &State, net: &Network, tree: &mut BFSTree, starting_node: Node) {
 /// Care: If backwards path starting from the sink leads to a cycles, this function
 /// end in a endless loop.
 fn augment_flow(state: &mut State, tree: &BFSTree) {
-    assert!(tree.sink_node.is_some(), "Cannot augment flow if there is no augmenting path!");
+    debug_assert!(tree.sink_node.is_some(), "Cannot augment flow if there is no augmenting path!");
 
     // Augmenting path found!
     state.flow_value += 1;
@@ -336,7 +329,6 @@ fn augment_flow(state: &mut State, tree: &BFSTree) {
     let mut current_node = &Node::Sink;
     let mut last_node = &Node::Sink;
     loop {
-//        println!("{:?}", current_node);
         match *current_node {
             Node::Source => {
                 match *last_node {

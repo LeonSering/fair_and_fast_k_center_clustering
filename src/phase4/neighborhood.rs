@@ -35,7 +35,6 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
         for c in 0..restricted_colors {
             // take only the b smallest in each class; all others cannot play any role.
             utilities::truncate_to_smallest(&mut edges_by_color[c], prob.rep_intervals[c].1);
-            assert_eq!(edges_by_color[c].len(), prob.rep_intervals[c].1);
 
             // the a smallest have to be present for sure, so each center can satisfy this
             // condition by itself;
@@ -45,7 +44,6 @@ pub(super) fn determine_neighborhood<M : ColoredMetric>(space: &M, prob: &Cluste
             utilities::split_in_two_at(&mut edges_by_color[c], a);
             let bigger = edges_by_color[c].split_off(a);
             remaining_edges.extend(bigger);
-            // assert_eq!(edges_by_color[c].len(), a);
             num_edges_to_fill -= a;
         }
 

@@ -12,8 +12,10 @@ mod settle;
 use settle::settle;
 
 
+#[cfg(debug_assertions)]
 use std::time;
 
+#[cfg(debug_assertions)]
 pub(crate) mod with_sorting;
 
 use std::collections::VecDeque;
@@ -82,9 +84,14 @@ impl<'a> PendingQueues<'a> {
 /// 0,...,k-1, and, in a first step, determines for each prefix of centers (0,...,i) a partial clustering
 /// with minimal radius that satisfy the privacy constraint, i.e., each center (0,...,i) covers exactly privacy_bound many points.
 /// Afterwards it assigns the remaining points to the nearest center to provide a full clustering.
-pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
+pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointCount, centers : &Centers, thread_count: usize) -> Vec<Clustering> { //Return value should be partialClustering
 
+    #[cfg(debug_assertions)]
+    println!("  - Phase 2 with buckets:");
+
+    #[cfg(debug_assertions)]
     let time_start_make_private = time::Instant::now();
+
     let k = centers.m();
 
 // create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
@@ -99,25 +106,23 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         }
     }
 
+    #[cfg(debug_assertions)]
     let time_end_edge_creation = time::Instant::now();
-    println!(" - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private));
-
-//    println!("edges: {:?}", edges);
+    #[cfg(debug_assertions)]
+    println!("    - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private));
 
     // step 1: Compute buckets with limit ceil(4n/k^z) (here z = 2)
     let power_of_k: u32 = 2;
-    let mut buckets = put_into_buckets(&mut edges, space.n(), k, power_of_k);
+    let mut buckets = put_into_buckets(&mut edges, space.n(), k, power_of_k, thread_count);
 
-    // buckets::assert_buckets_properties(&buckets, space.n(), k, power_of_k);
 
+    #[cfg(debug_assertions)]
     let time_after_buckets = time::Instant::now();
-    println!("  - putting {} edges into {} bucket takes: {:?}.", space.n() * k, buckets.len(), time_after_buckets.duration_since(time_end_edge_creation));
+    #[cfg(debug_assertions)]
+    println!("    - putting {} edges into {} bucket with {} threads takes: {:?}.", thread_count, space.n() * k, buckets.len(), time_after_buckets.duration_since(time_end_edge_creation));
 
 
     // step 2: solve flow problem
-    #[cfg(debug_assertions)]
-    println!("\n  - Phase 2b: Determine smallest radii and partial assignments that satisfy privacy-condition (privacy_bound = {}).", privacy_bound);
-
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
 
     let mut pending = PendingQueues::new();
@@ -134,11 +139,8 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
     let mut edge_cursor : EdgeIdx = 0; // an cursor pointing to the current edge in the current bucket
 
 
-//    println!("\n\n************************ Bucket {} ***********************", j);
     while i < k { // extend set of gonzalez centers one by one
-        #[cfg(debug_assertions)]
-        println!{"\n+++ center {} now considered!\n", i};
-        assert!(j < buckets.len());
+        debug_assert!(j < buckets.len());
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
 
         for b in 0..j {
@@ -149,21 +151,19 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
 
             while !pending.is_empty(i,b) {
                 let e = pending.pop(i,b).unwrap();
-                assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
+                debug_assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
                 add_edge(e, i, k, privacy_bound, &mut state);
-//                println!("  Pending edge added: {:?} (pending from bucket = {}); \tmax_flow: {}", e, c,state.max_flow);
             }
         }
 
 
         while state.max_flow < (i + 1) * privacy_bound {
-            assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*privacy_bound);
+            debug_assert!(j < buckets.len(), "For i = {} no flow of value (i + 1) * privacy_bound = {} found! Panic!", i, (i+1)*privacy_bound);
 
 
             if edge_cursor >= buckets[j].len() { //the current bucket has been completed
                 j += 1;
-//                println!("\n\n************************ Bucket {} ***********************", j);
-                assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
+                debug_assert!(j < buckets.len(), "All buckets have been processed but still not all radii have been settled!");
                 edge_cursor = 0;
                 continue; //continue the while loop
             }
@@ -177,7 +177,6 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, k, privacy_bound, &mut state);
-//                println!("  Adding: {:?} from bucket = {};\tmaxflow: {}", e,j, state.max_flow);
             }
             edge_cursor += 1;
 
@@ -186,12 +185,7 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
 
 
         // at this point, we have identified the bucket that settles the set S_i
-        #[cfg(debug_assertions)]
 
-        assert_eq!(state.max_flow, (i + 1) * privacy_bound, "The maximum flow value is bigger than allowed");
-        // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-
-        // println!("\n+++ Center {} settles in bucket {}:\n", i, j);
         clusterings.push(settle(edge_cursor, buckets[j], i, privacy_bound, &mut state, &centers, space));
 
         // start bucket from beginning, hence clear all pendings
@@ -202,19 +196,22 @@ pub(crate) fn make_private<M : ColoredMetric>(space : &M, privacy_bound : PointC
         i += 1;
     }
 
+    #[cfg(debug_assertions)]
     let time_after_flow = time::Instant::now();
-    println!("  - solving flow problems and settle all {} centers takes: {:?}.", k, time_after_flow.duration_since(time_after_buckets));
+    #[cfg(debug_assertions)]
+    println!("    - solving flow problems and settle all {} centers takes: {:?}.", k, time_after_flow.duration_since(time_after_buckets));
 
     // assigne all unassigned points to its nearest neighbor:
     // This takes O(nk^2) time, so it is bottle-neck. TODO: Can this be improved?
-    #[cfg(debug_assertions)]
-    println!("\n  - For each partial assignment, assign unassigned points to their nearest center to obtain (full) assignments (= private-preserving clustering).");
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }
-    
+
+    #[cfg(debug_assertions)]
     let time_after_filling_up = time::Instant::now();
-    println!("  - filling up all remaining points takes: {:?}.", time_after_filling_up.duration_since(time_after_flow));
+    #[cfg(debug_assertions)]
+    println!("    - filling up all remaining points takes: {:?}.", time_after_filling_up.duration_since(time_after_flow));
+
     clusterings
 }
 

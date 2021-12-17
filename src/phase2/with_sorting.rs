@@ -9,6 +9,10 @@ use std::time;
 
 pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_bound: PointCount, centers : &Centers) -> Vec<Clustering> { //Return value should be partialClustering
 
+    #[cfg(debug_assertions)]
+    println!("  - Phase 2 with sorting:");
+
+    #[cfg(debug_assertions)]
     let time_start_make_private_with_sorting = time::Instant::now();
     let k = centers.m();
 // create edges: care, edge.left stores the index of the gonzalez center (0,...,k-1).
@@ -23,19 +27,21 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         }
     }
 
+    #[cfg(debug_assertions)]
     let time_end_edge_creation = time::Instant::now();
-    println!(" - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private_with_sorting));
+    #[cfg(debug_assertions)]
+    println!("    - creation of {} edges takes: {:?}.", space.n()*k, time_end_edge_creation.duration_since(time_start_make_private_with_sorting));
 
-    // println!("\n  ** make_private_with_sort with privacy_bound = {}\n", privacy_bound);
-
-   // edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
     edges.par_sort_unstable_by(|a, b| a.partial_cmp(b).unwrap());
-//    println!("Edges: {:?}", edges.iter().map(|x| x.d).collect::<Vec<_>>());
 
     let mut edge_iter = edges.iter();
 
+    #[cfg(debug_assertions)]
     let time_after_sorting = time::Instant::now();
-    println!("  - sorting {} edges takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_end_edge_creation));
+    #[cfg(debug_assertions)]
+    println!("    - sorting {} edges with rayon::par_sort takes: {:?}.", space.n() * k, time_after_sorting.duration_since(time_end_edge_creation));
+
     // step 2: solve flow problem
 
     let mut clusterings: Vec<Clustering> = Vec::with_capacity(k);
@@ -50,14 +56,12 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
     let mut _current_d = <Distance>::MIN;
 
     while i < k { // extend set of gonzalez centers one by one
-//        println!{"\n+++ center {} now considered!\n", i};
         // this is the main while-loop that deals with each center set daganzo[i] for i = 1, ..., k
 
         while !pending[i].is_empty() {
             let e = pending[i].pop_front().unwrap();
-            assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
+            debug_assert_eq!(i, e.left); // e.left should be i, (the index of the i-th center in gonzalez)
             add_edge(e, i, k, privacy_bound, &mut state);
-//            println!("  Pending edge added: {:?}; \tmax_flow: {}", e, state.max_flow);
         }
 
         while state.max_flow < (i + 1) * privacy_bound {
@@ -73,18 +77,8 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
             } else {
                 // in this case we do add edge e.
                 add_edge(e, i, k, privacy_bound, &mut state);
-//                println!("  Adding: {:?};\tmaxflow: {}", e, state.max_flow);
             }
-            _current_d = e.d;
-
         }
-
-
-        #[cfg(debug_assertions)]
-        assert_eq!(state.max_flow, (i + 1) * privacy_bound, "The maximum flow value is bigger than allowed"); // we should have equality due to the capacities of arcs (= privacy_bound) between the source and the centers in S_i
-
-        #[cfg(debug_assertions)]
-        println!("\tRadius for center {} found: {}", i, _current_d);
 
         // create new clustering:
         let mut center_prefix = Centers::with_capacity(i+1);
@@ -93,22 +87,26 @@ pub(crate) fn make_private_with_sorting<M : ColoredMetric>(space : &M, privacy_b
         }
 
         let clustering = Clustering::new(center_prefix,state.center_of.clone(),space);
-        #[cfg(debug_assertions)]
-        assert_eq!(_current_d,clustering.get_radius(), "Determined radius differs from cluster radius! This should never happen!");
+
         clusterings.push(clustering);
 
         i += 1;
     }
-
+    
+    #[cfg(debug_assertions)]
     let time_after_flow_with_sorting = time::Instant::now();
-    println!("  - solving flow problems and settle all {} centers takes (sorting): {:?}.", k, time_after_flow_with_sorting.duration_since(time_after_sorting));
+    #[cfg(debug_assertions)]
+    println!("    - solving flow problems and settle all {} centers takes (sorting): {:?}.", k, time_after_flow_with_sorting.duration_since(time_after_sorting));
 
     for clustering in clusterings.iter_mut() {
         clustering.fill_up(space);
     }
 
+    #[cfg(debug_assertions)]
     let time_after_filling_up_with_sorting = time::Instant::now();
-    println!("  - filling up all remaining points (sorting) takes: {:?}.", time_after_filling_up_with_sorting.duration_since(time_after_flow_with_sorting));
+
+    #[cfg(debug_assertions)]
+    println!("    - filling up all remaining points (sorting) takes: {:?}.", time_after_filling_up_with_sorting.duration_since(time_after_flow_with_sorting));
 
     clusterings
 }

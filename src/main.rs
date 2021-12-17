@@ -6,7 +6,6 @@ use ff_k_center::SpaceND;
 
 fn main() {
 
-
     match create_dir_all("output") {
         Err(error) => println!("Cannot create output-directory. Reason: {}", error),
         _ => {},
@@ -17,10 +16,7 @@ fn main() {
         _ => {},
     }
 
-    // TEMP:
-    // let mut temp_list = vec!(0,1,2,3,4,5,6,7,8,9,10,0);
-    // let (median, right) = ff_k_center::utilities::median_of_medians(&mut temp_list,5);
-    // println!("list: {:?}, median: {}, right: {:?}", temp_list, median, right);
+    // TODO read from command line
 
     // load test Space2D from file:
     // let space_name = "example";

@@ -17,26 +17,16 @@ use crate::clustering::Clustering;
 /// It does not update the clusterings (shifting points around).
 pub(crate) fn algebraic_pushing<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, clusterings : &Vec<Clustering>) -> (Vec<RootedSpanningTree>, Vec<Vec<OpeningList>>) {
 
-    #[cfg(debug_assertions)]
-    println!("\n  - Phase 3a: Computing spanning trees.");
     let spanning_trees = compute_spanning_trees(space, prob, &clusterings);
 
 
     let mut all_opening_lists: Vec<Vec<OpeningList>> = Vec::with_capacity(prob.k);
 
     for (i,spanning_tree) in spanning_trees.iter().enumerate() {
-        #[cfg(debug_assertions)]
-        println!("\tspanning_tree for C_{}: {}", i, spanning_tree);
-//        #[cfg(debug_assertions)]
-//        println!("\tspanning_tree[{}] sorted distances: {:?}", i, spanning_trees[i].get_sorted_dist().iter().collect::<Vec<_>>());
-//        #[cfg(debug_assertions)]
-//        println!("\tspanning_tree[{}] edges_to_children: {:?}", i, spanning_trees[i].edges_to_children.iter().collect::<Vec<_>>());
         let mut opening_lists: Vec<OpeningList> = Vec::with_capacity(i+1);
         for &threshold in [0.0].iter().chain(spanning_tree.get_sorted_dist().iter()) {
-            // println!("* forrest: {:?}", spanning_tree.get_edges(threshold));
             // first threshold is 0.0 so we obtain the forest without edges
             opening_lists.push(algebraic_shifting(prob.privacy_bound, &clusterings[i], i, &spanning_tree, threshold));
-            // println!("\t final eta: {:?}", opening_lists[opening_lists.len()-1]);
         }
         all_opening_lists.push(opening_lists);
     }
@@ -56,7 +46,6 @@ fn algebraic_shifting(privacy_bound: PointCount, clustering : &Clustering, i : C
 
     while !stack.is_empty() {
         let node = stack.pop().unwrap();
-        // println!("cluster_sizes:{:?}, \teta:{:?}", cluster_sizes, eta);
         let potential_up_edge = spanning_tree.get_edge(node,threshold);
 
         if privacy_bound == 0 {
@@ -111,7 +100,6 @@ fn compute_spanning_trees<'a, M : ColoredMetric>(space : &M, prob : &ClusteringP
         closest.push(0); // closest to 0 is 0;
         dist_to_tree.push(None); // 0 is our tree at the beginning
         for c in 1..i+1 {
-            // priority_queue.push(c,Reverse(Priority{d : space.dist(clustering.get_center(0), clustering.get_center(c))}));
             dist_to_tree.push(Some(space.dist(clustering.get_center(0,space), clustering.get_center(c,space))));
             closest.push(0);
         }

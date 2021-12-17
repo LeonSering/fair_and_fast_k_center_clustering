@@ -80,8 +80,6 @@ pub(crate) fn phase5<M : ColoredMetric + std::marker::Sync>(space : &M, prob : &
 
     for (i, receiver) in receivers.into_iter() {
         let (radius, clustering) = receiver.recv().unwrap();
-        #[cfg(debug_assertions)]
-        println!("  - C_{}: radius: {}", i, radius);
 
         // now only save the best clustering (over all k+1 gonzalez sets) depending on the minimum radius
         if radius < best_radius {
@@ -250,8 +248,6 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
     for cluster in 0..i+1 {
         let points = old_clustering.get_cluster_of(cluster,space);
         let center_idx = centers.new_centers_of_cluster[cluster].clone();
-        // let center_pt = center_idx.iter().map(|idx| new_centers.centers.get(*idx)).collect();
-        // println!("\n  ** Cluster: {} with {} center and {} points", cluster, center_idx.len(), points.len());
 
         // Creates a link from each point to its nearest center (reference by index):
         let mut link_to_nearest: Vec<PointCenterLink> = Vec::with_capacity(points.len());
@@ -296,7 +292,6 @@ fn assign_points_to_new_centers<M : ColoredMetric>(space: &M, prob: &ClusteringP
         while remaining_links.len() > 0 {
             let split_pos = if remaining_links.len() >= batch_size {remaining_links.len()-batch_size} else {0};
             let (remainder ,batch) = utilities::split_in_two_at(remaining_links, split_pos);
-            // assert!(batch.len() == batch_size || remainder.len() == 0);
             remaining_links = remainder;
 
             for entry in batch {

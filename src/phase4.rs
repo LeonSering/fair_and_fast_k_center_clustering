@@ -50,25 +50,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
     let mut counts = vec!(0; prob.k); // counter for how many flow problems are solved.
     let mut node_to_point_list: Vec<Vec<PointIdx>> = Vec::with_capacity(prob.k);
 
-
-    ////TEMP: For test reasons we also look at flow problems with ALL edges present:
-    //let mut all_edges_of_cluster: Vec<Vec<ColorEdge>> = vec!(Vec::with_capacity(space.n());prob.k);
-    //for i in 0..prob.k {
-    //    for p in space.point_iter() {
-    //        let color = space.color(p);
-    //        all_edges_of_cluster[i].push(ColorEdge{
-    //            d: space.dist(gonzalez.get(i), p),
-    //            center: i,
-    //            point: p.idx(),
-    //            color});
-
-    //    }
-    //    all_edges_of_cluster[i].sort_by(|a,b| a.partial_cmp(b).unwrap());
-    //}
-    //// TEMP END
-
-
-
     // define the neighborhood of each gonzalez center
     // each center has to be connected to the clostest a_l ponits of each color class l
     // fill up the neighborhood to k points with the closest remaining points (but never more than b_l
@@ -117,8 +98,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
             new_center_idx_of_cluster[best_centers.origins[l]].push(centers.m()-1);
         }
 
-        // println!("Best centers: {:?} and in idx form grouped by cluster: {:?}", new_centers, new_center_idx_of_cluster);
-
         new_centers.push(NewCenters{as_points: centers, forrest_radius: best_centers.forrest_radius, assignment_radius: best_centers.assignment_radius, new_centers_of_cluster: new_center_idx_of_cluster});
 
     }
@@ -137,8 +116,6 @@ pub(crate) fn phase4<M : ColoredMetric>(space : &M, prob : &ClusteringProblem, m
 /// node_to_point : maps node index to point index,
 /// count : number of flow problems that have been solved,
 fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, edges_of_cluster: &Vec<Vec<ColorEdge>>, opening_lists: Vec<OpeningList>) -> (Option<ShiftedCenters>, Vec<PointIdx>, usize){
-    #[cfg(debug_assertions)]
-    println!("\n\n************** i = {} (in Phase 4) ******************", i);
 
     // except for the opening vector the network can be defined now:
 
@@ -205,7 +182,6 @@ fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, e
 
 
     // The network is almost done, only the opening-vector is missing.
-    // println!("point_to_node: {:?}", point_to_node);
 
     let mut current_best_radius = <Distance>::MAX;
 
@@ -217,16 +193,11 @@ fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, e
         // we can skip the flow computation if the forrest_radius alone is bigger than the
         // previously best sum of forrest_radius + assignment_radius
         if current_best_radius <= opening.forrest_radius {
-            #[cfg(debug_assertions)]
-            println!("  - Flow-network for i = {} and open_list = {} is obsolet as the forrest_radius is bigger than forrest_radius + assignment_radius of earlier open list (= {}).", i, opening, current_best_radius);
             continue;
-
         }
 
         // first test if eta-vector makes sense at all:
         if sum_of_a > opening.eta.iter().sum() {
-            #[cfg(debug_assertions)]
-            println!("  - Cannot open enough new centers as sum_of_a = {} > eta = {}: opening_list: {}; i = {}", sum_of_a, opening.eta.iter().sum::<PointCount>(), opening, i);
             continue;
         }
 
@@ -247,8 +218,6 @@ fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, e
             }
         }
         if has_been_solved {
-            #[cfg(debug_assertions)]
-            println!("  - Flow-network for i = {} and opening_list = {} has been solved before (or less restricted version). Skipping this flow computation.", i, opening);
             continue;
         }
 
@@ -280,10 +249,7 @@ fn shift_centers(prob: &ClusteringProblem, sum_of_a: PointCount, i: CenterIdx, e
         }
 
     }
-    #[cfg(debug_assertions)]
-    println!("number of flow problem for i = {} solved: {}", i, count);
 
-    // println!("\nradii of shifts with i = {}: {:?}", i, shifted_centers[i].iter().map(|c| c.assignment_radius).collect::<Vec<_>>());
     return (centers, node_to_point, count);
 
 }

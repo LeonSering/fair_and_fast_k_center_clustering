@@ -66,7 +66,6 @@ use pyo3::prelude::*;
 #[pymodule]
 #[pyo3(name = "ff_k_center")]
 fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
-    // m.add_class::<FFKCenterModel>()?;
     m.add_class::<FFKCenter>()?;
 
     Ok(())
@@ -117,7 +116,9 @@ pub struct OptionalParameters {
 const DEFAULT_VERBOSE: u8 = 1;
 const DEFAULT_PHASE2_RERUN: bool = true;
 const DEFAULT_PHASE5_GONZALEZ: bool = true;
-
+fn default_thread_count() -> usize {
+    num_cpus::get()
+}
 
 /// Computes a privacy preserving representative k-clustering.
 /// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>).
@@ -136,20 +137,12 @@ const DEFAULT_PHASE5_GONZALEZ: bool = true;
 pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + std::marker::Sync> (space : &M, prob : &ClusteringProblem, options: Option<OptionalParameters>) -> (Clustering, DurationInSec) {
 
 
-
-
-
-
     let time_start = time::Instant::now();
-
-
     let cpu_count = num_cpus::get();
-
-    let default_thread_count = cpu_count;
 
     let optional_parameters = options.unwrap_or(OptionalParameters{
         verbose: Some(DEFAULT_VERBOSE),
-        thread_count: Some(default_thread_count),
+        thread_count: Some(default_thread_count()),
         phase_2_rerun: Some(DEFAULT_PHASE2_RERUN),
         phase_5_gonzalez: Some(DEFAULT_PHASE5_GONZALEZ)});
 
@@ -161,7 +154,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     }
 
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
-    let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count);
+    let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count());
     let phase_2_rerun = optional_parameters.phase_2_rerun.unwrap_or(DEFAULT_PHASE2_RERUN);
     let phase_5_gonzalez = optional_parameters.phase_5_gonzalez.unwrap_or(DEFAULT_PHASE5_GONZALEZ);
 
@@ -190,26 +183,20 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     // phase 1: use gonzalez heuristic to obtain an ordered set of preliminary centers //
     /////////////////////////////////////////////////////////////////////////////////////
 
-    #[cfg(debug_assertions)]
-    println!("\n**** Phase 1 ****");
-
     let gonzalez: Centers = gonzalez_heuristic(space, prob.k);
 
     let time_after_phase1 = time::Instant::now();
     if verbose >= 2{
         println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzalez);
     } else if verbose == 1 {
-        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.\n", time_after_phase1.duration_since(time_after_assertions), prob.k);
+        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
     }
 
     ///////////////////////////////////////
     // phase 2: determine privacy radius //
     ///////////////////////////////////////
 
-    #[cfg(debug_assertions)]
-    println!("\n**** Phase 2 ****");
-    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzalez);
-
+    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzalez, thread_count);
 
     let time_after_phase2 = time::Instant::now();
     if verbose >= 2 {
@@ -218,21 +205,21 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
     } else if verbose == 1 {
-        println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.\n", time_after_phase2.duration_since(time_after_phase1), prob.k);
+        println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.", time_after_phase2.duration_since(time_after_phase1), prob.k);
     }
-    
-    let _clusterings_with_sorting : Vec<Clustering> = phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
 
-    let time_after_phase2_sorting = time::Instant::now();
-    println!("  - Phase 2 (with sorting) done (time: {:?})\n", time_after_phase2_sorting.duration_since(time_after_phase2));
+    #[cfg(debug_assertions)]
+    {
+        phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
+        let time_after_phase2_sorting = time::Instant::now();
+        println!("  - Phase 2 with sorting done (time: {:?})", time_after_phase2_sorting.duration_since(time_after_phase2));
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // phase 3: determine spanning trees and eta-vector by algebraic_pushing //
     ///////////////////////////////////////////////////////////////////////////
     let time_before_phase3 = time::Instant::now();
 
-    #[cfg(debug_assertions)]
-    println!("\n**** Phase 3 ****");
 
     let (spanning_trees, opening_lists) = algebraic_pushing(space, prob, &clusterings);
 
@@ -255,9 +242,6 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     // phase 4: open new centers and determine actual set of centers C //
     //////////////////////////////////////////////////////////////////////
 
-    #[cfg(debug_assertions)]
-    println!("\n**** Phase 4 ****");
-
 
     let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzalez,thread_count);
 
@@ -265,7 +249,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     let count_sum: usize = counts.iter().sum();
     if verbose >= 2 {
         println!("\n  - Phase 4 done (time: {:?} with {} threads on {} cores): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), thread_count, cpu_count, count_sum);
-        for (i,centers) in new_centers.iter().enumerate() {
+            for (i,centers) in new_centers.iter().enumerate() {
             println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {}; number of flow problems solved: {}", i, centers.as_points, centers.assignment_radius, centers.forrest_radius, counts[i]);
         }
     } else if verbose == 1 {
@@ -275,9 +259,6 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     ////////////////////////////////////////////////////////////////////////////////////////////
     // phase 5: assign point to the final point of centers and determine the final clustering //
     ////////////////////////////////////////////////////////////////////////////////////////////
-
-    #[cfg(debug_assertions)]
-    println!("\n**** Phase 5 ****\n");
 
     let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzalez);
 
@@ -295,10 +276,7 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     let mut phase2_rerun_time_str = String::from("-");
     if phase_2_rerun {
 
-        #[cfg(debug_assertions)]
-        println!("\n**** Phase 2 Rerun ****\n");
-
-        final_clustering = make_private(space, prob.privacy_bound, &final_clustering.get_centers()).pop().unwrap();
+        final_clustering = make_private(space, prob.privacy_bound, &final_clustering.get_centers(), thread_count).pop().unwrap();
 
 
         let time_after_phase2rerun = time::Instant::now();

@@ -2,7 +2,7 @@ use pyo3::proc_macro::{pyclass,pymethods};
 use pyo3::prelude::{Python,PyResult};
 use pyo3::types::PyDict;
 
-use crate::{ClusteringProblem,OptionalParameters,compute_privacy_preserving_representative_k_center};
+use crate::{ClusteringProblem,OptionalParameters,compute_privacy_preserving_representative_k_center, default_thread_count};
 use crate::clustering::Clustering;
 use crate::types::{PointCount,Interval,CenterIdx,PointIdx,ColorIdx,Distance,DurationInSec};
 use crate::space::{ColoredMetric,SpaceND};
@@ -348,7 +348,15 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
     /// privacy_bound.
     /// The assignment can be accessed by model.assignment and the radius via model.radius.
     /// Note that this does not compute a ff_k_center clustering.
-    fn private_assignment_by_centers(&mut self, centers: Vec<PointIdx>) -> PyResult<()> {
+    #[args(centers,"*", thread_count="0")]
+    fn private_assignment_by_centers(&mut self, centers: Vec<PointIdx>, thread_count: usize) -> PyResult<()> {
+        // Then prepare optional parameters:
+        let threads = match thread_count {
+            0 => default_thread_count(),
+            t => t
+        };
+
+
         let k = centers.len();
         self.set_k(k);
 
@@ -363,7 +371,7 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
 
         let centers = Centers::new(centers);
         let start = std::time::Instant::now();
-        self.clustering = Some(phase2::make_private(space, prob.privacy_bound, &centers).pop().unwrap());
+        self.clustering = Some(phase2::make_private(space, prob.privacy_bound, &centers,threads).pop().unwrap());
         let end = std::time::Instant::now();
         self.running_time = Some(end.duration_since(start).as_secs_f64());
         Ok(())

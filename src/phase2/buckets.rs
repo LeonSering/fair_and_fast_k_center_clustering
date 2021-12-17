@@ -10,10 +10,10 @@ pub(super) fn put_into_buckets<'a, 'b>(
     list: &'b mut [Edge<'a>],
     n: PointCount,
     k: PointCount,
-    power_of_k: u32
+    power_of_k: u32,
+    thread_count: usize
 ) -> Vec<&'b mut [Edge<'a>]> {
-   
-    let thread_count = 4;
+
     let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
 
     let bucket_size_limit = (4 * n - 1) / (k.pow(power_of_k)) + 1; // ceil(4n/k^z)
@@ -97,7 +97,7 @@ mod tests {
             })
             .collect(); // do a list with dublicates
         let power_of_k = 2;
-        let buckets = put_into_buckets(&mut list, n, k, power_of_k);
+        let buckets = put_into_buckets(&mut list, n, k, power_of_k,8);
         assert!(assert_buckets_properties(&buckets, n, k, power_of_k));
     }
 }

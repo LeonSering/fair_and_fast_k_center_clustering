@@ -97,18 +97,16 @@ pub(super) fn add_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_bou
     let x = e.right; // maybe cloning needed
 
     if c > i { // this edge is not considered yet
-//        println!("\tnot yet! Max flow: {}\n", state.max_flow);
         return;
     }
     // as the edge is now added to the flow networks we mark it that way:
-    assert_eq!(state.edge_present[c][x.idx()], false, "Edge {:?} was present before", e);
+    debug_assert_eq!(state.edge_present[c][x.idx()], false, "Edge {:?} was present before", e);
     state.edge_present[c][x.idx()] = true;
 
     match state.center_of[x.idx()] {
         None => {// x is not assigned yet
             // a new node correspdonding to x is added to the tail of the queue unassigned:
             state.unassigned_push(c,x);
-//            println!("\tcurrent point is unassigned");
         },
         Some(center_of_x) => {
             // in this case, x is already assigned to center[x], so we have to add the new edges in
@@ -132,24 +130,20 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_
     let x = e.right;
 
     if c > i { // this edge has not been considered yet, and hence is not in the network
-//        println!("\n\tnot yet! Max flow: {}", state.max_flow);
         return;
     }
 
     // as the edge is now removed from the flow networks we mark it that way:
-    assert_eq!(state.edge_present[c][x.idx()], true, "Edge was present before");
+    debug_assert_eq!(state.edge_present[c][x.idx()], true, "Edge was present before");
     state.edge_present[c][x.idx()] = false;
 
-//    println!("x: {}, center of x: {:?}", x.idx(), state.center_of[x.idx()]);
     match state.center_of[x.idx()] {
         None => {
             rebuild_reachability(k, privacy_bound, state);
-//            println!{"\tarc was not flow carrying (point not assigned)!"};
 
         }
         Some(center_of_x) => {
             if center_of_x == c { // arc e is flow carrying:
-                //println!{"\tarc is flow carrying!"};
                 state.max_flow -= 1;
                 state.number_of_covered_points[c] -= 1;
                 state.center_of[x.idx()] = None;
@@ -163,7 +157,6 @@ pub(super) fn remove_edge<'a>(e: Edge<'a>, i: CenterIdx, k: PointCount, privacy_
                 augment_flow(k, privacy_bound, i, state); // see if we can add a flow unit along other paths
             } else {
                 rebuild_reachability(k, privacy_bound, state);
-//                println!{"\tarc was not flow carrying!"};
             }
         }
     }
@@ -196,7 +189,7 @@ fn augment_flow<'a>(k: PointCount, privacy_bound: PointCount, i: CenterIdx, stat
     // our first arc of the augmenting path (from sink to source)
     let mut x = state.unassigned_pop(v).unwrap();
 
-    assert_eq!(state.center_of[x.idx()], None, "WAIT: p is not unassigned");
+    debug_assert_eq!(state.center_of[x.idx()], None, "WAIT: p is not unassigned");
 
     state.center_of[x.idx()] = Some(v); // assign p to v
     state.number_of_covered_points[v] += 1; // v covers now one points more
@@ -215,7 +208,7 @@ fn augment_flow<'a>(k: PointCount, privacy_bound: PointCount, i: CenterIdx, stat
         // w is our next center in the augmenting path. We reassign y, which means adding
         // forward arc (w,y) and backwards arc (y, v) in front of our augmenting path
         x = state.reassign_pop(v,w).unwrap();
-        assert_eq!(state.center_of[x.idx()], Some(v), "WAIT: p was not assigned to v!");
+        debug_assert_eq!(state.center_of[x.idx()], Some(v), "WAIT: p was not assigned to v!");
         state.number_of_covered_points[v] -= 1;
         state.center_of[x.idx()] = Some(w); // reassign y to w
         state.reassign_push(w,v,x);
