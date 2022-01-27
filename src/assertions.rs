@@ -6,8 +6,8 @@ use crate::types::PointCount;
 /// algorithm will return a feasible clustering.
 ///
 /// # Inputs
-/// * a metric space implementing the [ColoredMetric] trait;
-/// * a [ClusteringProblem];
+/// * a metric space implementing the [ColoredMetric] trait,
+/// * a [ClusteringProblem].
 ///
 /// # Panics
 /// Panics if one of the following asserts fails:

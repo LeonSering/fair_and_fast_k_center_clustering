@@ -132,10 +132,11 @@ pub trait ColoredMetric{
 
 //////////////////// SpaceMatrix /////////////////////////
 
-/// A general finite metric space with color classes. </br>
-/// Distances are given by a symmetric distance matrix of size nxn; </br>
-/// Colors are given by a list of size n; </br>
-/// Implements the [ColoredMetric] trait.
+/// A general finite metric space with color classes.
+///
+/// * Distances are given by a symmetric distance matrix of size nxn,
+/// * Colors are given by a list of size n,
+/// * Implements the [ColoredMetric] trait.
 pub struct SpaceMatrix{
     distances: Vec<Vec<Distance>>, // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
@@ -145,18 +146,19 @@ pub struct SpaceMatrix{
 
 
 impl SpaceMatrix {
-    /// Creates a new [SpaceMatrix];
-    /// distances has to be a 2d-vector that represents a quadratic matrix satisfying the metric properties
-    /// (symmetry, non-negativity, identity of indiscernibles and the triangle inequality);
-    /// colors is a vector that stores the color of each point;
+    /// Creates a new [SpaceMatrix].
     ///
-    /// To assert the metric properties, the run time is O(n^3).
+    /// # Input
+    /// * distances has to be a 2D-vector that represents a quadratic matrix satisfying the metric properties
+    /// (symmetry, non-negativity, identity of indiscernibles and the triangle inequality),
+    /// * colors is a vector that stores the color of each point.
+    ///
+    /// The running time of asserting the metric properties is O(n<sup>3<\sup>).
     ///
     /// # Panics
-    ///
-    /// Panics, if distances is not a quadratic matrix;
-    /// Panics, if the length of the color classes does not match the number of points given by distances;
-    /// Panics, if distances does not satisfy the metric properties;
+    /// * Panics, if distances is not a quadratic matrix.
+    /// * Panics, if the length of the color classes does not match the number of points given by distances.
+    /// * Panics, if distances does not satisfy the metric properties.
     pub fn new(distances: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> SpaceMatrix {
         // check if distances is a quadratic matrix:
         let number_of_rows = distances.len();
@@ -252,7 +254,7 @@ impl ColoredMetric for SpaceMatrix {
 type Position = Vec<Distance>;
 // the euclidean metric space of dim N.
 
-/// A metric space in the euklidean space of some dim N. Implements the [ColoredMetric] trait.
+/// A metric space in the euklidean space of some dimension N. Implements the [ColoredMetric] trait.
 /// Beside the color it also stores the position of type Vec<f32> of each point.
 /// The distance is computed by the Eucleadean metric.
 pub struct SpaceND{
@@ -267,13 +269,16 @@ use std::io::{BufReader,BufRead};
 
 impl SpaceND {
     /// Creates a new metric space of type [SpaceND].
-    /// Input: An vector of positions of type Vec<f32> and a vector of colors of type u16.
+    ///
+    /// # Input 
+    ///
+    /// * An vector of positions of type Vec<f32> and a vector of colors of type u16.
     ///
     /// # Panics
     ///
-    /// Panics if positions is an empty vector.
-    /// Panics if the two vectors have different size.
-    /// Panics if there are positions of different lengths.
+    /// * Panics if positions is an empty vector.
+    /// * Panics if the two vectors have different size.
+    /// * Panics if there are positions of different lengths.
     ///
     /// # Example
     ///
@@ -330,7 +335,7 @@ impl SpaceND {
     /// The first entries of each line must be of type f32 specifying the position;
     /// the last entry must be a non-negative integer specifying the color (of type u16).
     ///
-    /// Example:
+    /// # Example:
     /// ```txt
     /// -8.19,-7.88,0
     /// -8.06,-6.58,0

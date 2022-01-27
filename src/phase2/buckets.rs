@@ -3,9 +3,10 @@ use crate::types::PointCount;
 use crate::utilities;
 
 use rayon::ThreadPoolBuilder;
+
 // Input: unsorted list of edges, upper bound on the size of a bucket
-// Output: list of buckets (as mutable slices) of size <= ceil(4n/k^4) edges; with property of Lemma 3;
-// lsit is now somewhat sorted according to the buckets
+// Output: list of at most k^3 buckets (as mutable slices) of size <= ceil(4n/k^2) edges; with property the property
+// that d(e_1) < d(e_2) for all e_1 in bucket[i] and e_2 in bucket[j] for i < j.
 pub(super) fn put_into_buckets<'a, 'b>(
     list: &'b mut [Edge<'a>],
     n: PointCount,
@@ -48,7 +49,7 @@ mod tests {
     use crate::types::Distance;
     use rand::Rng;
 
-    // asserts that there are at most k^5 buckets, each of size at most ceil(4n/k^4); the distance of
+    // asserts that there are at most k^3 buckets, each of size at most ceil(4n/k^2); the distance of
     // each element of a bucket j is bigger than all elements in bucket < j and smaller than all
     // elements in buckets > j.
     pub(super) fn assert_buckets_properties(

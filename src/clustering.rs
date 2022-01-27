@@ -5,8 +5,8 @@
 
 /// Contains two structs (both are only valid together with a space
 ///
-/// centers: a vector of centers
-/// clustering: centers, radius and assignment of points to centers
+/// * centers: a vector of centers
+/// * clustering: centers, radius and assignment of points to centers
 ///
 use crate::space::Point;
 use crate::types::{PointCount,PointIdx,Distance,CenterIdx};
@@ -56,7 +56,7 @@ impl Centers{
     /// The output file only contains one line containing the index of the centers separated by a
     /// comma.
     ///
-    /// Example:
+    /// # Example
     ///
     /// ```txt
     /// 0,19,38,29,8,17
@@ -96,30 +96,22 @@ impl<'a> fmt::Display for Centers {
 
 
 /// A (partial) clustering specified by a list of centers and an assignment of clients to centers.
+/// * centers: a collection of points (of type &[Point])
+/// * center_of: for each point it contains the index of the center it is assigned to. For partial clustering this value can be None
+/// * cluster: list of points for each center idx; might be a super set of the actual points. Entries
+/// are only valid if it matches the information in center_of.
+/// * distance: the maximal distance between a client and its center
+/// (this is not computed but assigned; so there is some redundance).
+/// * radius_valid: By reassigning points the radius might get outdated (its always an upper bound). If this
+/// could be the case is indicated by this boolean.
+/// * cluster_sizes: the number of points covered by each center.
 pub struct Clustering{
-    /// a collection of points (of type &[Point])
     centers : Centers,
-    /// for each point it contains the index of the center it is assigned to. For partial clustering this value can be None
     center_of : Vec<Option<CenterIdx>>, // returns center to which point with index x belongs, if not assigned to center its None
-    /// cluster (list of points) by center idx; might be a super set of the actual points. Entries
-    /// are only valid if it matches the information in center_of.
     cluster: Vec<Vec<PointIdx>>,
-    /// the maximal distance between a client and its center
-    /// (this is not computed but assigned; so there is some redundance)
     radius : Distance,
-    /// By reassigning points the radius might get outdated (its always an upper bound). If this
-    /// could be the case is indicated by the following boolean:
     radius_valid : bool,
-
-    /// the number of points covered by each center
     cluster_sizes : Vec<PointCount>,
-    // alternative ways to save: reference: list of Cluster typs (consisting of Center and
-    // Vector of Points
-
-    //space : &'a Box<dyn ColoredMetric>, // reference to metric space
-
-    // method: cluster points of given color
-    // method: print to file
 }
 
 use crate::ColoredMetric;
@@ -130,7 +122,7 @@ impl Clustering{
     /// Computes the minimum cover radius, hence, it needs a reference to the metric space;
     /// Computation takes O(n) time.
     ///
-    /// #Panics
+    /// # Panics
     ///
     /// Panics if the size of the assignment center_of does not match the number of points
     /// space.n()
@@ -287,7 +279,7 @@ impl Clustering{
     /// For each center we have one line in the output file of the form
     /// center: client_1, client_2, ...,
     ///
-    /// Example:
+    /// # Example:
     /// ```txt
     /// 0:0,1,2,3,4,
     /// 19:13,18,19,20,32,

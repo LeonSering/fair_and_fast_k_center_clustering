@@ -1,4 +1,4 @@
-//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>4</sup>).
+//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>5</sup>).
 //!
 //! # Quick Start
 //!
@@ -12,7 +12,7 @@
 //!
 //! With [compute_privacy_preserving_representative_k_center] a [Clustering] is created, which
 //! contains a list of centers (see [Centers]) and an assignment of each point to a center.
-//! This clustering is a 13-approximation on the optimal "privacy preserving representative k-center"-clustering.
+//! This clustering is a 15-approximation on the optimal "privacy-preserving representative k-center"-clustering.
 
 
 
@@ -72,9 +72,9 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 }
 
 /// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
-/// k is the maximal number of centers that can be opened;
-/// privacy_bound specifies a lower bound on the number of clients that needs to be assigned to each center;
-/// rep_interval contains an interval [a,b] for each color class, the number of centers of that
+/// * k is the maximal number of centers that can be opened,
+/// * privacy_bound specifies a lower bound on the number of clients that needs to be assigned to each center,
+/// * rep_interval contains an interval \[a,b\] for each color class, the number of centers of that
 /// color must be within the interval.
 pub struct ClusteringProblem {
     pub k : PointCount, // maximal number of centers
@@ -121,19 +121,18 @@ fn default_thread_count() -> usize {
 }
 
 /// Computes a privacy preserving representative k-clustering.
-/// The radius is a 13-approximation and the running time is O(nk<sup>2</sup> + k<sup>4</sup>).
+/// The radius is a 15-approximation and the running time is O(nk<sup>2</sup> + k<sup>5</sup>).
 ///
 /// # Inputs
-/// * a metric space implementing the [ColoredMetric] trait;
-/// * a [ClusteringProblem];
+/// * a metric space implementing the [ColoredMetric] trait,
+/// * a [ClusteringProblem],
 /// * a optional struct of optional parameters, containing verbose: Option<u8>, thread_count: Option<usize,
-/// phase_2_rerun: Option<bool>, phase_5_gonzalez: Option<bool>. For None default values are filled in (see [OptionalParamters]).
-/// * a u8 indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose;
+/// phase_2_rerun: Option<bool>, phase_5_gonzalez: Option<bool>. For None default values are filled in (see [OptionalParameters]),
+/// * a u8 indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose.
 ///
 /// # Output
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
-/// TODO: Update this doc-comment
 pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + std::marker::Sync> (space : &M, prob : &ClusteringProblem, options: Option<OptionalParameters>) -> (Clustering, DurationInSec) {
 
 
@@ -192,9 +191,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
     }
 
-    ///////////////////////////////////////
-    // phase 2: determine privacy radius //
-    ///////////////////////////////////////
+    //////////////////////////////////////////////////////////////
+    // phase 2: determine privacy radius; (makePrefixesPrivate) //
+    //////////////////////////////////////////////////////////////
 
     let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzalez, thread_count);
 
@@ -215,9 +214,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         println!("  - Phase 2 with sorting done (time: {:?})", time_after_phase2_sorting.duration_since(time_after_phase2));
     }
 
-    ///////////////////////////////////////////////////////////////////////////
-    // phase 3: determine spanning trees and eta-vector by algebraic_pushing //
-    ///////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////
+    // phase 3: determine spanning trees and eta-vector by algebraic_pushing (createBackbones) //
+    /////////////////////////////////////////////////////////////////////////////////////////////
     let time_before_phase3 = time::Instant::now();
 
 
@@ -238,9 +237,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     }
 
 
-    //////////////////////////////////////////////////////////////////////
-    // phase 4: open new centers and determine actual set of centers C //
-    //////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // phase 4: open new centers and determine actual set of centers C (realizeBatchOfBackbones) //
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
 
     let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzalez,thread_count);
@@ -256,9 +255,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         println!("  - Phase 4 done (time: {:?} with {} threads on {} cores): Determined new centers. Number of flow problem solved: {}.", time_after_phase4.duration_since(time_after_phase3), thread_count, cpu_count, count_sum);
     }
 
-    ////////////////////////////////////////////////////////////////////////////////////////////
-    // phase 5: assign point to the final point of centers and determine the final clustering //
-    ////////////////////////////////////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // phase 5: assign point to the final point of centers and determine the final clustering (selectFinalCenters) //
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzalez);
 
@@ -269,9 +268,9 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
         println!("  - Phase 5 done (time: {:?} with {} threads on {} cores): Created assignments and chose the final clustering (based on C_{}) with radius: {}.", time_after_phase5.duration_since(time_after_phase4), thread_count, cpu_count, best_i, phase5_radius);
     }
 
-    ///////////////////////////////////////////////////////////////////////////////////////
-    //////////// rerun phase 2 on the final centers to obtain optimal clustering //////////
-    ///////////////////////////////////////////////////////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////
+    // rerun phase 2 on the final centers to obtain optimal clustering (makePrivate) //
+    ///////////////////////////////////////////////////////////////////////////////////
     // let mut final_clustering = clusterings.into_iter().nth(best_i).unwrap();
     let mut phase2_rerun_time_str = String::from("-");
     if phase_2_rerun {
