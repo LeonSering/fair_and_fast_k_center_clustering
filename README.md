@@ -1,7 +1,7 @@
 # Code of ICML submission "Fair and Fast k-Center Clustering for Data Summarization"
 
-This is the Rust implementation for the fast Priv-Rep-kC algorithm descibed in our [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
-For a instance with n data points that should be covered by at most k centers, this algorithm has a running time gurantee of $O(nk^2 + k^5)$.
+This is the Rust implementation for the fast Priv-Rep-kC algorithm described in our [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
+For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee of $O(nk^2 + k^5)$.
 
 The code is a Rust library that implements a python interface, leading to the following two options to run our algorithm:
 
