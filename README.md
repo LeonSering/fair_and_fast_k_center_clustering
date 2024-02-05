@@ -4,30 +4,32 @@ This is our Rust implementation for our Priv-Rep-kC algorithm that runs in $O(nk
 
 The code is a Rust library that implements a python interface, leading to the following two options to run our algorithm:
 
-- It can be imported in another Rust project.
+- It can be imported into another Rust project.
 - After installing the python wheel, the algorithm can be executed from any python script or jupyter notebook.
 
 As the python interface is most convenient, we focus on this way to run our code.
 
 ## Requirements
+
 - python >=3.6
 - matplotlib (optional)
 
-
 ## Installation of the python wheel
+
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the python-wheel:
 
 ```bash
 pip install ff_k_center-1.2.2-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
 ```
 
-Moreover, we recommend to install matplotlib to get plots of computed clusterings:
+Moreover, we recommend to install matplotlib to get plots of a computed clustering:
 
 ```bash
 pip install matplotlib
 ```
 
 ## Usage via python interface
+
 The following python code presents all functions of the python interface.
 
 ```python
@@ -54,6 +56,7 @@ Alternatively, you can use ```experiments/computational_study.ipynb``` for recre
 By running ```python_scripts/create_2d_space.py``` it is possible to easy create new toy examples by left clicking into the figure. Use number keys '0' to '9' to change the color and 'Del' to go into deletion mode. The data set is saved after closing the window.
 
 ## Uninstall python wheel
+
 Use the following command to uninstall the python wheel:
 
 ```bash
@@ -61,6 +64,7 @@ pip uninstall ff_k_center
 ```
 
 ## Building the python wheel by compiling the code
+
 There is no need to recreate the python wheel as it is included in the provided code.
 Nevertheless, to be able to verify that the python wheel indeed corresponds to the actual code, we provide information here on how it can be compiled from the Rust code.
 This can be done via the tool [maturin](https://github.com/PyO3/maturin).
@@ -74,6 +78,7 @@ docker run --rm -v $(pwd):/io konstin2/maturin build --manylinux=2010 --release
 Afterwards the python wheel can be found in ```target/wheels/```.
 
 ## Usage as Rust library
+
 Make sure that the provided Rust crate is listed as a ```dependency``` in your Cargo.toml file with properly indicated path.
 You can load all functionality to a new Rust project by
 
@@ -103,7 +108,7 @@ fn main() {
 }
 ```
 
-For more details on how to load a dataset, save the computed clustering, set optional parameters, and more, we refer to the Rust documentation of the provided library, which can be created and opened via:
+For more details on how to load a data set, save the computed clustering, set optional parameters, and more, we refer to the Rust documentation of the provided library, which can be created and opened via:
 
 ```bash
 cargo doc --open
