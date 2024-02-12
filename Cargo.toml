@@ -2,6 +2,14 @@
 name = "ff_k-center"
 version = "1.2.2"
 edition = "2021"
+license = "MIT"
+license-file = "LICENSE.md"
+description = "A linear-time k-center algorithm with fairness conditions and worst-case guarantees that is very fast in practice. Includes python bindings."
+homepage = "http://leon.sering.eu/project/fair_and_fast_k_center_clustering/"
+readme = "README.md"
+repository = "https://github.com/LeonSering/fair_and_fast_k_center_clustering"
+keywords = ["algorithm", "k-center", "clustering", "fairness", "data science"]
+categories = ["algorithms", "mathematics", "science"]
 
 [profile.phase2_benchmark]
 inherits = "release"
