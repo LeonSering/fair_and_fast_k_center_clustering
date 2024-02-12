@@ -49,8 +49,12 @@ pub fn assert_clustering_problem<M: ColoredMetric>(
     }; // min{gamma, rep_intervals.len()}
 
     // check if lower bound can be satisfied
-    for c in 0..restricted_colors {
-        if number_of_points_of_color[c] < prob.rep_intervals[c].0 {
+    for (c, color) in number_of_points_of_color
+        .iter()
+        .enumerate()
+        .take(restricted_colors)
+    {
+        if *color < prob.rep_intervals[c].0 {
             return Err(format!("There are {} points of color {}, but we require a = {} of the centers to be of this color.", number_of_points_of_color[c], c, prob.rep_intervals[c].0));
         };
     }

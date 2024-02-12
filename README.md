@@ -70,7 +70,7 @@ There is no need to recreate the python wheel as it is included in the provided 
 Nevertheless, to be able to verify that the python wheel indeed corresponds to the actual code, we provide information here on how it can be compiled from the Rust code.
 This can be done via the tool [maturin](https://github.com/PyO3/maturin).
 
-The most convenient way is to use the docker image [pyo3/maturin](https://ghcr.io/pyo3/maturin) (this may take a couple of minutes):
+The most convenient way is to use the docker image [pyo3/maturin](https://ghcr.io/pyo3/maturin):
 
 ```bash
 docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release

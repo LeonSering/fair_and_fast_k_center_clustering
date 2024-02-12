@@ -1,7 +1,7 @@
 use super::datastructures::{NewCenters, OpeningList};
 use crate::types::{CenterIdx, ColorCount, ColorIdx, Distance, PointCount, PointIdx};
 use crate::{Centers, ClusteringProblem, ColoredMetric};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{hash_map, HashMap, VecDeque};
 
 mod neighborhood;
 use neighborhood::determine_neighborhood;
@@ -160,8 +160,8 @@ fn shift_centers(
 
     for e in edges.iter() {
         // there are k^2 edges
-        if !color_to_node.contains_key(&e.color) {
-            color_to_node.insert(e.color, color_counter);
+        if let hash_map::Entry::Vacant(entry) = color_to_node.entry(e.color) {
+            entry.insert(color_counter);
             if e.color >= prob.rep_intervals.len() {
                 a.push(0);
                 b.push(<PointCount>::MAX);
@@ -171,8 +171,8 @@ fn shift_centers(
             }
             color_counter += 1;
         }
-        if !point_to_node.contains_key(&e.point) {
-            point_to_node.insert(e.point, point_counter);
+        if let hash_map::Entry::Vacant(entry) = point_to_node.entry(e.point) {
+            entry.insert(point_counter);
             node_to_point.push(e.point);
             point_idx_to_color_idx.push(*color_to_node.get(&e.color).unwrap());
             point_counter += 1;
@@ -216,8 +216,8 @@ fn shift_centers(
         for open_list in opening_lists.iter().take(j) {
             let old_eta = &open_list.eta;
             let mut old_equal_or_bigger = true;
-            for l in 0..old_eta.len() {
-                if opening.eta[l] > old_eta[l] {
+            for (l, eta) in old_eta.iter().enumerate() {
+                if opening.eta[l] > *eta {
                     old_equal_or_bigger = false;
                     break;
                 }

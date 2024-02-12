@@ -132,18 +132,14 @@ impl RootedSpanningTree {
 impl fmt::Display for RootedSpanningTree {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "(")?;
-        let mut iter = self.edges.iter();
-        while let Some(c) = iter.next() {
-            if let Some(edge) = c {
-                write!(f, "{} -> {}", edge.down, edge.up)?;
-                break;
-            }
-        }
-        for c in iter {
-            if let Some(edge) = c {
+        let mut iter = self.edges.iter().flatten(); // only take the Some values
+
+        if let Some(first_edge) = iter.next() {
+            write!(f, "{} -> {}", first_edge.down, first_edge.up)?;
+            for edge in iter {
                 write!(f, ", {} -> {}", edge.down, edge.up)?;
             }
-        }
+        };
         write!(f, ")")?;
         Ok(())
     }
