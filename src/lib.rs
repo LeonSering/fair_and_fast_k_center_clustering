@@ -26,19 +26,17 @@
 //! The code below shows an example that creates a data set of 5000 random points on which Priv-Rep-kC is solved with our algorithm.
 //! ```
 //! use ff_k_center::*;
-//! fn main() {
-//!     let n = 5_000;
-//!     let k = 8;
-//!     let space = SpaceND::new_random(n);
-//!     let prob = ClusteringProblem{
-//!         k, // number of centers;
-//!         privacy_bound : n/k, // number of points to represent;
-//!         rep_intervals : vec!((0,500),(0,500),(0,500)), // representation interval [a,b] for each color class;
-//!                                                        // for color classes without interval we subsitute [0. inf]
-//!     };
-//!     let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, None);
-//!     println!("Radius: {}; Running time: {}s.", clustering.get_radius(), total_time);
-//! }
+//! let n = 5_000;
+//! let k = 8;
+//! let space = SpaceND::new_random(n);
+//! let prob = ClusteringProblem{
+//!     k, // number of centers;
+//!     privacy_bound : n/k, // number of points to represent;
+//!     rep_intervals : vec!((0,500),(0,500),(0,500)), // representation interval [a,b] for each color class;
+//!                                                    // for color classes without interval we subsitute [0. inf]
+//! };
+//! let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, None);
+//! println!("Radius: {}; Running time: {}s.", clustering.get_radius(), total_time);
 //! ```
 //! # Python Interface
 //!
@@ -180,12 +178,9 @@ pub fn compute_privacy_preserving_representative_k_center<M: ColoredMetric + std
         phase_5_gonzalez: Some(DEFAULT_PHASE5_GONZALEZ),
     });
 
-    match assert_optional_parameters(&optional_parameters) {
-        Err(msg) => {
-            println!("\n\x1b[0;31mInvalidOptionalParameters:\x1b[0m {}", msg);
-            panic!("Invalid parameters. Abort!")
-        }
-        _ => {}
+    if let Err(msg) = assert_optional_parameters(&optional_parameters) {
+        println!("\n\x1b[0;31mInvalidOptionalParameters:\x1b[0m {}", msg);
+        panic!("Invalid parameters. Abort!")
     }
 
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
@@ -207,12 +202,9 @@ pub fn compute_privacy_preserving_representative_k_center<M: ColoredMetric + std
     ////////////////////////// Assertions on the ClusteringProblem //////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    match assert_clustering_problem(space, prob) {
-        Err(msg) => {
-            println!("\n\x1b[0;31mInvalidProblemFormulation:\x1b[0m {}", msg);
-            panic!("Invalid problem. Abort!")
-        }
-        _ => {}
+    if let Err(msg) = assert_clustering_problem(space, prob) {
+        println!("\n\x1b[0;31mInvalidProblemFormulation:\x1b[0m {}", msg);
+        panic!("Invalid problem. Abort!")
     }
 
     let time_after_assertions = time::Instant::now();
@@ -255,7 +247,7 @@ pub fn compute_privacy_preserving_representative_k_center<M: ColoredMetric + std
             prob.k
         );
         for (i, clustering) in clusterings.iter().enumerate() {
-            print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
+            println!("\tC_{}:\tradius = {};", i, clustering.get_radius());
         }
     } else if verbose == 1 {
         println!(
@@ -348,7 +340,7 @@ pub fn compute_privacy_preserving_representative_k_center<M: ColoredMetric + std
         final_clustering = make_private(
             space,
             prob.privacy_bound,
-            &final_clustering.get_centers(),
+            final_clustering.get_centers(),
             thread_count,
         )
         .pop()

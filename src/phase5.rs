@@ -128,15 +128,13 @@ fn point_shifting<M: ColoredMetric>(
     // we push point in the reverse ordering (therefore a stack)
     let mut stack = spanning_tree.build_bfs_stack(threshold);
 
-    while !stack.is_empty() {
-        let node = stack.pop().unwrap();
+    while let Some(node) = stack.pop() {
         let potential_up_edge = spanning_tree.get_edge(node, threshold);
-        let surplus;
-        if privacy_bound == 0 {
-            surplus = 0;
+        let surplus = if privacy_bound == 0 {
+            0
         } else {
-            surplus = cluster_sizes[node] % privacy_bound;
-        }
+            cluster_sizes[node] % privacy_bound
+        };
         // println!("\tcluster_sizes:{:?}, \tsurplus:{:?}", cluster_sizes, surplus);
         if surplus > 0 {
             match potential_up_edge {
@@ -359,7 +357,7 @@ fn assign_points_to_new_centers<M: ColoredMetric>(
         };
 
         let mut remaining_links: &mut [PointCenterLink] = &mut link_to_nearest;
-        while remaining_links.len() > 0 {
+        while !remaining_links.is_empty() {
             let split_pos = if remaining_links.len() >= batch_size {
                 remaining_links.len() - batch_size
             } else {

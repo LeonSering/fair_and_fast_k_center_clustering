@@ -1,27 +1,35 @@
-use pyo3::proc_macro::{pyclass,pymethods};
-use pyo3::prelude::{Python,PyResult};
+use pyo3::prelude::{PyResult, Python};
+use pyo3::proc_macro::{pyclass, pymethods};
 use pyo3::types::PyDict;
 
-use crate::{ClusteringProblem,OptionalParameters,compute_privacy_preserving_representative_k_center, default_thread_count};
-use crate::clustering::Clustering;
-use crate::types::{PointCount,Interval,CenterIdx,PointIdx,ColorIdx,Distance,DurationInSec};
-use crate::space::{ColoredMetric,SpaceND};
 use crate::assertions::assert_problem_parameters;
+use crate::clustering::Clustering;
+use crate::space::{ColoredMetric, SpaceND};
+use crate::types::{CenterIdx, ColorIdx, Distance, DurationInSec, Interval, PointCount, PointIdx};
+use crate::{
+    compute_privacy_preserving_representative_k_center, default_thread_count, ClusteringProblem,
+    OptionalParameters,
+};
 use pyo3::create_exception;
 
-create_exception!(m, InvalidClusteringProblemError, pyo3::exceptions::PyException);
+create_exception!(
+    m,
+    InvalidClusteringProblemError,
+    pyo3::exceptions::PyException
+);
 // create_exception!(m, ClusteringProblemMissingError, pyo3::exceptions::PyException);
 // create_exception!(m, DataMissingError, pyo3::exceptions::PyException);
 create_exception!(m, ClusteringMissingError, pyo3::exceptions::PyException);
 create_exception!(m, DimensionMismatchError, pyo3::exceptions::PyException);
 
-const NOPROB: &str = "No clustering problem defined yet. Run set_problem_parameters(k,privacy_bound,rep_intervals)";
-const NOCLUSTERING: &str = "No clustering computed yet. Run fit(data,colors) or compute_clustering()";
+const NOPROB: &str =
+    "No clustering problem defined yet. Run set_problem_parameters(k,privacy_bound,rep_intervals)";
+const NOCLUSTERING: &str =
+    "No clustering computed yet. Run fit(data,colors) or compute_clustering()";
 const NOSPACE: &str = "No space defined yet. Run insert(data,colors) or fit(data,colors).";
 
-
-use crate::phase2;
 use crate::clustering::Centers;
+use crate::phase2;
 
 #[pyclass]
 pub(crate) struct FFKCenter {
@@ -35,10 +43,10 @@ pub(crate) struct FFKCenter {
     clustering: Option<Clustering>,
 
     // information
-    running_time: Option<DurationInSec>
+    running_time: Option<DurationInSec>,
 }
 
-impl FFKCenter{
+impl FFKCenter {
     fn get_space(&self) -> &SpaceND {
         self.space.as_ref().expect(NOSPACE)
     }
@@ -54,21 +62,28 @@ impl FFKCenter{
 }
 
 #[pymethods]
-impl FFKCenter{
+impl FFKCenter {
     #[new]
-    #[args(k,privacy_bound = "1", rep_intervals = "vec![]")]
-    fn new(k: PointCount, privacy_bound : PointCount, rep_intervals : Vec<Interval>) -> PyResult<FFKCenter> {
-        let problem = ClusteringProblem{
-                k,
-                privacy_bound,
-                rep_intervals,
-            };
+    #[args(k, privacy_bound = "1", rep_intervals = "vec![]")]
+    fn new(
+        k: PointCount,
+        privacy_bound: PointCount,
+        rep_intervals: Vec<Interval>,
+    ) -> PyResult<FFKCenter> {
+        let problem = ClusteringProblem {
+            k,
+            privacy_bound,
+            rep_intervals,
+        };
 
         match assert_problem_parameters(&problem) {
             Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
-            _ => {
-                Ok(FFKCenter{prob: Some(problem), space: None, clustering: None, running_time: None})
-            }
+            _ => Ok(FFKCenter {
+                prob: Some(problem),
+                space: None,
+                clustering: None,
+                running_time: None,
+            }),
         }
     }
 
@@ -87,12 +102,17 @@ impl FFKCenter{
         self.prob.as_ref().expect(NOPROB).rep_intervals.clone()
     }
 
-    fn set_problem_parameters(&mut self, k: PointCount, privacy_bound: PointCount, rep_intervals: Vec<Interval>) -> PyResult<()>{
-        let problem = ClusteringProblem{
-                k,
-                privacy_bound,
-                rep_intervals,
-            };
+    fn set_problem_parameters(
+        &mut self,
+        k: PointCount,
+        privacy_bound: PointCount,
+        rep_intervals: Vec<Interval>,
+    ) -> PyResult<()> {
+        let problem = ClusteringProblem {
+            k,
+            privacy_bound,
+            rep_intervals,
+        };
         match assert_problem_parameters(&problem) {
             Err(msg) => Err(InvalidClusteringProblemError::new_err(msg)),
             _ => {
@@ -121,7 +141,6 @@ impl FFKCenter{
         self.delete_result();
     }
 
-
     #[getter]
     fn get_data(&self) -> PyResult<Vec<Vec<Distance>>> {
         Ok(self.space.as_ref().expect(NOSPACE).get_positions())
@@ -139,8 +158,8 @@ impl FFKCenter{
     ///
     /// Creates a MetricSpace with colors.
     /// Use execute() to compute a clustering.
-    fn insert(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) -> () {
-        self.space = Some(SpaceND::by_ndpoints(data,colors));
+    fn insert(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) {
+        self.space = Some(SpaceND::by_ndpoints(data, colors));
         self.delete_result();
     }
 
@@ -161,25 +180,45 @@ impl FFKCenter{
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
     /// and can be accessed via model.centers or model.labels.
-    #[args(data,colors,"*",verbose="1", thread_count="0",phase_2_rerun="true", phase_5_gonzalez="false")]
-    fn fit(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzalez: bool) -> () {
+    #[args(
+        data,
+        colors,
+        "*",
+        verbose = "1",
+        thread_count = "0",
+        phase_2_rerun = "true",
+        phase_5_gonzalez = "false"
+    )]
+    fn fit(
+        &mut self,
+        data: Vec<Vec<Distance>>,
+        colors: Vec<ColorIdx>,
+        verbose: u8,
+        thread_count: usize,
+        phase_2_rerun: bool,
+        phase_5_gonzalez: bool,
+    ) {
         // First create a metric space from the data
-        self.space = Some(SpaceND::by_ndpoints(data,colors));
+        self.space = Some(SpaceND::by_ndpoints(data, colors));
 
         // Then prepare optional parameters:
         let threads_opt = match thread_count {
             0 => None,
-            t => Some(t)
+            t => Some(t),
         };
         let optional = OptionalParameters {
             verbose: Some(verbose),
             thread_count: threads_opt,
             phase_2_rerun: Some(phase_2_rerun),
-            phase_5_gonzalez: Some(phase_5_gonzalez)
+            phase_5_gonzalez: Some(phase_5_gonzalez),
         };
 
         // Finally execute the algorithm and save the output clustering into self.clustering
-        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), Some(optional));
+        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(
+            self.get_space(),
+            self.get_prob(),
+            Some(optional),
+        );
         self.clustering = Some(clustering);
         self.running_time = Some(total_time);
     }
@@ -193,20 +232,36 @@ impl FFKCenter{
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
     /// * phase_5_gonzalez = False: determining whether a colored-based gonzalez is run during
     /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
-    #[args("*",verbose="1", thread_count="0",phase_2_rerun="true",phase_5_gonzalez="false")]
-    fn compute_clustering(&mut self, verbose: u8, thread_count: usize, phase_2_rerun: bool, phase_5_gonzalez: bool) {
+    #[args(
+        "*",
+        verbose = "1",
+        thread_count = "0",
+        phase_2_rerun = "true",
+        phase_5_gonzalez = "false"
+    )]
+    fn compute_clustering(
+        &mut self,
+        verbose: u8,
+        thread_count: usize,
+        phase_2_rerun: bool,
+        phase_5_gonzalez: bool,
+    ) {
         let threads_opt = match thread_count {
             0 => None,
-            t => Some(t)
+            t => Some(t),
         };
         let optional = OptionalParameters {
             verbose: Some(verbose),
             thread_count: threads_opt,
             phase_2_rerun: Some(phase_2_rerun),
-            phase_5_gonzalez: Some(phase_5_gonzalez)
+            phase_5_gonzalez: Some(phase_5_gonzalez),
         };
 
-        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(self.get_space(), &self.get_prob(), Some(optional));
+        let (clustering, total_time) = compute_privacy_preserving_representative_k_center(
+            self.get_space(),
+            self.get_prob(),
+            Some(optional),
+        );
         self.clustering = Some(clustering);
         self.running_time = Some(total_time);
     }
@@ -216,18 +271,22 @@ impl FFKCenter{
     #[getter]
     fn get_centers(&self) -> PyResult<Vec<PointIdx>> {
         match &self.clustering {
-            Some(clust) => Ok(clust.get_centers().get_all(self.get_space()).iter().map(|c| c.idx()).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            Some(clust) => Ok(clust
+                .get_centers()
+                .get_all(self.get_space())
+                .iter()
+                .map(|c| c.idx())
+                .collect()),
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
-
 
     /// Returns the cluster index (0,1,2..,m) for each point. If a point is not assignet use None instead.
     #[getter]
     fn get_cluster_labels(&self) -> PyResult<Vec<Option<CenterIdx>>> {
         match &self.clustering {
-            Some(clust) => Ok(clust.get_assignment().iter().map(|x| *x).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            Some(clust) => Ok(clust.get_assignment().to_vec()),
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
@@ -235,9 +294,18 @@ impl FFKCenter{
     #[getter]
     fn get_assignment(&self) -> PyResult<Vec<Option<PointIdx>>> {
         match &self.clustering {
-            Some(clust) => Ok(clust.get_assignment().iter()
-                              .map(|x| if x.is_none() {None} else {Some(self.get_centers().unwrap()[x.unwrap()])}).collect()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            Some(clust) => Ok(clust
+                .get_assignment()
+                .iter()
+                .map(|x| {
+                    if x.is_none() {
+                        None
+                    } else {
+                        Some(self.get_centers().unwrap()[x.unwrap()])
+                    }
+                })
+                .collect()),
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
@@ -246,7 +314,7 @@ impl FFKCenter{
     fn get_number_of_centers(&self) -> PyResult<PointCount> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_centers().m()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
@@ -255,7 +323,7 @@ impl FFKCenter{
     fn get_radius(&self) -> PyResult<Distance> {
         match &self.clustering {
             Some(clust) => Ok(clust.get_radius()),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
@@ -264,17 +332,18 @@ impl FFKCenter{
     fn get_running_time(&self) -> PyResult<DurationInSec> {
         match &self.running_time {
             Some(time) => Ok(*time),
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
     /// Saves clusterig in txt-file. One line for each cluster.
-    fn save_clustering_to_file(&self, file_path: &str) -> PyResult<()>{
+    fn save_clustering_to_file(&self, file_path: &str) -> PyResult<()> {
         match &self.clustering {
-            Some(clust) => { clust.save_to_file(file_path);
+            Some(clust) => {
+                clust.save_to_file(file_path);
                 Ok(())
             }
-            None => Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            None => Err(ClusteringMissingError::new_err(NOCLUSTERING)),
         }
     }
 
@@ -286,7 +355,12 @@ impl FFKCenter{
     /// (Default: 1000).
     /// Optional: verbose = 1 (0: silent, 1: brief, 2: verbose)
     #[args(file_path, "*", expected = "1000", verbose = "1")]
-    fn load_space_from_file(&mut self, file_path: &str, expected: PointCount, verbose: u8) -> PyResult<()> {
+    fn load_space_from_file(
+        &mut self,
+        file_path: &str,
+        expected: PointCount,
+        verbose: u8,
+    ) -> PyResult<()> {
         self.space = Some(SpaceND::by_file(file_path, expected, verbose));
         self.delete_result();
         Ok(())
@@ -298,25 +372,34 @@ impl FFKCenter{
     #[args("*", x_dim = "0", y_dim = "1")]
     fn plot2d(&self, x_dim: usize, y_dim: usize) -> PyResult<()> {
         if self.clustering.is_none() {
-            return Err(ClusteringMissingError::new_err(NOCLUSTERING))
+            return Err(ClusteringMissingError::new_err(NOCLUSTERING));
         }
         let dim = self.get_data().unwrap()[0].len();
         if x_dim > dim || y_dim > dim {
-            return Err(DimensionMismatchError::new_err("Dimensions do not fit the data"))
+            return Err(DimensionMismatchError::new_err(
+                "Dimensions do not fit the data",
+            ));
         }
         Python::with_gil(|py| {
             let locals = PyDict::new(py);
 
             let c: Vec<ColorIdx> = self.get_colors().unwrap();
-            let colormap = vec!["k","r","g","c","m","y","b","orange","lime","pink"];
-            let colors:Vec<&str> = c.iter().map(|i| colormap[i % 10]).collect();
+            let colormap = ["k", "r", "g", "c", "m", "y", "b", "orange", "lime", "pink"];
+            let colors: Vec<&str> = c.iter().map(|i| colormap[i % 10]).collect();
 
             let x: Vec<Distance> = self.get_data().unwrap().iter().map(|p| p[x_dim]).collect();
             let y: Vec<Distance> = self.get_data().unwrap().iter().map(|p| p[y_dim]).collect();
 
-            let x_centers: Vec<Distance> = self.get_centers().unwrap().iter().map(|&c| x[c]).collect();
-            let y_centers: Vec<Distance> = self.get_centers().unwrap().iter().map(|&c| y[c]).collect();
-            let colors_centers: Vec<&str> = self.get_centers().unwrap().iter().map(|&c| colors[c]).collect();
+            let x_centers: Vec<Distance> =
+                self.get_centers().unwrap().iter().map(|&c| x[c]).collect();
+            let y_centers: Vec<Distance> =
+                self.get_centers().unwrap().iter().map(|&c| y[c]).collect();
+            let colors_centers: Vec<&str> = self
+                .get_centers()
+                .unwrap()
+                .iter()
+                .map(|&c| colors[c])
+                .collect();
 
             let cluster_labels = self.get_assignment().unwrap();
 
@@ -338,7 +421,7 @@ for p in range(0, len(cluster_labels)):
     plt.plot([x[p],x[cluster_labels[p]]], [y[p],y[cluster_labels[p]]], c = 'lightgrey', linewidth = 0.5, zorder = -1.0)
 plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zorder = 1.0)"#,
                 None,Some(locals)).unwrap();
-            });
+        });
         Ok(())
     }
 
@@ -348,14 +431,17 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
     /// privacy_bound.
     /// The assignment can be accessed by model.assignment and the radius via model.radius.
     /// Note that this does not compute a ff_k_center clustering.
-    #[args(centers,"*", thread_count="0")]
-    fn private_assignment_by_centers(&mut self, centers: Vec<PointIdx>, thread_count: usize) -> PyResult<()> {
+    #[args(centers, "*", thread_count = "0")]
+    fn private_assignment_by_centers(
+        &mut self,
+        centers: Vec<PointIdx>,
+        thread_count: usize,
+    ) -> PyResult<()> {
         // Then prepare optional parameters:
         let threads = match thread_count {
             0 => default_thread_count(),
-            t => t
+            t => t,
         };
-
 
         let k = centers.len();
         self.set_k(k);
@@ -365,16 +451,21 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
 
         let prob = self.get_prob();
         if n < k * prob.privacy_bound {
-            return Err(InvalidClusteringProblemError::new_err(
-                    format!("Not enough points (n = {}) to satisfy the privacy_bound of {} for k = {} centers.", n, prob.privacy_bound, k)));
+            return Err(InvalidClusteringProblemError::new_err(format!(
+                "Not enough points (n = {}) to satisfy the privacy_bound of {} for k = {} centers.",
+                n, prob.privacy_bound, k
+            )));
         }
 
         let centers = Centers::new(centers);
         let start = std::time::Instant::now();
-        self.clustering = Some(phase2::make_private(space, prob.privacy_bound, &centers,threads).pop().unwrap());
+        self.clustering = Some(
+            phase2::make_private(space, prob.privacy_bound, &centers, threads)
+                .pop()
+                .unwrap(),
+        );
         let end = std::time::Instant::now();
         self.running_time = Some(end.duration_since(start).as_secs_f64());
         Ok(())
     }
-
 }

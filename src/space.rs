@@ -18,14 +18,14 @@
 /// Other builder functions are new_space_by_2dpoints and new_space_by_2dpoints_file
 /// These create Euclidean metrics in the plane, either by loading a file or by a array of typles [(x,y)].
 ///
-
-use crate::types::{PointIdx,ColorIdx,PointCount,ColorCount,Distance};
+use crate::types::{ColorCount, ColorIdx, Distance, PointCount, PointIdx};
 
 /// A point of a metric space. Their only attribute is an index, which can be obtained by idx().
 /// Points are created by metric spaces and can only be accessed via the [ColoredMetric::point_iter].
-#[derive(Debug,PartialOrd,PartialEq,Eq,Hash)]
-pub struct Point{ // a point in the metric
-    index : PointIdx,
+#[derive(Debug, PartialOrd, PartialEq, Eq, Hash)]
+pub struct Point {
+    // a point in the metric
+    index: PointIdx,
 }
 
 impl Point {
@@ -36,19 +36,18 @@ impl Point {
 }
 
 /// Trait for a metric space with colored points.
-pub trait ColoredMetric{
-
+pub trait ColoredMetric {
     /// Returns the distance between two points x1 and x2.
-    fn dist(&self, x1 : &Point, x2 : &Point) -> Distance; // returns the distance between x1 and x2
+    fn dist(&self, x1: &Point, x2: &Point) -> Distance; // returns the distance between x1 and x2
 
     /// Returns the color of point x.
-    fn color(&self, x : &Point) -> ColorIdx;
+    fn color(&self, x: &Point) -> ColorIdx;
 
     /// Returns the distance between a point x and a set of points.
-    fn dist_set(&self, x : &Point, point_set: Vec<&Point>) -> Distance {
+    fn dist_set(&self, x: &Point, point_set: Vec<&Point>) -> Distance {
         let mut current_distance = Distance::MAX;
         for p in point_set {
-            let d = self.dist(x,p);
+            let d = self.dist(x, p);
             if d < current_distance {
                 current_distance = d;
             }
@@ -56,12 +55,15 @@ pub trait ColoredMetric{
         current_distance
     }
 
-    fn get_closest<'a>(&self, x : &Point, point_set: &Vec<&'a Point>) -> (Distance, &'a Point) {
-        assert!(point_set.len() > 0, "there has to be at least one point in the point set.");
+    fn get_closest<'a>(&self, x: &Point, point_set: &Vec<&'a Point>) -> (Distance, &'a Point) {
+        assert!(
+            !point_set.is_empty(),
+            "there has to be at least one point in the point set."
+        );
         let mut current_distance = Distance::MAX;
         let mut current_closest: &Point = point_set[0];
         for p in point_set {
-            let d = self.dist(x,p);
+            let d = self.dist(x, p);
             if d < current_distance {
                 current_distance = d;
                 current_closest = p;
@@ -89,19 +91,24 @@ pub trait ColoredMetric{
     /// returned.
     /// Care: this need O(n<sup>3</sup>) time.
     fn is_metric(&self) -> bool {
-
         // check for symmetry, non-negativity and identity of indiscernibles
         for x in self.point_iter() {
             for y in self.point_iter() {
-                let dist_xy = self.dist(x,y);
-                let dist_yx = self.dist(y,x);
+                let dist_xy = self.dist(x, y);
+                let dist_yx = self.dist(y, x);
                 if dist_xy != dist_yx {
-                    println!("Symmetry is violated: x={:?}, y={:?}, dist(x,y)={}, dist(y,x)={}", *x, *y, dist_xy, dist_yx);
+                    println!(
+                        "Symmetry is violated: x={:?}, y={:?}, dist(x,y)={}, dist(y,x)={}",
+                        *x, *y, dist_xy, dist_yx
+                    );
                     return false;
                 }
 
-                if x == y && dist_xy != 0.0{
-                    println!("Identity of indiscernibles is violated: x={:?}, dist(x,x)={}", *x, dist_xy);
+                if x == y && dist_xy != 0.0 {
+                    println!(
+                        "Identity of indiscernibles is violated: x={:?}, dist(x,x)={}",
+                        *x, dist_xy
+                    );
                     return false;
                 }
                 if x != y && dist_xy <= 0.0 {
@@ -114,10 +121,10 @@ pub trait ColoredMetric{
         // check for triangle inequility
         for x in self.point_iter() {
             for y in self.point_iter() {
-                let dist_xy = self.dist(x,y);
+                let dist_xy = self.dist(x, y);
                 for z in self.point_iter() {
-                    let dist_xz = self.dist(x,z);
-                    let dist_zy = self.dist(z,y);
+                    let dist_xz = self.dist(x, z);
+                    let dist_zy = self.dist(z, y);
                     if dist_xy > dist_xz + dist_zy {
                         println!("Triangle inequality is violated: x={:?}, y={:?}, z={:?}, dist(x,y)={}, dist(x,z)={}, dist(z,y)={}, i.e., {} > {}", *x, *y, *z, dist_xy, dist_xz, dist_zy, dist_xy, dist_xz + dist_zy);
                         return false;
@@ -125,10 +132,9 @@ pub trait ColoredMetric{
                 }
             }
         }
-        return true;
+        true
     }
 }
-
 
 //////////////////// SpaceMatrix /////////////////////////
 
@@ -137,13 +143,12 @@ pub trait ColoredMetric{
 /// * Distances are given by a symmetric distance matrix of size nxn,
 /// * Colors are given by a list of size n,
 /// * Implements the [ColoredMetric] trait.
-pub struct SpaceMatrix{
+pub struct SpaceMatrix {
     distances: Vec<Vec<Distance>>, // distance matrix (later maybe implicit as distance function to avoid n^2 space)
     points: Vec<Point>,
     colors: Vec<ColorIdx>, // points as array or implicit? If implicity: array of color-classes.
     gamma: ColorCount,
 }
-
 
 impl SpaceMatrix {
     /// Creates a new [SpaceMatrix].
@@ -164,10 +169,23 @@ impl SpaceMatrix {
         let number_of_rows = distances.len();
         let mut points: Vec<Point> = Vec::with_capacity(number_of_rows);
         for (i, row) in distances.iter().enumerate() {
-            assert_eq!(row.len(), number_of_rows, "Matrix is not quadratic. row {} has {} entries; number of rows: {}", i, row.len(), number_of_rows);
-            points.push(Point{index:i});
+            assert_eq!(
+                row.len(),
+                number_of_rows,
+                "Matrix is not quadratic. row {} has {} entries; number of rows: {}",
+                i,
+                row.len(),
+                number_of_rows
+            );
+            points.push(Point { index: i });
         }
-        assert_eq!(number_of_rows, colors.len(), "Number of points: {} does not match number of colors: {}", number_of_rows, colors.len());
+        assert_eq!(
+            number_of_rows,
+            colors.len(),
+            "Number of points: {} does not match number of colors: {}",
+            number_of_rows,
+            colors.len()
+        );
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
 
         let space = SpaceMatrix {
@@ -177,7 +195,10 @@ impl SpaceMatrix {
             gamma,
         };
 
-        assert!(space.is_metric(), "Distances do not satisfy the metric properties.");
+        assert!(
+            space.is_metric(),
+            "Distances do not satisfy the metric properties."
+        );
         space
     }
 
@@ -196,16 +217,18 @@ impl SpaceMatrix {
     /// assert_eq!(space.color(points[2]),1);
     /// assert_eq!(space.n(),3);
     /// ```
-    pub fn new_by_array<const N: PointCount>(distances : [[Distance; N]; N], colors: [ColorIdx; N]) -> SpaceMatrix {
-
+    pub fn new_by_array<const N: PointCount>(
+        distances: [[Distance; N]; N],
+        colors: [ColorIdx; N],
+    ) -> SpaceMatrix {
         // This is kind of silly, to double initialize the points, but I don't see a way to make this
         // without unsafe rust.
         //let mut points = [Point{index : 0}; N];
-        let mut points : Vec<Point> = Vec::with_capacity(N);
+        let mut points: Vec<Point> = Vec::with_capacity(N);
         for i in 0..N {
-            points.push(Point{index:i});
+            points.push(Point { index: i });
         }
-        let distances : Vec<Vec<Distance>> = distances.iter().map(|row| row.to_vec()).collect();
+        let distances: Vec<Vec<Distance>> = distances.iter().map(|row| row.to_vec()).collect();
         let colors = colors.to_vec();
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
         SpaceMatrix {
@@ -244,11 +267,7 @@ impl ColoredMetric for SpaceMatrix {
     fn gamma(&self) -> ColorCount {
         self.gamma
     }
-
 }
-
-
-
 
 ///////////////////////// SpaceND /////////////////////////
 type Position = Vec<Distance>;
@@ -257,20 +276,20 @@ type Position = Vec<Distance>;
 /// A metric space in the euklidean space of some dimension N. Implements the [ColoredMetric] trait.
 /// Beside the color it also stores the position of type Vec<f32> of each point.
 /// The distance is computed by the Eucleadean metric.
-pub struct SpaceND{
-    points : Vec<Point>,
-    positions : Vec<Position>,
-    colors : Vec<ColorIdx>,
-    gamma : ColorCount,
+pub struct SpaceND {
+    points: Vec<Point>,
+    positions: Vec<Position>,
+    colors: Vec<ColorIdx>,
+    gamma: ColorCount,
 }
 use rand::Rng;
 use std::fs::File;
-use std::io::{BufReader,BufRead};
+use std::io::{BufRead, BufReader};
 
 impl SpaceND {
     /// Creates a new metric space of type [SpaceND].
     ///
-    /// # Input 
+    /// # Input
     ///
     /// * An vector of positions of type Vec<f32> and a vector of colors of type u16.
     ///
@@ -296,21 +315,35 @@ impl SpaceND {
     /// println!("dist between 1 and 2: {}", space_by_points.dist(points[1],points[2]));
     /// ```
     ///
-    pub fn by_ndpoints(positions : Vec<Position>, colors : Vec<ColorIdx>) -> SpaceND {
-        assert!(positions.len() > 0, "There need to be at least one position given.");
+    pub fn by_ndpoints(positions: Vec<Position>, colors: Vec<ColorIdx>) -> SpaceND {
+        assert!(
+            !positions.is_empty(),
+            "There need to be at least one position given."
+        );
 
-        assert_eq!(positions.len(),colors.len(),"The number of points in position must equal the number of colors!");
+        assert_eq!(
+            positions.len(),
+            colors.len(),
+            "The number of points in position must equal the number of colors!"
+        );
 
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
 
         let dimension = positions[0].len();
 
-        for i in 1..positions.len() {
-            assert_eq!(positions[i].len(), dimension, "Dimension is {}, but positions[{}] has only {} entries", dimension, i, positions[i].len());
-        }
+        (1..positions.len()).for_each(|i| {
+            assert_eq!(
+                positions[i].len(),
+                dimension,
+                "Dimension is {}, but positions[{}] has only {} entries",
+                dimension,
+                i,
+                positions[i].len()
+            );
+        });
 
         SpaceND {
-            points : (0..positions.len()).map(|i| Point{index : i}).collect(),
+            points: (0..positions.len()).map(|i| Point { index: i }).collect(),
             positions,
             colors,
             gamma,
@@ -319,16 +352,23 @@ impl SpaceND {
 
     /// Crates a new metric space of type [SpaceND] of dimension 2.
     /// It containt n random points in the [-100,100]x[-100,100] box with random colors from [1..10]
-    pub fn new_random(n : PointCount) -> SpaceND {
+    pub fn new_random(n: PointCount) -> SpaceND {
         let mut rng = rand::thread_rng();
-        let positions = (0..n).map(|_| vec![rng.gen_range(-100.0f32..100.0f32), rng.gen_range(-100.0f32..100.0f32)]).collect();
+        let positions = (0..n)
+            .map(|_| {
+                vec![
+                    rng.gen_range(-100.0f32..100.0f32),
+                    rng.gen_range(-100.0f32..100.0f32),
+                ]
+            })
+            .collect();
         let colors = (0..n).map(|_| rng.gen_range(0..10)).collect();
         SpaceND::by_ndpoints(positions, colors)
     }
 
     /// Loads a new metric space of type [SpaceND] from a file.
     /// The expected_number_of_points is used to allocate enough storage.
-    /// The verbose parameter determines the amount of output in a success: 
+    /// The verbose parameter determines the amount of output in a success:
     /// 0: silent, 1 or 2: verbose.
     ///
     /// File_path must point into a text-file that stores a tuple in each line, separated by a comma.
@@ -346,15 +386,13 @@ impl SpaceND {
     /// # Panics
     ///
     /// Panics if the file cannot be open of if it cannot parse the triplets.
-    pub fn by_file(file_path : &str, expected_number_of_points : PointCount, verbose: u8) -> SpaceND {
-
+    pub fn by_file(file_path: &str, expected_number_of_points: PointCount, verbose: u8) -> SpaceND {
         let f = File::open(file_path).expect("Cannot open file to read ndpoints.");
         let f = BufReader::new(f);
 
-
         // create vectors with initial capacity given expected number of points.
-        let mut positions : Vec<Position> = Vec::with_capacity(expected_number_of_points);
-        let mut colors : Vec<ColorIdx> = Vec::with_capacity(expected_number_of_points);
+        let mut positions: Vec<Position> = Vec::with_capacity(expected_number_of_points);
+        let mut colors: Vec<ColorIdx> = Vec::with_capacity(expected_number_of_points);
 
         let mut dim = 0;
 
@@ -364,33 +402,60 @@ impl SpaceND {
             if dim == 0 {
                 dim = content.len() - 1;
             } else {
-                assert_eq!(dim, content.len() - 1, "Line {} has the wrong number of entries.", positions.len());
+                assert_eq!(
+                    dim,
+                    content.len() - 1,
+                    "Line {} has the wrong number of entries.",
+                    positions.len()
+                );
             }
 
-            positions.push((0..dim).map(|i| content[i].parse::<Distance>().expect(format!("Cannot parse entry {} to f32  on line {}.", i, positions.len()).as_str())).collect());
-            colors.push(content[dim].parse::<ColorIdx>().expect(format!("Cannot parse color-entry to u16 on line {}",colors.len()).as_str()));
-
+            positions.push(
+                (0..dim)
+                    .map(|i| {
+                        content[i].parse::<Distance>().unwrap_or_else(|_| {
+                            panic!(
+                                "Cannot parse entry {} to f32  on line {}.",
+                                i,
+                                positions.len()
+                            )
+                        })
+                    })
+                    .collect(),
+            );
+            colors.push(content[dim].parse::<ColorIdx>().unwrap_or_else(|_| {
+                panic!("Cannot parse color-entry to u16 on line {}", colors.len())
+            }));
         }
         if verbose >= 1 {
-            println!("\n**** Successfully loaded {} points/colors (dimension: {}) from '{}'", positions.len(), dim, file_path);
+            println!(
+                "\n**** Successfully loaded {} points/colors (dimension: {}) from '{}'",
+                positions.len(),
+                dim,
+                file_path
+            );
         }
 
         #[cfg(debug_assertions)]
         {
             print!("    positions:");
             let mut counter = 0;
-            for p in positions.iter() {
+            positions.iter().for_each(|p| {
                 if counter % 10 == 0 {
-                    print!("\n\t{}-{}:\t",counter, <usize>::min(counter+9,positions.len()));
+                    print!(
+                        "\n\t{}-{}:\t",
+                        counter,
+                        <usize>::min(counter + 9, positions.len())
+                    );
                 }
                 print!("{:?} ", p);
                 counter += 1;
-            }
+            });
             println!("\n    colors: {:?}", colors);
         }
         let gamma = colors.iter().max().expect("No maximal color found") + 1;
         SpaceND {
-            points : (0..positions.len()).map(|i| Point{index : i}).collect(),
+            points: (0..positions.len()).map(|i| Point { index: i }).collect(),
             positions,
             colors,
             gamma,
@@ -407,13 +472,19 @@ impl SpaceND {
 }
 
 impl ColoredMetric for SpaceND {
-    fn dist(&self, x1: &Point, x2: &Point) -> Distance { // euclidean norm
+    fn dist(&self, x1: &Point, x2: &Point) -> Distance {
+        // euclidean norm
         let dim = self.positions[x1.idx()].len();
-        let d_squared : Distance = (0..dim).map(|i| (self.positions[x1.idx()][i] - self.positions[x2.idx()][i]) * (self.positions[x1.idx()][i] - self.positions[x2.idx()][i])).sum();
+        let d_squared: Distance = (0..dim)
+            .map(|i| {
+                (self.positions[x1.idx()][i] - self.positions[x2.idx()][i])
+                    * (self.positions[x1.idx()][i] - self.positions[x2.idx()][i])
+            })
+            .sum();
         d_squared.sqrt()
     }
 
-    fn color(&self, x : &Point) -> ColorIdx {
+    fn color(&self, x: &Point) -> ColorIdx {
         self.colors[x.idx()]
     }
 
@@ -435,6 +506,4 @@ impl ColoredMetric for SpaceND {
     fn gamma(&self) -> ColorCount {
         self.gamma
     }
-
 }
-

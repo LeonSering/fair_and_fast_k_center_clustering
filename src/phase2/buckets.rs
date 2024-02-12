@@ -12,31 +12,31 @@ pub(super) fn put_into_buckets<'a, 'b>(
     n: PointCount,
     k: PointCount,
     power_of_k: u32,
-    thread_count: usize
+    thread_count: usize,
 ) -> Vec<&'b mut [Edge<'a>]> {
-
-    let thread_pool = ThreadPoolBuilder::new().num_threads(thread_count).build().unwrap();
+    let thread_pool = ThreadPoolBuilder::new()
+        .num_threads(thread_count)
+        .build()
+        .unwrap();
 
     let bucket_size_limit = (4 * n - 1) / (k.pow(power_of_k)) + 1; // ceil(4n/k^z)
     thread_pool.install(move || put_into_buckets_recursion(list, bucket_size_limit))
 }
 
-
 pub(super) fn put_into_buckets_recursion<'a, 'b>(
     list: &'b mut [Edge<'a>],
     bucket_size_limit: PointCount,
 ) -> Vec<&'b mut [Edge<'a>]> {
-
     if list.len() <= bucket_size_limit {
         return vec![list];
     }
 
     let (smaller, bigger) = utilities::split_in_half(list);
 
-
     let (mut smaller_buckets, bigger_buckets) = rayon::join(
         move || put_into_buckets_recursion(smaller, bucket_size_limit),
-        move || put_into_buckets_recursion(bigger, bucket_size_limit));
+        move || put_into_buckets_recursion(bigger, bucket_size_limit),
+    );
 
     smaller_buckets.extend(bigger_buckets);
     smaller_buckets
@@ -65,7 +65,7 @@ mod tests {
         for bucket in buckets.iter() {
             assert!(bucket.len() <= size_limit);
             let bucket_of_dist: Vec<Distance> = bucket.iter().map(|x| x.d).collect();
-            let mut d_of_current = d_of_last.clone();
+            let mut d_of_current = d_of_last;
             for d in bucket_of_dist.iter() {
                 assert!(*d >= d_of_last);
                 if *d > d_of_current {
@@ -96,7 +96,7 @@ mod tests {
             })
             .collect(); // do a list with dublicates
         let power_of_k = 2;
-        let buckets = put_into_buckets(&mut list, n, k, power_of_k,8);
+        let buckets = put_into_buckets(&mut list, n, k, power_of_k, 8);
         assert!(assert_buckets_properties(&buckets, n, k, power_of_k));
     }
 }

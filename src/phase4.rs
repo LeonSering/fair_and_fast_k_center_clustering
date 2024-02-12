@@ -137,9 +137,9 @@ fn shift_centers(
 
     // first, collect all edges in the neighborhood of centers 0 to i.
     let mut edges: Vec<&ColorEdge> = Vec::with_capacity((i + 1) * prob.k); // a reference to all edges with centers in S_i
-    for j in 0..i + 1 {
+    (0..i + 1).for_each(|j| {
         edges.extend(edges_of_cluster[j].iter());
-    }
+    });
     // we want to consider them in increasing order
     edges.sort_by(|a, b| a.partial_cmp(b).unwrap());
 
@@ -213,8 +213,8 @@ fn shift_centers(
 
         // now test if the exact (or less restrictive) flow problem has been solved already:
         let mut has_been_solved = false;
-        for old in 0..j {
-            let old_eta = &opening_lists[old].eta;
+        for open_list in opening_lists.iter().take(j) {
+            let old_eta = &open_list.eta;
             let mut old_equal_or_bigger = true;
             for l in 0..old_eta.len() {
                 if opening.eta[l] > old_eta[l] {
@@ -241,7 +241,7 @@ fn shift_centers(
             sum_of_a,
             a: &a,
             b: &b,
-            edges_of_cluster: &edges_of_cluster,
+            edges_of_cluster,
             point_to_node: &point_to_node,
             point_idx_to_color_idx: &point_idx_to_color_idx,
             edges_by_color_node: &edges_by_color_node,
@@ -259,7 +259,7 @@ fn shift_centers(
         }
     }
 
-    return (centers, node_to_point, count);
+    (centers, node_to_point, count)
 }
 
 struct Network<'a> {
