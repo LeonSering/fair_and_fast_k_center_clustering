@@ -20,7 +20,7 @@ As the python interface is most convenient, we focus on this way to run our code
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install the python-wheel:
 
 ```bash
-pip install ff_k_center-1.2.2-cp36-abi3-manylinux_2_12_x86_64.manylinux2010_x86_64.whl
+pip install ff_k_center-1.2.2-cp36-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
 ```
 
 Moreover, we recommend to install matplotlib to get plots of a computed clustering:
@@ -70,10 +70,10 @@ There is no need to recreate the python wheel as it is included in the provided 
 Nevertheless, to be able to verify that the python wheel indeed corresponds to the actual code, we provide information here on how it can be compiled from the Rust code.
 This can be done via the tool [maturin](https://github.com/PyO3/maturin).
 
-The most convenient way is to use the docker image [konstin2/maturin](https://hub.docker.com/r/konstin2/maturin) (this may take a couple of minutes):
+The most convenient way is to use the docker image [pyo3/maturin](https://ghcr.io/pyo3/maturin) (this may take a couple of minutes):
 
 ```bash
-docker run --rm -v $(pwd):/io konstin2/maturin build --manylinux=2010 --release
+docker run --rm -v $(pwd):/io ghcr.io/pyo3/maturin build --release
 ```
 
 Afterwards the python wheel can be found in ```target/wheels/```.

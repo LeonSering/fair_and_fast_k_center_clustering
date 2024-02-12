@@ -58,7 +58,7 @@ impl Centers {
         self.centers.iter()
     }
 
-    /// Save the centers to a file specified by file_path.
+    /// Save the centers to a file specified by `file_path`.
     /// The output file only contains one line containing the index of the centers separated by a
     /// comma.
     ///
@@ -101,15 +101,15 @@ impl fmt::Display for Centers {
 }
 
 /// A (partial) clustering specified by a list of centers and an assignment of clients to centers.
-/// * centers: a collection of points (of type &[Point])
-/// * center_of: for each point it contains the index of the center it is assigned to. For partial clustering this value can be None
-/// * cluster: list of points for each center idx; might be a super set of the actual points. Entries
-/// are only valid if it matches the information in center_of.
-/// * distance: the maximal distance between a client and its center
+/// * `centers`: a collection of points (of type `&[Point]`)
+/// * `center_of`: for each point it contains the index of the center it is assigned to. For partial clustering this value can be `None`
+/// * `cluster`: list of points for each center idx; might be a super set of the actual points. Entries
+/// are only valid if it matches the information in `center_of`.
+/// * `distance`: the maximal distance between a client and its center
 /// (this is not computed but assigned; so there is some redundance).
-/// * radius_valid: By reassigning points the radius might get outdated (its always an upper bound). If this
+/// * `radius_valid`: By reassigning points the radius might get outdated (its always an upper bound). If this
 /// could be the case is indicated by this boolean.
-/// * cluster_sizes: the number of points covered by each center.
+/// * `cluster_sizes`: the number of points covered by each center.
 pub struct Clustering {
     centers: Centers,
     center_of: Vec<Option<CenterIdx>>, // returns center to which point with index x belongs, if not assigned to center its None
@@ -128,8 +128,8 @@ impl Clustering {
     ///
     /// # Panics
     ///
-    /// Panics if the size of the assignment center_of does not match the number of points
-    /// space.n()
+    /// Panics if the size of the assignment `center_of` does not match the number of points
+    /// `space.n()`
     pub fn new<M: ColoredMetric>(
         centers: Centers,
         center_of: Vec<Option<CenterIdx>>,
@@ -165,18 +165,6 @@ impl Clustering {
             cluster_sizes,
         }
     }
-
-    // Creates a new empty clustering without any centers.
-    // pub fn new_empty() -> Clustering {
-    // Clustering {
-    // centers: Centers::with_capacity(1),
-    // center_of: Vec::new(),
-    // cluster: Vec::new(),
-    // radius: <Distance>::MAX,
-    // radius_valid: false,
-    // cluster_sizes: Vec::new()
-    // }
-    // }
 
     /// Returns the list of centers
     pub fn get_centers(&self) -> &Centers {
@@ -248,7 +236,7 @@ impl Clustering {
         self.centers.m()
     }
 
-    /// Returns the center (as &Point) with index center_idx.
+    /// Returns the center (as `&Point`) with index `center_idx`.
     pub fn get_center<'a, M: ColoredMetric>(
         &self,
         center_idx: CenterIdx,
@@ -256,7 +244,7 @@ impl Clustering {
     ) -> &'a Point {
         self.centers.get(center_idx, space)
     }
-    /// Assigns or reassigns a point to a new cluster given by the center_idx
+    /// Assigns or reassigns a point to a new cluster given by the `center_idx`
     pub fn assign<M: ColoredMetric>(&mut self, p: &Point, center_idx: CenterIdx, space: &M) {
         if self.center_of[p.idx()].is_some() {
             let old_center = self.center_of[p.idx()].unwrap();
@@ -308,7 +296,7 @@ impl Clustering {
         }
     }
 
-    /// Saves the clustering to the text-file specified by file_path.
+    /// Saves the clustering to the text-file specified by `file_path`.
     /// The output is as follows:
     /// For each center we have one line in the output file of the form
     /// center: client_1, client_2, ...,

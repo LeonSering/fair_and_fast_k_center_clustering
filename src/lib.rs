@@ -1,3 +1,4 @@
+#![allow(rustdoc::invalid_html_tags)]
 //! This is the Rust implementation for the fast privacy preserving representative k-center (priv-Rep-kC) algorithm described in our
 //! [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
 //! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee
@@ -15,7 +16,7 @@
 //! For details on how to create or load metric spaces see: [SpaceMatrix] and [SpaceND].
 //!
 //! Then create a [ClusteringProblem] by specifying the maximal number of clusters k, the lower bound
-//! for privacy condition privacy_bound, and a list intervals (one for each color class) for the representative condition.
+//! for privacy condition `privacy_bound`, and a list intervals (one for each color class) for the representative condition.
 //!
 //! With [compute_privacy_preserving_representative_k_center] a [Clustering] is created, which
 //! contains a list of centers (see [Centers]) and an assignment of each point to a center.
@@ -98,9 +99,9 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 }
 
 /// ClusteringProblem defines for a given colored metric space a problem instance of privacy preserving representative k-clustering.
-/// * k is the maximal number of centers that can be opened,
-/// * privacy_bound specifies a lower bound on the number of clients that needs to be assigned to each center,
-/// * rep_interval contains an interval \[a,b\] for each color class, the number of centers of that
+/// * `k` is the maximal number of centers that can be opened,
+/// * `privacy_bound` specifies a lower bound on the number of clients that needs to be assigned to each center,
+/// * `rep_interval` contains an interval \[a,b\] for each color class, the number of centers of that
 /// color must be within the interval.
 pub struct ClusteringProblem {
     pub k: PointCount,                // maximal number of centers
@@ -126,15 +127,15 @@ impl fmt::Display for ClusteringProblem {
     }
 }
 
-/// A collection of optional parameters. Each can be set to None to use the default values.
+/// A collection of optional parameters. Each can be set to `None` to use the default values.
 /// # Optional Parameters:
-/// * verbose: Option<u8> specifying the verbosity of the command line output. 0: silent, 1: brief,
+/// * `verbose: Option<u8>` specifying the verbosity of the command line output. 0: silent, 1: brief,
 /// 2: verbose (default: 1);
-/// * thread_count: Option<u8> specifying the number of threads that are used in phase 4 and 5.
+/// * `thread_count: Option<u8>` specifying the number of threads that are used in phase 4 and 5.
 /// (default: #cores);
-/// * phase_2_rerun: Option<bool> determining whether an additonal phase 2 is run at the very end
+/// * `phase_2_rerun: Option<bool>` determining whether an additonal phase 2 is run at the very end
 /// using the final centers in order to obtain the best privacy-preserving assignment. (default: true)
-/// * phase_5_gonzalez: Option<bool> determining whether a colored-based gonzalez is run during
+/// * `phase_5_gonzalez: Option<bool>` determining whether a colored-based gonzalez is run during
 /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
 pub struct OptionalParameters {
     pub verbose: Option<u8>,
@@ -156,9 +157,9 @@ fn default_thread_count() -> usize {
 /// # Inputs
 /// * a metric space implementing the [ColoredMetric] trait,
 /// * a [ClusteringProblem],
-/// * a optional struct of optional parameters, containing verbose: Option<u8>, thread_count: Option<usize,
-/// phase_2_rerun: Option<bool>, phase_5_gonzalez: Option<bool>. For None default values are filled in (see [OptionalParameters]),
-/// * a u8 indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose.
+/// * a optional struct of optional parameters, containing verbose: `Option<u8>`, `thread_count: Option<usize`,
+/// `phase_2_rerun: Option<bool>`, `phase_5_gonzalez: Option<bool>`. For `None` default values are filled in (see [OptionalParameters]),
+/// * a `u8` indicating the verbosity of the command line output. 0: silent, 1: brief, 2: verbose.
 ///
 /// # Output
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of

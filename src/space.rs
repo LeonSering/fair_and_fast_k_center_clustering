@@ -5,9 +5,9 @@
 /// Module space maintains all datastructure of metric spaces where points have colors.
 ///
 /// All functionalities are stored in the public trait ColoredMetric:
-/// - Distances can be obtained by using dist(x1 : PointIdx, x2 : PointIdx) -> Distance
-/// - Colors can be obtained by using color(x: PointIdx) -> ColorIdx
-/// - Distance to a set can be obtained by dist_set(x: PointIdx, point_set: &Vec<PointIdx>) -> Distance
+/// - Distances can be obtained by using `dist(x1 : PointIdx, x2 : PointIdx) -> Distance`
+/// - Colors can be obtained by using `color(x: PointIdx) -> ColorIdx`
+/// - Distance to a set can be obtained by `dist_set(x: PointIdx, point_set: &Vec<PointIdx>) -> Distance`
 /// - The number of points can be obtained by n() -> PointCount
 ///
 /// The most general metric can be created by new_space_by_matrix
@@ -20,7 +20,7 @@
 ///
 use crate::types::{ColorCount, ColorIdx, Distance, PointCount, PointIdx};
 
-/// A point of a metric space. Their only attribute is an index, which can be obtained by idx().
+/// A point of a metric space. Their only attribute is an index, which can be obtained by `idx()`.
 /// Points are created by metric spaces and can only be accessed via the [ColoredMetric::point_iter].
 #[derive(Debug, PartialOrd, PartialEq, Eq, Hash)]
 pub struct Point {
@@ -37,13 +37,13 @@ impl Point {
 
 /// Trait for a metric space with colored points.
 pub trait ColoredMetric {
-    /// Returns the distance between two points x1 and x2.
+    /// Returns the distance between two points `x1` and `x2`.
     fn dist(&self, x1: &Point, x2: &Point) -> Distance; // returns the distance between x1 and x2
 
-    /// Returns the color of point x.
+    /// Returns the color of point `x`.
     fn color(&self, x: &Point) -> ColorIdx;
 
-    /// Returns the distance between a point x and a set of points.
+    // /// Returns the distance between a point `x` and a set of points.
     fn dist_set(&self, x: &Point, point_set: Vec<&Point>) -> Distance {
         let mut current_distance = Distance::MAX;
         for p in point_set {
@@ -79,8 +79,8 @@ pub trait ColoredMetric {
     /// points.
     fn point_iter(&self) -> std::slice::Iter<Point>;
 
-    /// Return a reference (wrapped in Some) to the point with provided index.
-    /// If there is not point with this index, return None.
+    /// Return a reference (wrapped in `Some`) to the point with provided index.
+    /// If there is not point with this index, return `None`.
     fn get_point(&self, idx: PointIdx) -> Option<&Point>;
 
     /// Returns the number of color classes that are present in the metric space. More precesely it
@@ -158,7 +158,7 @@ impl SpaceMatrix {
     /// (symmetry, non-negativity, identity of indiscernibles and the triangle inequality),
     /// * colors is a vector that stores the color of each point.
     ///
-    /// The running time of asserting the metric properties is O(n<sup>3<\sup>).
+    /// The running time of asserting the metric properties is O(n<sup>3</sup>).
     ///
     /// # Panics
     /// * Panics, if distances is not a quadratic matrix.
@@ -274,7 +274,7 @@ type Position = Vec<Distance>;
 // the euclidean metric space of dim N.
 
 /// A metric space in the euklidean space of some dimension N. Implements the [ColoredMetric] trait.
-/// Beside the color it also stores the position of type Vec<f32> of each point.
+/// Beside the color it also stores the position of type `Vec<f32>` of each point.
 /// The distance is computed by the Eucleadean metric.
 pub struct SpaceND {
     points: Vec<Point>,
@@ -291,7 +291,7 @@ impl SpaceND {
     ///
     /// # Input
     ///
-    /// * An vector of positions of type Vec<f32> and a vector of colors of type u16.
+    /// * An vector of positions of type `Vec<f32>` and a vector of colors of type `u16`.
     ///
     /// # Panics
     ///
@@ -367,13 +367,13 @@ impl SpaceND {
     }
 
     /// Loads a new metric space of type [SpaceND] from a file.
-    /// The expected_number_of_points is used to allocate enough storage.
-    /// The verbose parameter determines the amount of output in a success:
+    /// The `expected_number_of_points` is used to allocate enough storage.
+    /// The `verbose` parameter determines the amount of output in a success:
     /// 0: silent, 1 or 2: verbose.
     ///
-    /// File_path must point into a text-file that stores a tuple in each line, separated by a comma.
-    /// The first entries of each line must be of type f32 specifying the position;
-    /// the last entry must be a non-negative integer specifying the color (of type u16).
+    /// `file_path` must point into a text-file that stores a tuple in each line, separated by a comma.
+    /// The first entries of each line must be of type `f32` specifying the position;
+    /// the last entry must be a non-negative integer specifying the color (of type `u16`).
     ///
     /// # Example:
     /// ```txt

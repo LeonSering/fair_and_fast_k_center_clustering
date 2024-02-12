@@ -13,7 +13,7 @@ use crate::{ClusteringProblem, ColoredMetric, OptionalParameters};
 /// Panics if one of the following asserts fails:
 /// * k must be bigger than 1.
 /// * n must be bigger than k.
-/// * n must be bigger or equal to k * privacy_bound.
+/// * n must be bigger or equal to k * `privacy_bound`.
 /// * for each representative interval the lower limit must be smaller or equal to the upper limit.
 /// * the sum of the lower limits must be smaller or equal to k.
 /// * the number of points of a specific color must be greater or equal to the lower limit of that

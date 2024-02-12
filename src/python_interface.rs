@@ -17,8 +17,6 @@ create_exception!(
     InvalidClusteringProblemError,
     pyo3::exceptions::PyException
 );
-// create_exception!(m, ClusteringProblemMissingError, pyo3::exceptions::PyException);
-// create_exception!(m, DataMissingError, pyo3::exceptions::PyException);
 create_exception!(m, ClusteringMissingError, pyo3::exceptions::PyException);
 create_exception!(m, DimensionMismatchError, pyo3::exceptions::PyException);
 
@@ -156,8 +154,8 @@ impl FFKCenter {
     /// (Value).
     /// A 1d-Array containing a color-label for each datapoint.
     ///
-    /// Creates a MetricSpace with colors.
-    /// Use execute() to compute a clustering.
+    /// Creates a `MetricSpace` with colors.
+    /// Use `execute()` to compute a clustering.
     fn insert(&mut self, data: Vec<Vec<Distance>>, colors: Vec<ColorIdx>) {
         self.space = Some(SpaceND::by_ndpoints(data, colors));
         self.delete_result();
@@ -171,15 +169,15 @@ impl FFKCenter {
     /// * A 1d-Array containing a color-label for each datapoint.
     ///
     /// # Optional input as keyword-arguments:
-    /// * verbose = 1 (0: silent, 1: brief, 2: verbose)
-    /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
-    /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
+    /// * `verbose` = 1 (0: silent, 1: brief, 2: verbose)
+    /// * `thread_count` = #cores (specifying the number of threads used for phase 4 and 5)
+    /// * `phase_2_rerun` = True (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
-    /// * phase_5_gonzalez = False: determining whether a colored-based gonzalez is run during
+    /// * `phase_5_gonzalez` = False: determining whether a colored-based gonzalez is run during
     /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
     ///
     /// First creates a MetricSpace. Then executes the algorithm. Output are saved into the model
-    /// and can be accessed via model.centers or model.labels.
+    /// and can be accessed via `model.centers` or `model.labels`.
     #[args(
         data,
         colors,
@@ -226,11 +224,11 @@ impl FFKCenter {
     /// Executes the algorithm. Space (created from datapoints and colors) must be set beforehand.
     ///
     /// # Optional input as keyword-arguments:
-    /// * verbose = 1 (0: silent, 1: brief, 2: verbose)
-    /// * thread_count = #cores (specifying the number of threads used for phase 4 and 5)
-    /// * phase_2_rerun = True (boolean to indicate whether phase 2 is rerun at the end in order to
+    /// * `verbose = 1` (0: silent, 1: brief, 2: verbose)
+    /// * `thread_count = #cores` (specifying the number of threads used for phase 4 and 5)
+    /// * `phase_2_rerun = True` (boolean to indicate whether phase 2 is rerun at the end in order to
     /// obtain the optimal privacy-conserving assignment for the computed centers.)
-    /// * phase_5_gonzalez = False: determining whether a colored-based gonzalez is run during
+    /// * `phase_5_gonzalez = False`: determining whether a colored-based gonzalez is run during
     /// phase 5. This heuristics causes the final centers to be more spread within the same cluster.
     #[args(
         "*",
@@ -266,8 +264,8 @@ impl FFKCenter {
         self.running_time = Some(total_time);
     }
 
-    /// Returns a list of point-indices. The point corresponding to centers[i] is hence,
-    /// X[centers[i]]. All points assigned to this center have the label i.
+    /// Returns a list of point-indices. The point corresponding to `centers[i]` is hence,
+    /// `X[centers[i]]`. All points assigned to this center have the label i.
     #[getter]
     fn get_centers(&self) -> PyResult<Vec<PointIdx>> {
         match &self.clustering {
@@ -281,7 +279,7 @@ impl FFKCenter {
         }
     }
 
-    /// Returns the cluster index (0,1,2..,m) for each point. If a point is not assignet use None instead.
+    /// Returns the cluster index (0,1,2..,m) for each point. If a point is not assignet use `None` instead.
     #[getter]
     fn get_cluster_labels(&self) -> PyResult<Vec<Option<CenterIdx>>> {
         match &self.clustering {
@@ -290,7 +288,7 @@ impl FFKCenter {
         }
     }
 
-    /// Returns the center (in form of a point index) for each point. If a point is not assignet use None instead.
+    /// Returns the center (in form of a point index) for each point. If a point is not assignet use `None` instead.
     #[getter]
     fn get_assignment(&self) -> PyResult<Vec<Option<PointIdx>>> {
         match &self.clustering {
@@ -348,12 +346,12 @@ impl FFKCenter {
     }
 
     /// Load points and colours from txt-file.
-    /// Input: file_path to txt-file in which each line represents one point: first the position as
+    /// Input: `file_path` to txt-file in which each line represents one point: first the position as
     /// float, last entry is the color label as int. Values are separated by ',' (no comma at the
     /// end)
-    /// Optional: expected can be set to the expected number of points to speed up the process.
+    /// Optional: `expected` can be set to the expected number of points to speed up the process.
     /// (Default: 1000).
-    /// Optional: verbose = 1 (0: silent, 1: brief, 2: verbose)
+    /// Optional: `verbose = 1` (0: silent, 1: brief, 2: verbose)
     #[args(file_path, "*", expected = "1000", verbose = "1")]
     fn load_space_from_file(
         &mut self,
@@ -368,7 +366,7 @@ impl FFKCenter {
 
     /// Plot the clustering into the 2d-plane. Matplotlib must be installed.
     /// Optional: Specify the dimension for the x- and y-axes via x_dim and y_dim.
-    /// Default is x_dim = 0, y_dim = 1.
+    /// Default `is x_dim = 0`, `y_dim = 1`.
     #[args("*", x_dim = "0", y_dim = "1")]
     fn plot2d(&self, x_dim: usize, y_dim: usize) -> PyResult<()> {
         if self.clustering.is_none() {
@@ -427,9 +425,9 @@ plt.scatter(x_centers,y_centers, c = colors_centers, marker = 'x', s = 300, zord
 
     /// Computes a private assignment for the given list of centers (by point idx).
     /// Needs data to be assigned to the model and a clustering problem.
-    /// Ignores the color data, as well as, k and rep_intervals and only uses data and
-    /// privacy_bound.
-    /// The assignment can be accessed by model.assignment and the radius via model.radius.
+    /// Ignores the color data, as well as, `k` and `rep_intervals` and only uses data and
+    /// `privacy_bound`.
+    /// The assignment can be accessed by `model.assignment` and the radius via `model.radius`.
     /// Note that this does not compute a ff_k_center clustering.
     #[args(centers, "*", thread_count = "0")]
     fn private_assignment_by_centers(
