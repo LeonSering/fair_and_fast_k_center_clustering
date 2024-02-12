@@ -7,7 +7,7 @@ description = "A linear-time k-center algorithm with fairness conditions and wor
 homepage = "http://leon.sering.eu/project/fair_and_fast_k_center_clustering/"
 readme = "README.md"
 repository = "https://github.com/LeonSering/fair_and_fast_k_center_clustering"
-keywords = ["algorithm", "k-center", "clustering", "fairness", "data science"]
+keywords = ["algorithm", "k-center", "clustering", "fairness", "data-science"]
 categories = ["algorithms", "mathematics", "science"]
 include = [
     "**/*.rs",
