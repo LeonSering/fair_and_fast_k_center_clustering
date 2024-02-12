@@ -1,11 +1,11 @@
-//! This is the Rust implementation for the fast privacy preserving representative k-center (priv-Rep-kC) algorithm described in our [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
-//! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee of O(nk<sup>2</sup> + k<sup>5</sup>).
+//! This is the Rust implementation for the fast privacy preserving representative k-center (priv-Rep-kC) algorithm described in our
+//! [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
+//! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee
+//! of O(nk<sup>2</sup> + k<sup>5</sup>).
 //! The code is a Rust library that implements a python interface, leading to the following two options to run our algorithm:
 //!
 //! - It can be imported into another Rust project.
 //! - After installing the python wheel, the algorithm can be executed from any python script or jupyter notebook.
-//!
-//! As the python interface is most convenient, we focus on this way to run our code.
 //!
 //! # Quick Start
 //!
