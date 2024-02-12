@@ -110,7 +110,7 @@ fn main() {
 }
 ```
 
-For more details on how to load a data set, save the computed clustering, set optional parameters, and more, we refer to the [docs.rs](https://docs.rs/ff_k_center/1.2.2/). The documentation can also locally generated and opened with:
+For more details on how to load a data set, save the computed clustering, set optional parameters, and more, we refer to the [docs.rs](https://docs.rs/ff_k_center/). The documentation can also locally generated and opened with:
 
 ```bash
 cargo doc --open
