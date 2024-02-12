@@ -1,4 +1,11 @@
-//! Algorithm and utilities for computing a privacy preserving representative k-center in O(nk<sup>2</sup> + k<sup>5</sup>).
+//! This is the Rust implementation for the fast privacy preserving representative k-center (priv-Rep-kC) algorithm described in our [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
+//! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee of $O(nk^2 + k^5)$.
+//! The code is a Rust library that implements a python interface, leading to the following two options to run our algorithm:
+//!
+//! - It can be imported into another Rust project.
+//! - After installing the python wheel, the algorithm can be executed from any python script or jupyter notebook.
+//!
+//! As the python interface is most convenient, we focus on this way to run our code.
 //!
 //! # Quick Start
 //!
@@ -13,8 +20,31 @@
 //! With [compute_privacy_preserving_representative_k_center] a [Clustering] is created, which
 //! contains a list of centers (see [Centers]) and an assignment of each point to a center.
 //! This clustering is a 15-approximation on the optimal "privacy-preserving representative k-center"-clustering.
-
-
+//!
+//! # Example
+//!
+//! The code below shows an example that creates a data set of 5000 random points on which Priv-Rep-kC is solved with our algorithm.
+//! ```
+//! use ff_k_center::*;
+//! fn main() {
+//!     let n = 5_000;
+//!     let k = 8;
+//!     let space = SpaceND::new_random(n);
+//!     let prob = ClusteringProblem{
+//!         k, // number of centers;
+//!         privacy_bound : n/k, // number of points to represent;
+//!         rep_intervals : vec!((0,500),(0,500),(0,500)), // representation interval [a,b] for each color class;
+//!                                                        // for color classes without interval we subsitute [0. inf]
+//!     };
+//!     let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, None);
+//!     println!("Radius: {}; Running time: {}s.", clustering.get_radius(), total_time);
+//! }
+//! ```
+//! # Python Interface
+//!
+//! The python interface is implemented in the module [python_interface].
+//! See the [GitHub repository](https://github.com/LeonSering/fair_and_fast_k_center_clustering) for more details on how
+//! to install the python wheel and how to use the python interface.
 
 use std::fmt;
 use std::time;
@@ -22,13 +52,13 @@ use std::time;
 extern crate num_cpus; // read the number of cpus and create that meany threads
 
 mod types;
-pub use types::{PointCount,ColorCount,Interval,DurationInSec};
+pub use types::{ColorCount, DurationInSec, Interval, PointCount};
 
 mod space;
-pub use space::{SpaceND,SpaceMatrix,ColoredMetric,Point};
+pub use space::{ColoredMetric, Point, SpaceMatrix, SpaceND};
 
 mod clustering;
-pub use clustering::{Clustering,Centers};
+pub use clustering::{Centers, Clustering};
 
 mod utilities;
 
@@ -53,10 +83,8 @@ use phase4::phase4;
 mod phase5;
 use phase5::phase5;
 
-
 mod python_interface;
 use python_interface::FFKCenter;
-
 
 use pyo3::prelude::*;
 // use pyo3::prelude::{Python,PyModule,PyResult};
@@ -77,14 +105,18 @@ fn python_interface(_py: Python, m: &PyModule) -> PyResult<()> {
 /// * rep_interval contains an interval \[a,b\] for each color class, the number of centers of that
 /// color must be within the interval.
 pub struct ClusteringProblem {
-    pub k : PointCount, // maximal number of centers
-    pub privacy_bound : PointCount, // lower bound of representation L
-    pub rep_intervals : Vec<Interval>, // one integer interval for each color class
+    pub k: PointCount,                // maximal number of centers
+    pub privacy_bound: PointCount,    // lower bound of representation L
+    pub rep_intervals: Vec<Interval>, // one integer interval for each color class
 }
 
 impl fmt::Display for ClusteringProblem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Clustering-Problem with k = {}, privacy_bound = {} and representative_intervals: ",self.k,self.privacy_bound)?;
+        write!(
+            f,
+            "Clustering-Problem with k = {}, privacy_bound = {} and representative_intervals: ",
+            self.k, self.privacy_bound
+        )?;
         let mut iter = self.rep_intervals.iter();
         if let Some(first_interval) = iter.next() {
             write!(f, "({},{})", first_interval.0, first_interval.1)?;
@@ -110,7 +142,7 @@ pub struct OptionalParameters {
     pub verbose: Option<u8>,
     pub thread_count: Option<usize>,
     pub phase_2_rerun: Option<bool>,
-    pub phase_5_gonzalez: Option<bool>
+    pub phase_5_gonzalez: Option<bool>,
 }
 
 const DEFAULT_VERBOSE: u8 = 1;
@@ -133,29 +165,39 @@ fn default_thread_count() -> usize {
 /// # Output
 /// * a clustering of type [Clustering], that contains up to k centers (see [Centers]) and an assignment of
 /// each client to a center.
-pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + std::marker::Sync> (space : &M, prob : &ClusteringProblem, options: Option<OptionalParameters>) -> (Clustering, DurationInSec) {
-
-
+pub fn compute_privacy_preserving_representative_k_center<M: ColoredMetric + std::marker::Sync>(
+    space: &M,
+    prob: &ClusteringProblem,
+    options: Option<OptionalParameters>,
+) -> (Clustering, DurationInSec) {
     let time_start = time::Instant::now();
     let cpu_count = num_cpus::get();
 
-    let optional_parameters = options.unwrap_or(OptionalParameters{
+    let optional_parameters = options.unwrap_or(OptionalParameters {
         verbose: Some(DEFAULT_VERBOSE),
         thread_count: Some(default_thread_count()),
         phase_2_rerun: Some(DEFAULT_PHASE2_RERUN),
-        phase_5_gonzalez: Some(DEFAULT_PHASE5_GONZALEZ)});
+        phase_5_gonzalez: Some(DEFAULT_PHASE5_GONZALEZ),
+    });
 
     match assert_optional_parameters(&optional_parameters) {
         Err(msg) => {
             println!("\n\x1b[0;31mInvalidOptionalParameters:\x1b[0m {}", msg);
-            panic!("Invalid parameters. Abort!")}
+            panic!("Invalid parameters. Abort!")
+        }
         _ => {}
     }
 
     let verbose = optional_parameters.verbose.unwrap_or(DEFAULT_VERBOSE);
-    let thread_count = optional_parameters.thread_count.unwrap_or(default_thread_count());
-    let phase_2_rerun = optional_parameters.phase_2_rerun.unwrap_or(DEFAULT_PHASE2_RERUN);
-    let phase_5_gonzalez = optional_parameters.phase_5_gonzalez.unwrap_or(DEFAULT_PHASE5_GONZALEZ);
+    let thread_count = optional_parameters
+        .thread_count
+        .unwrap_or(default_thread_count());
+    let phase_2_rerun = optional_parameters
+        .phase_2_rerun
+        .unwrap_or(DEFAULT_PHASE2_RERUN);
+    let phase_5_gonzalez = optional_parameters
+        .phase_5_gonzalez
+        .unwrap_or(DEFAULT_PHASE5_GONZALEZ);
 
     if verbose >= 1 {
         println!("\n**** Solving: {}", prob);
@@ -168,15 +210,18 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     match assert_clustering_problem(space, prob) {
         Err(msg) => {
             println!("\n\x1b[0;31mInvalidProblemFormulation:\x1b[0m {}", msg);
-            panic!("Invalid problem. Abort!")}
+            panic!("Invalid problem. Abort!")
+        }
         _ => {}
     }
 
     let time_after_assertions = time::Instant::now();
     if verbose >= 2 {
-        println!("\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.", time_after_assertions.duration_since(time_start));
+        println!(
+            "\n  - Assertions done (time: {:?}): ClusteringProblem seems well stated.",
+            time_after_assertions.duration_since(time_start)
+        );
     }
-
 
     /////////////////////////////////////////////////////////////////////////////////////
     // phase 1: use gonzalez heuristic to obtain an ordered set of preliminary centers //
@@ -185,33 +230,49 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     let gonzalez: Centers = gonzalez_heuristic(space, prob.k);
 
     let time_after_phase1 = time::Instant::now();
-    if verbose >= 2{
+    if verbose >= 2 {
         println!("\n  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic: ({}).", time_after_phase1.duration_since(time_after_assertions), prob.k, gonzalez);
     } else if verbose == 1 {
-        println!("  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.", time_after_phase1.duration_since(time_after_assertions), prob.k);
+        println!(
+            "  - Phase 1 done (time: {:?}): Determined k = {} centers by the Gonzalez heuristic.",
+            time_after_phase1.duration_since(time_after_assertions),
+            prob.k
+        );
     }
 
     //////////////////////////////////////////////////////////////
     // phase 2: determine privacy radius; (makePrefixesPrivate) //
     //////////////////////////////////////////////////////////////
 
-    let clusterings : Vec<Clustering> = make_private(space, prob.privacy_bound, &gonzalez, thread_count);
+    let clusterings: Vec<Clustering> =
+        make_private(space, prob.privacy_bound, &gonzalez, thread_count);
 
     let time_after_phase2 = time::Instant::now();
     if verbose >= 2 {
-        println!("\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:", time_after_phase2.duration_since(time_after_phase1), prob.k);
-        for (i,clustering) in clusterings.iter().enumerate() {
+        println!(
+            "\n  - Phase 2 done (time: {:?}): Determined k = {} clusterings:",
+            time_after_phase2.duration_since(time_after_phase1),
+            prob.k
+        );
+        for (i, clustering) in clusterings.iter().enumerate() {
             print!("\tC_{}:\tradius = {};\n", i, clustering.get_radius());
         }
     } else if verbose == 1 {
-        println!("  - Phase 2 done (time: {:?}): Determined k = {} clusterings.", time_after_phase2.duration_since(time_after_phase1), prob.k);
+        println!(
+            "  - Phase 2 done (time: {:?}): Determined k = {} clusterings.",
+            time_after_phase2.duration_since(time_after_phase1),
+            prob.k
+        );
     }
 
     #[cfg(debug_assertions)]
     {
         phase2::with_sorting::make_private_with_sorting(space, prob.privacy_bound, &gonzalez);
         let time_after_phase2_sorting = time::Instant::now();
-        println!("  - Phase 2 with sorting done (time: {:?})", time_after_phase2_sorting.duration_since(time_after_phase2));
+        println!(
+            "  - Phase 2 with sorting done (time: {:?})",
+            time_after_phase2_sorting.duration_since(time_after_phase2)
+        );
     }
 
     /////////////////////////////////////////////////////////////////////////////////////////////
@@ -219,36 +280,38 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     /////////////////////////////////////////////////////////////////////////////////////////////
     let time_before_phase3 = time::Instant::now();
 
-
     let (spanning_trees, opening_lists) = algebraic_pushing(space, prob, &clusterings);
-
 
     let time_after_phase3 = time::Instant::now();
     if verbose >= 2 {
-        println!("\n  - Phase 3 done (time: {:?}): Determined the following opening lists:", time_after_phase3.duration_since(time_before_phase3));
-        for (i,openings) in opening_lists.iter().enumerate() {
+        println!(
+            "\n  - Phase 3 done (time: {:?}): Determined the following opening lists:",
+            time_after_phase3.duration_since(time_before_phase3)
+        );
+        for (i, openings) in opening_lists.iter().enumerate() {
             println!("\tC_{}:", i);
             for o in openings.iter() {
-                println!("\t\t{};",o);
+                println!("\t\t{};", o);
             }
         }
     } else if verbose == 1 {
-        println!("  - Phase 3 done (time: {:?}): Determined opening lists.", time_after_phase3.duration_since(time_before_phase3));
+        println!(
+            "  - Phase 3 done (time: {:?}): Determined opening lists.",
+            time_after_phase3.duration_since(time_before_phase3)
+        );
     }
-
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // phase 4: open new centers and determine actual set of centers C (realizeBatchOfBackbones) //
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-
-    let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzalez,thread_count);
+    let (new_centers, counts) = phase4(space, prob, opening_lists, &gonzalez, thread_count);
 
     let time_after_phase4 = time::Instant::now();
     let count_sum: usize = counts.iter().sum();
     if verbose >= 2 {
         println!("\n  - Phase 4 done (time: {:?} with {} threads on {} cores): Number of flow problems solved: {}. Determined the following new centers:", time_after_phase4.duration_since(time_after_phase3), thread_count, cpu_count, count_sum);
-            for (i,centers) in new_centers.iter().enumerate() {
+        for (i, centers) in new_centers.iter().enumerate() {
             println!("\tC_{}:\t({}) \tassignment_radius: {};\tforrest_radius: {}; number of flow problems solved: {}", i, centers.as_points, centers.assignment_radius, centers.forrest_radius, counts[i]);
         }
     } else if verbose == 1 {
@@ -259,7 +322,15 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     // phase 5: assign point to the final point of centers and determine the final clustering (selectFinalCenters) //
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    let (best_i, mut final_clustering, phase5_radius) = phase5(space, prob, new_centers, clusterings, spanning_trees, thread_count, phase_5_gonzalez);
+    let (best_i, mut final_clustering, phase5_radius) = phase5(
+        space,
+        prob,
+        new_centers,
+        clusterings,
+        spanning_trees,
+        thread_count,
+        phase_5_gonzalez,
+    );
 
     let time_after_phase5 = time::Instant::now();
     if verbose >= 2 {
@@ -274,9 +345,14 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     // let mut final_clustering = clusterings.into_iter().nth(best_i).unwrap();
     let mut phase2_rerun_time_str = String::from("-");
     if phase_2_rerun {
-
-        final_clustering = make_private(space, prob.privacy_bound, &final_clustering.get_centers(), thread_count).pop().unwrap();
-
+        final_clustering = make_private(
+            space,
+            prob.privacy_bound,
+            &final_clustering.get_centers(),
+            thread_count,
+        )
+        .pop()
+        .unwrap();
 
         let time_after_phase2rerun = time::Instant::now();
         if verbose >= 2 {
@@ -285,8 +361,10 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
             println!("  - Rerun of phase 2 done (time: {:?}): final clustering determined with radius: {} (improvement to phase 5: {}).", time_after_phase2rerun.duration_since(time_after_phase5), final_clustering.get_radius(), phase5_radius - final_clustering.get_radius());
         }
 
-        phase2_rerun_time_str = format!("{:?}", time_after_phase2rerun.duration_since(time_after_phase5));
-
+        phase2_rerun_time_str = format!(
+            "{:?}",
+            time_after_phase2rerun.duration_since(time_after_phase5)
+        );
     }
 
     ////////////////////////////////////////////////////////////////
@@ -310,5 +388,4 @@ pub fn compute_privacy_preserving_representative_k_center<M : ColoredMetric + st
     }
 
     (final_clustering, total_time.as_secs_f64())
-
 }
