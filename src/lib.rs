@@ -1,5 +1,5 @@
 //! This is the Rust implementation for the fast privacy preserving representative k-center (priv-Rep-kC) algorithm described in our [ICML paper](https://proceedings.mlr.press/v162/angelidakis22a.html).
-//! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee of $O(nk^2 + k^5)$.
+//! For an instance with n data points that should be covered by at most k centers, this algorithm has a running time guarantee of O(nk<sup>2</sup> + k<sup>5</sup>).
 //! The code is a Rust library that implements a python interface, leading to the following two options to run our algorithm:
 //!
 //! - It can be imported into another Rust project.
@@ -42,7 +42,7 @@
 //! ```
 //! # Python Interface
 //!
-//! The python interface is implemented in the module [python_interface].
+//! The python interface is the most convenient way to use our algorithm.
 //! See the [GitHub repository](https://github.com/LeonSering/fair_and_fast_k_center_clustering) for more details on how
 //! to install the python wheel and how to use the python interface.
 
@@ -130,7 +130,7 @@ impl fmt::Display for ClusteringProblem {
 
 /// A collection of optional parameters. Each can be set to None to use the default values.
 /// # Optional Parameters:
-/// * verbose: Option<u8> specifying the verbosity of the command line output. 0: sieltn, 1: brief,
+/// * verbose: Option<u8> specifying the verbosity of the command line output. 0: silent, 1: brief,
 /// 2: verbose (default: 1);
 /// * thread_count: Option<u8> specifying the number of threads that are used in phase 4 and 5.
 /// (default: #cores);
