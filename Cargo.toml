@@ -1,5 +1,5 @@
 [package]
-name = "ff_k-center"
+name = "ff_k_center"
 version = "1.2.2"
 edition = "2021"
 license = "MIT"
@@ -12,6 +12,7 @@ categories = ["algorithms", "mathematics", "science"]
 include = [
     "**/*.rs",
     "Cargo.toml",
+    "README.md",
 ]
 
 [profile.phase2_benchmark]
