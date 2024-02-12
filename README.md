@@ -80,20 +80,22 @@ Afterwards the python wheel can be found in ```target/wheels/```.
 
 ## Usage as Rust library
 
-Make sure that the provided Rust crate is listed as a ```dependency``` in your Cargo.toml file with properly indicated path.
+There is an official create on [crates.io](https://crates.io/crates/ff_k_center). To use it make sure that the provided Rust crate is listed as under ```dependencies``` in your Cargo.toml:
+
+```toml
+ff_k_center = "1.2.2"
+```
+
 You can load all functionality to a new Rust project by
 
 ```rust
-extern crate ff_k_center;
 use ff_k_center::*;
 ```
 
 The code below shows an example that creates a data set of 5000 random points on which Priv-Rep-kC is solved with our algorithm.
 
 ```rust
-extern crate ff_k_center;
 use ff_k_center::*;
-
 fn main() {
     let n = 5_000;
     let k = 8;
@@ -103,13 +105,12 @@ fn main() {
         privacy_bound : n/k, // number of points to represent;
         rep_intervals : vec!((0,500),(0,500),(0,500)), // representation interval [a,b] for each color class; for color classes without interval we subsitute [0. inf]
     };
-
     let (clustering, total_time) = compute_privacy_preserving_representative_k_center(&space, &prob, None);
     println!("Radius: {}; Running time: {}s.", clustering.get_radius(), total_time);
 }
 ```
 
-For more details on how to load a data set, save the computed clustering, set optional parameters, and more, we refer to the Rust documentation of the provided library, which can be created and opened via:
+For more details on how to load a data set, save the computed clustering, set optional parameters, and more, we refer to the [docs.rs](https://docs.rs/ff_k_center/1.2.2/). The documentation can also locally generated and opened with:
 
 ```bash
 cargo doc --open
