@@ -31,7 +31,7 @@ pip install matplotlib
 
 ## Usage via python interface
 
-The following python code presents all functions of the python interface.
+The following python code presents the essential functions of the python interface.
 
 ```python
 from ff_k_center import FFKCenter
@@ -50,7 +50,7 @@ print("phi^*: ", model.assignment) # for each point the center it is assigned to
 print("running time: ", model.running_time) # running time in sec
 ```
 
-You can also use the jupyter notebook ```showcase/showcase.ipynb``` for a playground with a toy example for testing.
+The full interface can be seen in the jupyter notebook ```showcase/showcase.ipynb```, which can also be used as playground for testing a toy example.
 
 Alternatively, you can use ```experiments/computational_study.ipynb``` for recreating our experiments. (Warning: As we created the plots in the paper by iterating over many different parameters values this can take several hours, even though a single computation is fast.) The data sets used in the manuscript are included and can be found in ```experiments/data/```.
 
